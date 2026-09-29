@@ -1,0 +1,504 @@
+@import "tailwindcss";
+
+:root {
+  /* Background */
+  --bg-primary: #0a0f1c;
+  --bg-secondary: #141c30;
+  --bg-card: #1c1f2e;
+  --bg-elevated: #242738;
+
+  /* Surfaces */
+  --surface-hover: #2a2d42;
+  --surface-border: #2e3148;
+
+  /* Text */
+  --text-primary: #f0f1f5;
+  --text-secondary: #8b8fa3;
+  --text-muted: #5c6078;
+
+  /* Brand */
+  --brand-primary: #6c5ce7;
+  --brand-primary-hover: #7c6ff0;
+  --brand-glow: rgba(108, 92, 231, 0.25);
+
+  /* Status */
+  --status-nova: #6c5ce7;
+  --status-aprovacao: #f0a500;
+  --status-notinha: #00b4d8;
+  --status-finalizado: #10b981;
+  --status-recusado: #ef4444;
+
+  /* Misc */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Fallbacks globais para n8n */
+  --gradient-ember-cta: linear-gradient(30deg, rgb(253, 137, 37), rgb(255, 12, 0));
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans, "Inter", system-ui, -apple-system, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+
+/* Light Theme Overrides (Tailwind v4 Variables) */
+.light-theme {
+  --color-background: #f8fafc;
+  --color-foreground: #0f172a;
+  
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-elevated: #f1f5f9;
+  
+  --surface-hover: #e2e8f0;
+  --surface-border: #cbd5e1;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  
+  --color-slate-50: #020617;
+  --color-slate-100: #0f172a;
+  --color-slate-200: #1e293b;
+  --color-slate-300: #475569;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #e2e8f0;
+  --color-slate-800: #ffffff;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+  
+  --color-gray-950: #f1f5f9;
+  --color-gray-900: #f1f5f9;
+  --color-gray-800: #e2e8f0;
+  --color-gray-700: #cbd5e1;
+  --color-gray-600: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-400: #475569;
+  --color-gray-300: #334155;
+  
+  --color-white: #0f172a;
+  --color-black: #ffffff;
+}
+
+.light-theme .force-white,
+.light-theme [class*="bg-indigo-"],
+.light-theme [class*="bg-emerald-"],
+.light-theme button[class*="bg-indigo-"],
+.light-theme button[class*="bg-emerald-"] {
+  color: #ffffff !important;
+}
+
+/* n8n Theme Overrides */
+.theme-n8n {
+  --color-void-base: #0e0918;
+  --color-elevated-surface: #1a1624;
+  --color-deep-panel: #1b1728;
+  --color-border-smoke: #3e3a46;
+  
+  --bg-primary: var(--color-void-base);
+  --bg-secondary: var(--color-void-base);
+  --bg-card: var(--color-elevated-surface);
+  --bg-elevated: var(--color-deep-panel);
+  
+  --surface-hover: #2c2834;
+  --surface-border: var(--color-border-smoke);
+  
+  --text-primary: #d1cece;
+  --text-secondary: #9d9797;
+  --text-muted: #48556a;
+
+  --color-background: var(--color-void-base);
+  --color-foreground: #d1cece;
+
+  --color-slate-950: var(--color-void-base);
+  --color-slate-900: var(--color-void-base);
+  --color-slate-800: var(--color-elevated-surface);
+  --color-slate-700: var(--color-deep-panel);
+  --color-slate-600: var(--color-border-smoke);
+  --color-slate-500: #48556a;
+  --color-slate-400: #9d9797;
+  --color-slate-300: #d1cece;
+  --color-slate-200: #e5e7eb;
+  --color-slate-100: #ffffff;
+  
+  --color-gray-950: var(--color-void-base);
+  --color-gray-900: var(--color-void-base);
+  --color-gray-800: var(--color-elevated-surface);
+  --color-gray-700: var(--color-deep-panel);
+  
+  --color-white: #ffffff;
+}
+
+.theme-n8n h1,
+.theme-n8n h2,
+.theme-n8n h3,
+.theme-n8n h4,
+.theme-n8n h5,
+.theme-n8n h6 {
+  color: #ffffff !important;
+}
+
+@keyframes slow-pan {
+  0%, 100% { transform: scale(1.05) translate(0, 0); }
+  50% { transform: scale(1.1) translate(-2%, 2%); }
+}
+
+.animate-slow-pan {
+  animation: slow-pan 30s ease-in-out infinite alternate;
+}
+
+/* Authkit Theme Overrides */
+.theme-authkit {
+  /* Authkit Base Tokens */
+  --color-midnight-canvas: #05060f;
+  --color-steel-plate: #2f343e;
+  --color-fog-veil: #9da7ba;
+  --color-moon-mist: #c7d3ea;
+  --color-frost-glow: #d1e4fa;
+  --color-void-violet: #663af3;
+  --color-glass-edge: rgba(186, 215, 247, 0.12);
+  --color-gridline-blue: #3f4959;
+
+  /* Mapeamento para a Aplicação */
+  --background: var(--color-midnight-canvas);
+  --foreground: var(--color-frost-glow);
+  --card: var(--color-steel-plate);
+  --border: var(--color-glass-edge);
+  --primary: var(--color-void-violet);
+  --primary-foreground: #ffffff;
+
+  --bg-primary: var(--color-midnight-canvas);
+  --bg-secondary: var(--color-midnight-canvas);
+  --bg-card: var(--color-steel-plate);
+  --bg-elevated: #161824;
+
+  --surface-hover: rgba(209, 228, 250, 0.08);
+  --surface-border: var(--color-glass-edge);
+
+  --text-primary: var(--color-frost-glow);
+  --text-secondary: var(--color-moon-mist);
+  --text-muted: var(--color-fog-veil);
+
+  --color-background: var(--color-midnight-canvas);
+  --color-foreground: var(--color-frost-glow);
+
+  /* Overrides para compatibilidade com Tailwind classes */
+  --color-slate-950: var(--color-midnight-canvas);
+  --color-slate-900: var(--color-midnight-canvas);
+  --color-slate-800: var(--color-steel-plate);
+  --color-slate-700: #3a414f;
+  --color-slate-600: var(--color-gridline-blue);
+  --color-slate-500: var(--color-fog-veil);
+  --color-slate-400: var(--color-moon-mist);
+  --color-slate-300: var(--color-frost-glow);
+  --color-slate-200: #e2eeff;
+  --color-slate-100: #ffffff;
+
+  --color-gray-950: var(--color-midnight-canvas);
+  --color-gray-900: var(--color-midnight-canvas);
+  --color-gray-800: var(--color-steel-plate);
+  --color-gray-700: #3a414f;
+
+  --color-white: #ffffff;
+}
+
+.theme-authkit h1,
+.theme-authkit h2,
+.theme-authkit h3,
+.theme-authkit h4,
+.theme-authkit h5,
+.theme-authkit h6 {
+  color: var(--color-frost-glow) !important;
+}
+
+/* Jeton Theme Overrides */
+.theme-jeton {
+  /* Colors from Jeton.md */
+  --color-signal-orange: #f73b20;
+  --color-brand-orange-tint: #f84d35;
+  --color-ink-roast: #360802;
+  --color-paper-white: #ffffff;
+  --color-carbon-black: #000000;
+  --color-ash-grey: #334155; /* Better contrast */
+  --color-sand-wash: #e7dcdb;
+  --color-linen-blush: #fdedea;
+  --color-citrus-wash: #f5ffbb;
+  --color-mint-wash: #bcffbb;
+  --color-coral-red: #fb2d54;
+  --color-cobalt-blue: #477ee9;
+  --color-emerald-green: #34c771;
+
+  /* Mapping to Conect Pay globals */
+  --bg-primary: var(--color-paper-white);
+  --bg-secondary: var(--color-linen-blush);
+  --bg-card: var(--color-paper-white);
+  --bg-elevated: var(--color-paper-white);
+
+  --surface-hover: rgba(247, 59, 32, 0.05);
+  --surface-border: var(--color-sand-wash);
+
+  --text-primary: var(--color-ink-roast);
+  --text-secondary: var(--color-ash-grey);
+  --text-muted: #808080;
+
+  --brand-primary: var(--color-signal-orange);
+  --brand-primary-hover: var(--color-brand-orange-tint);
+  --brand-glow: rgba(247, 59, 32, 0.1);
+
+  /* Shadows */
+  --shadow-card: rgba(247, 59, 32, 0.1) 0px 8px 24px 0px, rgba(247, 59, 32, 0.05) 0px 2px 8px 0px;
+}
+
+.theme-jeton h1,
+.theme-jeton h2,
+.theme-jeton h3,
+.theme-jeton h4,
+.theme-jeton h5,
+.theme-jeton h6 {
+  color: var(--color-ink-roast) !important;
+}
+
+.theme-jeton .border-slate-700,
+.theme-jeton .border-slate-800 {
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+.theme-jeton .bg-slate-800,
+.theme-jeton .bg-slate-900 {
+  background-color: var(--color-paper-white) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid rgba(0, 0, 0, 0.04) !important;
+  border-radius: 1.25rem !important; /* Soft corners */
+}
+
+/* Background for the whole app */
+.theme-jeton .bg-slate-950 {
+  background-color: #fcfcfc !important; /* Slightly off-white for main bg to pop cards */
+}
+
+.theme-jeton .text-slate-400,
+.theme-jeton .text-slate-300,
+.theme-jeton .text-slate-500,
+.theme-jeton .text-slate-200,
+.theme-jeton .text-slate-100 {
+  color: var(--color-ash-grey) !important; /* Now #64748b */
+}
+
+.theme-jeton .text-white {
+  color: var(--color-ink-roast) !important;
+}
+
+/* Rounded corners softening globally for this theme where appropriate */
+.theme-jeton .rounded-lg,
+.theme-jeton .rounded-xl,
+.theme-jeton .rounded-2xl {
+  border-radius: 1.25rem !important;
+}
+
+/* Fix active menu item text color so it's readable against white */
+.theme-jeton .bg-emerald-500\/10 {
+  background-color: rgba(247, 59, 32, 0.1) !important;
+}
+.theme-jeton .text-emerald-500 {
+  color: var(--color-signal-orange) !important;
+}
+
+
+/* Weather Animations */
+@keyframes handheld-sway {
+  0% { transform: scale(1.03) translate(0, 0); }
+  25% { transform: scale(1.03) translate(-0.5%, 0.2%); }
+  50% { transform: scale(1.03) translate(0.5%, -0.2%); }
+  75% { transform: scale(1.03) translate(-0.2%, 0.3%); }
+  100% { transform: scale(1.03) translate(0, 0); }
+}
+
+.animate-weather-sway {
+  animation: handheld-sway 20s ease-in-out infinite;
+}
+
+/* Rain SVG */
+@keyframes rain-fall-svg {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 400px; }
+}
+
+.weather-rain-layer-1 {
+  position: absolute;
+  inset: -50%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cpath d='M50 0v25 M150 60v35 M250 20v20 M350 90v30 M20 150v25 M120 180v35 M220 130v20 M320 200v30 M80 250v25 M180 290v35 M280 220v20 M380 270v30 M40 350v25 M140 320v35 M240 380v20 M340 340v30' stroke='rgba(255,255,255,0.4)' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  animation: rain-fall-svg 0.5s linear infinite;
+  transform: rotate(10deg);
+  pointer-events: none;
+}
+
+.weather-rain-layer-2 {
+  position: absolute;
+  inset: -50%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cpath d='M70 20v15 M170 80v20 M270 40v12 M370 110v18 M40 170v15 M140 200v20 M240 150v12 M340 220v18 M100 270v15 M200 310v20 M300 240v12 M400 290v18 M60 370v15 M160 340v20 M260 400v12 M360 360v18' stroke='rgba(255,255,255,0.2)' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 300px 300px;
+  animation: rain-fall-svg 0.8s linear infinite;
+  transform: rotate(10deg);
+  pointer-events: none;
+}
+
+/* Shooting Stars */
+@keyframes shooting-star {
+  0% { transform: rotate(-45deg) translateX(0); opacity: 0; }
+  1% { opacity: 1; }
+  8% { transform: rotate(-45deg) translateX(-18vw); opacity: 0; }
+  100% { transform: rotate(-45deg) translateX(-18vw); opacity: 0; }
+}
+
+.shooting-star {
+  position: absolute;
+  width: 10vw;
+  height: 2px;
+  background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,1));
+  animation: shooting-star 6s linear infinite;
+  pointer-events: none;
+}
+.star-1 { top: -5%; left: 50%; animation-delay: 0s; }
+.star-2 { top: -10%; left: 80%; animation-delay: 2s; }
+.star-3 { top: 0%; left: 30%; animation-delay: 4.5s; }
+.star-4 { top: -5%; left: 90%; animation-delay: 1.2s; }
+
+/* Clouds / Fog */
+
+
+/* Birds */
+@keyframes flock-fly {
+  0% { transform: translateX(-10vw) translateY(15vh) scale(0.6) scaleX(1); opacity: 0; }
+  5% { transform: translateX(-5vw) translateY(12vh) scale(0.6) scaleX(1); opacity: 1; }
+  45% { transform: translateX(45vw) translateY(-5vh) scale(0.3) scaleX(1); opacity: 1; }
+  49% { transform: translateX(50vw) translateY(-7vh) scale(0.3) scaleX(1); opacity: 0; }
+  50% { transform: translateX(50vw) translateY(-7vh) scale(0.3) scaleX(-1); opacity: 0; }
+  55% { transform: translateX(45vw) translateY(-5vh) scale(0.3) scaleX(-1); opacity: 1; }
+  95% { transform: translateX(-5vw) translateY(12vh) scale(0.6) scaleX(-1); opacity: 1; }
+  100% { transform: translateX(-10vw) translateY(15vh) scale(0.6) scaleX(-1); opacity: 0; }
+}
+
+.weather-birds {
+  position: absolute;
+  top: 10%;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M10,40 Q22,30 35,40 Q48,30 60,40 Q45,40 35,45 Q25,40 10,40' fill='rgba(0,0,0,0.8)' transform='scale(0.5) translate(0, 0)'/%3E%3Cpath d='M10,40 Q22,30 35,40 Q48,30 60,40 Q45,40 35,45 Q25,40 10,40' fill='rgba(0,0,0,0.6)' transform='scale(0.3) translate(150, -50)'/%3E%3Cpath d='M10,40 Q22,30 35,40 Q48,30 60,40 Q45,40 35,45 Q25,40 10,40' fill='rgba(0,0,0,0.7)' transform='scale(0.4) translate(80, 80)'/%3E%3Cpath d='M10,40 Q22,30 35,40 Q48,30 60,40 Q45,40 35,45 Q25,40 10,40' fill='rgba(0,0,0,0.5)' transform='scale(0.2) translate(300, 20)'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  animation: flock-fly 60s linear infinite;
+  pointer-events: none;
+}
+
+/* Sun / Sunset Rays */
+@keyframes ray-spin {
+  0% { transform: rotate(0deg); opacity: 0.2; }
+  50% { transform: rotate(10deg); opacity: 0.5; }
+  100% { transform: rotate(0deg); opacity: 0.2; }
+}
+
+.weather-rays {
+  position: absolute;
+  inset: -50%;
+  /* Center is at 36% of the 200vh child, which means 22% of the parent height */
+  background: repeating-conic-gradient(from 0deg at 50% 36%, rgba(255,255,255,0.1) 0deg 10deg, transparent 10deg 20deg);
+  animation: ray-spin 20s ease-in-out infinite;
+  transform-origin: 50% 36%;
+  pointer-events: none;
+}
+
+/* Airplane */
+@keyframes airplane-fly {
+  0% {
+    clip-path: polygon(0% 0, 15% 0, 15% 100%, 0% 100%);
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  70% {
+    clip-path: polygon(0% 0, 100% 0, 100% 100%, 0% 100%);
+    opacity: 1;
+  }
+  95% {
+    clip-path: polygon(0% 0, 100% 0, 100% 100%, 0% 100%);
+    opacity: 0;
+  }
+  100% {
+    clip-path: polygon(0% 0, 100% 0, 100% 100%, 0% 100%);
+    opacity: 0;
+  }
+}
+
+.weather-airplane {
+  position: absolute;
+  top: 35vh;
+  left: -20vw;
+  width: 140vw;
+  height: 1.2px;
+  
+  /* Gradiente mais sólido para garantir visibilidade */
+  background: linear-gradient(
+    to right, 
+    rgba(255,255,255,0) 0%,      /* Fora da tela */
+    rgba(255,255,255,0.8) 15%,   /* Início da tela */
+    rgba(255,255,255,1) 50%, 
+    rgba(255,255,255,0.9) 100%
+  );
+  
+  box-shadow: 0 0 3px rgba(255,255,255,0.8), 0 0 6px rgba(255,255,255,0.4);
+  filter: blur(0.4px);
+  
+  transform-origin: left center;
+  transform: rotate(-16deg);
+  
+  /* Máscara suave */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%, black 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 15%, black 100%);
+  
+  animation: airplane-fly 250s linear infinite;
+  animation-delay: 3s;
+  pointer-events: none;
+  opacity: 0; 
+}
