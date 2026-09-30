@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
@@ -375,3 +375,4 @@ export function useChat() {
   if (!ctx) throw new Error("useChat must be used within ChatProvider");
   return ctx;
 }
+

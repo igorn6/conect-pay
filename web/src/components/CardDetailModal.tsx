@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useRef } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
@@ -36,7 +36,7 @@ export default function CardDetailModal({
   profilesMap = {},
 }: CardDetailModalProps) {
   const { userId } = useAuth();
-  const { setIsChatOpen, setPendingCard, allProfiles, setActiveChatId, startChat } = useChat();
+  const { setIsChatOpen, setPendingCard, allProfiles, setActiveChatId, startChat, openChatWithCard } = useChat();
   const [loading, setLoading] = useState(false);
   const [showRefuseForm, setShowRefuseForm] = useState(false);
   const [refusalReason, setRefusalReason] = useState(card.refusal_reason || "");
@@ -102,7 +102,7 @@ export default function CardDetailModal({
       .update({ status: newStatus, payment_proof_url: paymentProofUrl, invoice_url: invoiceUrl })
       .eq("id", card.id);
     setLoading(false);
-    if (error) { alert("Erro ao avançar solicitacao."); return; }
+    if (error) { alert("Erro ao avanÃ§ar solicitacao."); return; }
     onUpdate(`Solicitacao avancou para ${newStatus.replace(/_/g, " ")}`);
   }
 
@@ -353,7 +353,7 @@ export default function CardDetailModal({
                 </div>
                 {card.notes && (
                   <div className="flex flex-col gap-2 text-sm text-gray-300 bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Observações / Descrição</span>
+                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">ObservaÃ§Ãµes / DescriÃ§Ã£o</span>
                     <span className="font-medium whitespace-pre-wrap">{card.notes}</span>
                   </div>
                 )}
@@ -405,10 +405,10 @@ export default function CardDetailModal({
                       {split.payment_type === "Boleto" && (
                         <div className="space-y-2 mt-2">
                           <div>
-                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Linha Digitável</span>
+                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Linha DigitÃ¡vel</span>
                             <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
                               <span className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_barcode || "-"}</span>
-                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0" style={{ color: "var(--text-secondary)" }} title="Copiar Linha Digitável">
+                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0" style={{ color: "var(--text-secondary)" }} title="Copiar Linha DigitÃ¡vel">
                                 {copiedKey ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Copy size={12} />}
                               </button>
                             </div>
@@ -499,7 +499,7 @@ export default function CardDetailModal({
                   <UploadCloud size={36} className="text-gray-500" />
                   <div className="text-center">
                     <p className="text-sm font-semibold text-gray-300">Comprovante(s) de Pagamento</p>
-                    <p className="text-xs text-gray-500 mt-1">Apenas para Master/Financeiro. Anexe as imagens ou PDFs.<br /><span className="text-red-400 font-medium">*Obrigatorio para avançar</span></p>
+                    <p className="text-xs text-gray-500 mt-1">Apenas para Master/Financeiro. Anexe as imagens ou PDFs.<br /><span className="text-red-400 font-medium">*Obrigatorio para avanÃ§ar</span></p>
                   </div>
                   <button onClick={() => fileInputRef.current?.click()} className="mt-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors">Selecionar Arquivos</button>
                 </>
@@ -566,7 +566,7 @@ export default function CardDetailModal({
               {isOwner && showRejectForm && (
                 <div className="flex flex-col gap-3 mt-2 p-4 rounded-xl bg-gray-900 border border-red-500/40">
                   <label className="text-xs font-bold text-red-400">Motivo da Correcao *</label>
-                  <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setErrorMsg(""); }} rows={3} placeholder="Descreva o que esta errado não comprovante..." className={`w-full px-3 py-2 text-sm rounded-lg outline-none resize-none bg-gray-800 text-white border ${errorMsg ? "border-red-500" : "border-gray-700"}`} />
+                  <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setErrorMsg(""); }} rows={3} placeholder="Descreva o que esta errado nÃ£o comprovante..." className={`w-full px-3 py-2 text-sm rounded-lg outline-none resize-none bg-gray-800 text-white border ${errorMsg ? "border-red-500" : "border-gray-700"}`} />
                   {errorMsg && <span className="text-xs text-red-500">{errorMsg}</span>}
                   <div className="flex justify-end gap-2">
                     <button onClick={() => { setShowRejectForm(false); setRejectReason(""); setErrorMsg(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition-colors">Cancelar</button>
@@ -605,7 +605,7 @@ export default function CardDetailModal({
               <button onClick={() => setHistoryOpen(!historyOpen)} className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800/80 transition-colors">
                 <div className="flex items-center gap-2">
                   <History size={16} className="text-gray-400" />
-                  <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Histórico de Comprovantes ({receiptsHistory.length})</span>
+                  <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">HistÃ³rico de Comprovantes ({receiptsHistory.length})</span>
                 </div>
                 {historyOpen ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
               </button>
@@ -680,7 +680,7 @@ export default function CardDetailModal({
             {isTransitionBlocked && isMasterOrFinanceiro && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
                 <Ban size={14} />
-                <span className="text-xs font-semibold">Anexe o comprovante de Pgto para avançar</span>
+                <span className="text-xs font-semibold">Anexe o comprovante de Pgto para avanÃ§ar</span>
               </div>
             )}
           </div>
@@ -707,7 +707,7 @@ export default function CardDetailModal({
             {(isEmAprovacao || isCorrecaoPendente) && isMasterOrFinanceiro && !showRefuseForm && (
               <div className="flex items-center gap-2 flex-wrap">
                 <button onClick={() => handleAdvance("VALIDACAO_GESTOR")} disabled={loading || isTransitionBlocked} className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-                  Validação do Gestor
+                  ValidaÃ§Ã£o do Gestor
                 </button>
                 <button onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")} disabled={loading || isTransitionBlocked} className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
                   Aguardando Nota
@@ -731,7 +731,7 @@ export default function CardDetailModal({
 
             {!isEmAprovacao && !isValidacaoGestor && !isCorrecaoPendente && !isValidadoGestor && !isFinalizado && canAdvance && !showRefuseForm && (
               <button onClick={() => handleAdvance()} disabled={loading || isTransitionBlocked} className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl bg-brand-primary hover:bg-brand-primary/90 border border-brand-primary/50 shadow-[0_4px_12px_var(--brand-glow)] transition-all disabled:opacity-50 disabled:cursor-not-allowed" style={{ backgroundColor: "var(--brand-primary)" }}>
-                {loading ? (<Loader2 size={18} className="animate-spin" />) : (<>{isNovaSolicitacao ? "Aprovar Solicitação" : "Avançar Status"}<ArrowRight size={18} /></>)}
+                {loading ? (<Loader2 size={18} className="animate-spin" />) : (<>{isNovaSolicitacao ? "Aprovar SolicitaÃ§Ã£o" : "AvanÃ§ar Status"}<ArrowRight size={18} /></>)}
               </button>
             )}
           </div>
@@ -740,3 +740,5 @@ export default function CardDetailModal({
     </div>
   );
 }
+
+
