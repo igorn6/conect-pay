@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { MessageSquare, LogOut, UserCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,7 +26,7 @@ export default function GlobalHeader() {
 
   return (
     <header
-      className="flex items-center justify-between px-6 h-[56px] border-b shrink-0 z-30"
+      className="flex items-center justify-between px-6 h-[73px] border-b shrink-0 z-30"
       style={{
         backgroundColor: "var(--bg-secondary)",
         borderColor: "var(--surface-border)",
@@ -35,35 +35,35 @@ export default function GlobalHeader() {
       {/* Left: Profile */}
       <button
         onClick={() => router.push("/configuracoes")}
-        className="flex items-center gap-2.5 pl-12 md:pl-0 hover:opacity-80 transition-opacity cursor-pointer"
+        className="flex items-center gap-3 pl-12 md:pl-0 hover:opacity-80 transition-opacity cursor-pointer"
       >
         <img
           src={avatar}
           alt="Avatar"
-          className="w-8 h-8 rounded-full object-cover border-2 border-emerald-500/30"
+          className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500/30"
         />
         <div className="hidden sm:block text-left">
-          <p className="text-sm font-semibold leading-tight" style={{ color: "var(--text-primary)" }}>
+          <p className="text-base font-semibold leading-tight" style={{ color: "var(--text-primary)" }}>
             {userName}
           </p>
-          <p className="text-[11px] leading-tight" style={{ color: "var(--text-muted)" }}>
+          <p className="text-xs leading-tight" style={{ color: "var(--text-muted)" }}>
             {roleLabel}
           </p>
         </div>
       </button>
 
       {/* Right: Chat + Logout */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         {/* Chat toggle */}
         <button
           onClick={() => setIsChatOpen(!isChatOpen)}
-          className="relative p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+          className="relative p-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
           title="Chat"
           style={{ color: isChatOpen ? "#10b981" : "var(--text-muted)" }}
         >
-          <MessageSquare size={20} />
+          <MessageSquare size={24} />
           {totalUnread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-lg animate-pulse">
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 shadow-lg animate-pulse">
               {totalUnread > 99 ? "99+" : totalUnread}
             </span>
           )}
@@ -72,12 +72,13 @@ export default function GlobalHeader() {
         {/* Logout */}
         <button
           onClick={logout}
-          className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-red-400 transition-colors cursor-pointer"
+          className="p-2.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-red-400 transition-colors cursor-pointer"
           title="Sair"
         >
-          <LogOut size={18} />
+          <LogOut size={22} />
         </button>
       </div>
     </header>
   );
 }
+
