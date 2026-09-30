@@ -663,8 +663,10 @@ export default function CardDetailModal({
                       amount: card.amount,
                       status: card.status,
                     };
-                    if (card.user_id && userId !== card.user_id) {
-                      openChatWithCard(card.user_id, cardPayload);
+                    
+                    const targetId = card.real_requester_id || card.created_by;
+                    if (targetId && userId !== targetId) {
+                      openChatWithCard(targetId, cardPayload);
                     } else {
                       setPendingCard(cardPayload);
                       setIsChatOpen(true);

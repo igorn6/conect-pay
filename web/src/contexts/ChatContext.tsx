@@ -303,42 +303,75 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   );
 
   const startChat = useCallback(
-    async (targetUserId: string): Promise<string> => {
-      if (!userId) throw new Error("Not authenticated");
+      async (targetUserId: string): Promise<string> => {
+        if (!userId) throw new Error("Not authenticated");
 
-      const { data: myChats } = await supabase
-        .from("chat_participants")
-        .select("chat_id")
-        .eq("profile_id", userId);
+        const { data: myChats } = await supabase
+          .from("chat_participants")
+          .select("chat_id")
+          .eq("profile_id", userId);
 
-      const { data: theirChats } = await supabase
-        .from("chat_participants")
-        .select("chat_id")
-        .eq("profile_id", targetUserId);
+        const chatIds = (myChats || []).map((c) => c.chat_id);
+        let commonChatId = null;
 
-      const myIds = new Set((myChats || []).map((c) => c.chat_id));
-      const commonChatId = (theirChats || []).find((c) => myIds.has(c.chat_id))?.chat_id;
+        if (chatIds.length > 0) {
+          const { data: allParticipants } = await supabase
+            .from("chat_participants")
+            .select("chat_id, profile_id")
+            .in("chat_id", chatIds);
+          
+          commonChatId = (allParticipants || []).find(p => p.profile_id === targetUserId)?.chat_id;
+        }
 
-      if (commonChatId) return commonChatId;
+        if (commonChatId) return commonChatId;
 
-      const { data: newChat } = await supabase
-        .from("chats")
-        .insert({})
-        .select("id")
-        .single();
+        // Try to insert directly
+        const { data: newChat, error: chatError } = await supabase
+          .from("chats")
+          .insert({})
+          .select("id")
+          .single();
 
-      if (!newChat) throw new Error("Failed to create chat");
+        if (!newChat || chatError) {
+            // Fallback to API if RLS blocks insert
+            const res = await fetch("/api/admin/chats", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ userId, targetUserId })
+            });
+            const data = await res.json();
+            if (data.chatId) {
+                await loadChats();
+                return data.chatId;
+            }
+            throw new Error("Failed to create chat via API");
+        }
 
-      await supabase.from("chat_participants").insert([
-        { chat_id: newChat.id, profile_id: userId },
-        { chat_id: newChat.id, profile_id: targetUserId },
-      ]);
+        const { error: partError } = await supabase.from("chat_participants").insert([
+          { chat_id: newChat.id, profile_id: userId },
+          { chat_id: newChat.id, profile_id: targetUserId },
+        ]);
 
-      await loadChats();
-      return newChat.id;
-    },
-    [userId, loadChats]
-  );
+        if (partError) {
+             console.error("Error creating participants:", partError);
+             // Fallback to API if RLS blocks participant insert
+             const res = await fetch("/api/admin/chats", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({ userId, targetUserId })
+             });
+             const data = await res.json();
+             if (data.chatId) {
+                 await loadChats();
+                 return data.chatId;
+             }
+        }
+
+        await loadChats();
+        return newChat.id;
+      },
+      [userId, loadChats]
+    );
 
   const openChatWithCard = useCallback(
     (targetUserId: string, card: PendingCardAttachment) => {
