@@ -9,13 +9,11 @@ import NotificationPoller from "@/components/NotificationPoller";
 const inter = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: "Conect Pay - Gestão Financeira",
-  description:
-    "Painel Kanban para gestão de solicitações de pagamento e controle financeiro.",
+  description: "Painel Kanban para gestão de solicitações de pagamento e controle financeiro.",
 };
 
 export default function RootLayout({
