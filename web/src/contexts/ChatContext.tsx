@@ -118,13 +118,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       .select("chat_id, profile_id")
       .in("chat_id", chatIds);
 
-    const participantIds = [...new Set((allParticipants || []).map((p) => p.profile_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, name, avatar_url")
-      .in("id", participantIds);
-
-    const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+    const profileMap = new Map();
+      allProfiles.forEach(p => profileMap.set(p.id, p));
+      profileMap.set(userId, { id: userId, name: userName, avatar_url: null });
 
     const chatList: Chat[] = [];
     let unread = 0;
@@ -179,7 +175,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadChats();
-  }, [loadChats]);
+  }, [loadChats, allProfiles, userName]);
 
   const loadMessages = useCallback(
     async (chatId: string) => {
@@ -193,12 +189,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       if (!data) return;
 
-      const senderIds = [...new Set(data.map((m) => m.sender_id))];
-      const { data: senderProfiles } = await supabase
-        .from("profiles")
-        .select("id, name, avatar_url")
-        .in("id", senderIds);
-      const senderMap = new Map((senderProfiles || []).map((p) => [p.id, p]));
+      const senderMap = new Map();
+        allProfiles.forEach(p => senderMap.set(p.id, p));
+        senderMap.set(userId, { id: userId, name: userName, avatar_url: null });
 
       const cardIds = [...new Set(data.filter((m) => m.card_request_id).map((m) => m.card_request_id!))];
       let cardMap = new Map<string, any>();
@@ -234,8 +227,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       loadChats();
     },
-    [userId, loadChats]
-  );
+    [userId, loadChats, allProfiles, userName]);
 
   // Realtime
   useEffect(() => {
@@ -287,7 +279,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      await supabase.from("chat_messages").insert({
+      const { error: sendErr } = await supabase.from("chat_messages").insert({
         chat_id: activeChatId,
         sender_id: userId,
         text: text || null,
@@ -296,6 +288,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         file_type: fileType,
         card_request_id: cardRequestId || null,
       });
+        if (sendErr) {
+             console.error("Error sending message:", sendErr);
+             alert("Erro ao enviar mensagem: " + sendErr.message);
+        }
 
       setPendingCard(null);
     },
@@ -370,8 +366,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         await loadChats();
         return newChat.id;
       },
-      [userId, loadChats]
-    );
+      [userId, loadChats, allProfiles, userName]);
 
   const openChatWithCard = useCallback(
     (targetUserId: string, card: PendingCardAttachment) => {
