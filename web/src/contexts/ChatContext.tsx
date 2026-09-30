@@ -81,13 +81,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Load all profiles for contact list
   useEffect(() => {
     if (!userId) return;
-    supabase
-      .from("profiles")
-      .select("id, name, avatar_url")
-      .neq("id", userId)
-      .then(({ data }) => {
-        if (data) setAllProfiles(data);
-      });
+    fetch("/api/admin/users")
+      .then(res => res.json())
+      .then(data => {
+         if (Array.isArray(data)) {
+             const profiles = data.filter((u) => u.id !== userId).map((u) => ({
+                 id: u.id,
+                 name: u.name,
+                 avatar_url: u.avatar_url
+             }));
+             setAllProfiles(profiles);
+         }
+      })
+      .catch(err => console.error("Erro ao carregar contatos:", err));
   }, [userId]);
 
   // Load user chats

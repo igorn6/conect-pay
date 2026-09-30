@@ -657,13 +657,18 @@ export default function CardDetailModal({
             <div className="relative group">
               <button
                 onClick={() => {
-                  setPendingCard({
-                    requestId: card.id,
-                    title: card.title,
-                    amount: card.amount,
-                    status: card.status,
-                  });
-                  setIsChatOpen(true);
+                  const cardPayload = {
+                      requestId: card.id,
+                      title: card.title || "Sem título",
+                      amount: card.amount,
+                      status: card.status,
+                    };
+                    if (card.user_id && userId !== card.user_id) {
+                      openChatWithCard(card.user_id, cardPayload);
+                    } else {
+                      setPendingCard(cardPayload);
+                      setIsChatOpen(true);
+                    }
                 }}
                 className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all border border-emerald-500/20 hover:border-emerald-500/40 shadow-sm cursor-pointer"
               >
@@ -740,5 +745,6 @@ export default function CardDetailModal({
     </div>
   );
 }
+
 
 
