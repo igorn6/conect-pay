@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/Header";
 import { Loader2 } from "lucide-react";
 import { DashboardProvider, useDashboard } from "@/contexts/DashboardContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -99,7 +98,6 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100 overflow-hidden">
-      <Header onNewRequest={() => { window.location.href = "/"; }} />
       <DashboardProvider>
         <DashboardContent />
       </DashboardProvider>

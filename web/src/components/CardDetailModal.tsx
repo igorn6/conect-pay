@@ -3,10 +3,11 @@ import { useState, useRef } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
-  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle
+  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { useChat } from "@/contexts/ChatContext";
 import type { PaymentRequest, ReceiptHistoryItem } from "@/types/database";
 
 const NEXT_STATUS: Record<string, string> = {
@@ -35,6 +36,7 @@ export default function CardDetailModal({
   profilesMap = {},
 }: CardDetailModalProps) {
   const { userId } = useAuth();
+  const { setIsChatOpen, setPendingCard, allProfiles, setActiveChatId, startChat } = useChat();
   const [loading, setLoading] = useState(false);
   const [showRefuseForm, setShowRefuseForm] = useState(false);
   const [refusalReason, setRefusalReason] = useState(card.refusal_reason || "");
@@ -651,6 +653,24 @@ export default function CardDetailModal({
         {/* FOOTER */}
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 px-6 py-5 shrink-0" style={{ borderTop: "1px solid var(--surface-border)", backgroundColor: "rgba(0,0,0,0.2)" }}>
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+            {/* Enviar no Chat */}
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  setPendingCard({
+                    requestId: card.id,
+                    title: card.title,
+                    amount: card.amount,
+                    status: card.status,
+                  });
+                  setIsChatOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all border border-emerald-500/20 hover:border-emerald-500/40 shadow-sm cursor-pointer"
+              >
+                <MessageSquare size={16} />
+                Enviar no Chat
+              </button>
+            </div>
             {isEmAprovacao && card.payment_type === "Pix" && isMasterOrFinanceiro && (
               <button onClick={handleSendEmail} className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 transition-all border border-gray-700 shadow-sm">
                 <Mail size={16} />

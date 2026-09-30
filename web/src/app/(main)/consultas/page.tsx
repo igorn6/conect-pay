@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useProfilesMap } from "@/hooks/useProfilesMap";
-import Header from "@/components/Header";
 import CardDetailModal from "@/components/CardDetailModal";
 import NewRequestModal from "@/components/NewRequestModal";
 import Toast from "@/components/Toast";
@@ -120,7 +119,6 @@ export default function SearchPage() {
 
   return (
     <div className="flex flex-col h-full bg-slate-900 text-slate-100">
-      <Header onNewRequest={() => setIsNewModalOpen(true)} />
       
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
@@ -261,3 +259,4 @@ export default function SearchPage() {
     </div>
   );
 }
+
