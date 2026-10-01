@@ -60,16 +60,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let error: any = null;
 
       try {
-        const headers: Record<string, string> = {};
+        const headers: Record<string, string> = {
+          "x-user-id": id,
+        };
         if (session?.access_token) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
-        const meRes = await fetch("/api/auth/me", { cache: "no-store", headers });
+        const meRes = await fetch(`/api/auth/me?userId=${id}`, { cache: "no-store", headers });
         if (meRes.ok) {
           data = await meRes.json();
         }
       } catch (e) {
         console.warn("Fallback to client query:", e);
+      }
+
+      if (!data) {
+        try {
+          const usersRes = await fetch("/api/admin/users", { cache: "no-store" });
+          if (usersRes.ok) {
+            const allUsers = await usersRes.json();
+            const found = allUsers.find((u: any) => u.id === id);
+            if (found) {
+              data = found;
+            }
+          }
+        } catch (e) {
+          console.warn("Fallback to admin users query:", e);
+        }
       }
 
       if (!data) {

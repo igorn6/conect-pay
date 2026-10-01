@@ -100,77 +100,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const loadChats = useCallback(async () => {
     if (!userId) return;
 
-    const { data: participantRows } = await supabase
-      .from("chat_participants")
-      .select("chat_id")
-      .eq("profile_id", userId);
+    try {
+      const res = await fetch(`/api/admin/chats?userId=${userId}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("Erro ao carregar chats");
+      const chatList: Chat[] = await res.json();
+      
+      let unread = 0;
+      for (const c of chatList) {
+        unread += c.unread_count || 0;
+      }
 
-    if (!participantRows || participantRows.length === 0) {
-      setChats([]);
-      setTotalUnread(0);
-      return;
+      setChats(chatList);
+      setTotalUnread(unread);
+    } catch (err) {
+      console.error("Erro ao carregar chats via API:", err);
     }
-
-    const chatIds = participantRows.map((r) => r.chat_id);
-
-    const { data: allParticipants } = await supabase
-      .from("chat_participants")
-      .select("chat_id, profile_id")
-      .in("chat_id", chatIds);
-
-    const profileMap = new Map();
-      allProfiles.forEach(p => profileMap.set(p.id, p));
-      profileMap.set(userId, { id: userId, name: userName, avatar_url: null });
-
-    const chatList: Chat[] = [];
-    let unread = 0;
-
-    for (const chatId of chatIds) {
-      const chatParticipants = (allParticipants || [])
-        .filter((p) => p.chat_id === chatId && p.profile_id !== userId)
-        .map((p) => {
-          const prof = profileMap.get(p.profile_id);
-          return {
-            profile_id: p.profile_id,
-            name: prof?.name || "Usuario",
-            avatar_url: prof?.avatar_url || null,
-          };
-        });
-
-      const { data: lastMsg } = await supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("chat_id", chatId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      const { count } = await supabase
-        .from("chat_messages")
-        .select("*", { count: "exact", head: true })
-        .eq("chat_id", chatId)
-        .neq("sender_id", userId)
-        .is("read_at", null);
-
-      unread += count || 0;
-
-      chatList.push({
-        id: chatId,
-        created_at: lastMsg?.created_at || "",
-        participants: chatParticipants,
-        last_message: lastMsg || null,
-        unread_count: count || 0,
-      });
-    }
-
-    chatList.sort((a, b) => {
-      const ta = a.last_message?.created_at || a.created_at;
-      const tb = b.last_message?.created_at || b.created_at;
-      return new Date(tb).getTime() - new Date(ta).getTime();
-    });
-
-    setChats(chatList);
-    setTotalUnread(unread);
   }, [userId]);
 
   useEffect(() => {
@@ -181,53 +125,27 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     async (chatId: string) => {
       if (!chatId) return;
 
-      const { data } = await supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("chat_id", chatId)
-        .order("created_at", { ascending: true });
+      try {
+        const res = await fetch(`/api/admin/chats/messages?chatId=${chatId}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Erro ao carregar mensagens");
+        const enriched: ChatMessage[] = await res.json();
+        setMessages(enriched);
 
-      if (!data) return;
+        // Marcar como lidas
+        await supabase
+          .from("chat_messages")
+          .update({ read_at: new Date().toISOString() })
+          .eq("chat_id", chatId)
+          .neq("sender_id", userId!)
+          .is("read_at", null);
 
-      const senderMap = new Map();
-        allProfiles.forEach(p => senderMap.set(p.id, p));
-        senderMap.set(userId, { id: userId, name: userName, avatar_url: null });
-
-      const cardIds = [...new Set(data.filter((m) => m.card_request_id).map((m) => m.card_request_id!))];
-      let cardMap = new Map<string, any>();
-      if (cardIds.length > 0) {
-        const { data: cards } = await supabase
-          .from("payment_requests")
-          .select("id, title, amount, status")
-          .in("id", cardIds);
-        cardMap = new Map((cards || []).map((c) => [c.id, c]));
+        loadChats();
+      } catch (err) {
+        console.error("Erro ao carregar mensagens via API:", err);
       }
-
-      const enriched: ChatMessage[] = data.map((m) => {
-        const sender = senderMap.get(m.sender_id);
-        const card = m.card_request_id ? cardMap.get(m.card_request_id) : null;
-        return {
-          ...m,
-          sender_name: sender?.name || "Usuario",
-          sender_avatar: sender?.avatar_url || null,
-          card_title: card?.title,
-          card_amount: card?.amount,
-          card_status: card?.status,
-        };
-      });
-
-      setMessages(enriched);
-
-      await supabase
-        .from("chat_messages")
-        .update({ read_at: new Date().toISOString() })
-        .eq("chat_id", chatId)
-        .neq("sender_id", userId!)
-        .is("read_at", null);
-
-      loadChats();
     },
-    [userId, loadChats, allProfiles, userName]);
+    [userId, loadChats]
+  );
 
   // Realtime
   useEffect(() => {
@@ -279,94 +197,62 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { error: sendErr } = await supabase.from("chat_messages").insert({
-        chat_id: activeChatId,
-        sender_id: userId,
-        text: text || null,
-        file_url: fileUrl,
-        file_name: fileName,
-        file_type: fileType,
-        card_request_id: cardRequestId || null,
-      });
-        if (sendErr) {
-             console.error("Error sending message:", sendErr);
-             alert("Erro ao enviar mensagem: " + sendErr.message);
-        }
+      try {
+        const res = await fetch("/api/admin/chats/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chatId: activeChatId,
+            senderId: userId,
+            text: text || null,
+            fileUrl,
+            fileName,
+            fileType,
+            cardRequestId: cardRequestId || null,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erro ao enviar mensagem");
+
+        // Atualiza imediatamente a interface
+        await loadMessages(activeChatId);
+        await loadChats();
+      } catch (sendErr: any) {
+        console.error("Error sending message via API:", sendErr);
+        alert("Erro ao enviar mensagem: " + sendErr.message);
+      }
 
       setPendingCard(null);
     },
-    [userId, activeChatId]
+    [userId, activeChatId, loadMessages, loadChats]
   );
 
   const startChat = useCallback(
-      async (targetUserId: string): Promise<string> => {
-        if (!userId) throw new Error("Not authenticated");
+    async (targetUserId: string): Promise<string> => {
+      if (!userId) throw new Error("Not authenticated");
 
-        const { data: myChats } = await supabase
-          .from("chat_participants")
-          .select("chat_id")
-          .eq("profile_id", userId);
+      try {
+        const res = await fetch("/api/admin/chats", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId, targetUserId }),
+        });
 
-        const chatIds = (myChats || []).map((c) => c.chat_id);
-        let commonChatId = null;
-
-        if (chatIds.length > 0) {
-          const { data: allParticipants } = await supabase
-            .from("chat_participants")
-            .select("chat_id, profile_id")
-            .in("chat_id", chatIds);
-          
-          commonChatId = (allParticipants || []).find(p => p.profile_id === targetUserId)?.chat_id;
-        }
-
-        if (commonChatId) return commonChatId;
-
-        // Try to insert directly
-        const { data: newChat, error: chatError } = await supabase
-          .from("chats")
-          .insert({})
-          .select("id")
-          .single();
-
-        if (!newChat || chatError) {
-            // Fallback to API if RLS blocks insert
-            const res = await fetch("/api/admin/chats", {
-               method: "POST",
-               headers: { "Content-Type": "application/json" },
-               body: JSON.stringify({ userId, targetUserId })
-            });
-            const data = await res.json();
-            if (data.chatId) {
-                await loadChats();
-                return data.chatId;
-            }
-            throw new Error("Failed to create chat via API");
-        }
-
-        const { error: partError } = await supabase.from("chat_participants").insert([
-          { chat_id: newChat.id, profile_id: userId },
-          { chat_id: newChat.id, profile_id: targetUserId },
-        ]);
-
-        if (partError) {
-             console.error("Error creating participants:", partError);
-             // Fallback to API if RLS blocks participant insert
-             const res = await fetch("/api/admin/chats", {
-               method: "POST",
-               headers: { "Content-Type": "application/json" },
-               body: JSON.stringify({ userId, targetUserId })
-             });
-             const data = await res.json();
-             if (data.chatId) {
-                 await loadChats();
-                 return data.chatId;
-             }
+        const data = await res.json();
+        if (!res.ok || !data.chatId) {
+          throw new Error(data.error || "Failed to create chat via API");
         }
 
         await loadChats();
-        return newChat.id;
-      },
-      [userId, loadChats, allProfiles, userName]);
+        return data.chatId;
+      } catch (err: any) {
+        console.error("Erro ao iniciar chat via API:", err);
+        throw err;
+      }
+    },
+    [userId, loadChats]
+  );
 
   const openChatWithCard = useCallback(
     (targetUserId: string, card: PendingCardAttachment) => {

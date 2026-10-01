@@ -370,8 +370,12 @@ function ConversationView({ chatId, onBack }: {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { allProfiles } = useChat();
   const chat = chats.find((c) => c.id === chatId);
-  const otherUser = chat?.participants[0];
+  const otherUser = chat?.participants?.find((p) => p.profile_id !== userId) || chat?.participants?.[0];
+  const otherFromMessages = messages.find((m) => m.sender_id !== userId);
+  const resolvedName = otherUser?.name || otherFromMessages?.sender_name || "Conversa";
+  const resolvedAvatar = otherUser?.avatar_url || otherFromMessages?.sender_avatar || null;
 
   useEffect(() => {
     loadMessages(chatId);
@@ -426,12 +430,12 @@ function ConversationView({ chatId, onBack }: {
           <ArrowLeft size={18} />
         </button>
         <img
-          src={getAvatarUrl(otherUser?.name || "", otherUser?.avatar_url)}
+          src={getAvatarUrl(resolvedName, resolvedAvatar)}
           alt=""
           className="w-9 h-9 rounded-full shrink-0"
         />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{otherUser?.name || "Usuario"}</p>
+          <p className="text-sm font-semibold text-white truncate">{resolvedName}</p>
           <p className="text-[11px] text-emerald-400">online</p>
         </div>
       </div>
