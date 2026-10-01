@@ -1,4 +1,4 @@
-export const dynamic = "force-dynamic";
+﻿export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -27,7 +27,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const { name, email, role, sector } = await req.json();
+    const { name, email, role, sector, password } = await req.json();
 
     if (!name || !email || !role) {
       return NextResponse.json({ error: "Faltam campos obrigatórios." }, { status: 400 });
@@ -36,10 +36,10 @@ export async function POST(req: Request) {
     let userId = null;
     let authUser = null;
 
-    // 1. Tenta criar o usuário não Supabase Auth
+    // 1. Tenta criar o usuário no Supabase Auth
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: "Conectsol123",
+      password: password || "Conectsol123",
       email_confirm: true,
     });
 
@@ -78,7 +78,6 @@ export async function POST(req: Request) {
           name,
           role,
           sector: sector || null,
-          
           must_change_password: true
         }
       ]);
@@ -87,12 +86,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Erro ao criar perfil: " + profileError.message }, { status: 400 });
     }
 
-    // Se resgatamos um orfão que estava banido, desbanimos
+    // Se resgatamos um órfão que estava banido, desbanimos
     await supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration: 'none' });
 
     return NextResponse.json({ success: true, user: authUser });
   } catch (err: any) {
-    return NextResponse.json({ error: "Erro internão não servidor." }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno no servidor." }, { status: 500 });
   }
 }
 
@@ -101,12 +100,6 @@ export async function PATCH(req: Request) {
     const { id } = await req.json();
     if (!id) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
-    // 1. Atualiza na tabela pública (Soft Delete)
-    // Soft delete relies solely on Auth ban_duration now.
-
-    // 2. Bane do Auth (bloqueia o login via update user ban_duration)
-    // O Supabase tem auth.admin.updateUserById({ id, ban_duration: '876000h' }) ou similar
-    // Um método robusto é simplesmente usar updateUserById
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
       id,
       { ban_duration: '876000h' } // Banne por 100 anos
@@ -123,7 +116,7 @@ export async function PATCH(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, role, sector } = body;
+    const { id, name, role, sector, password } = body;
     
     if (!id || !name || !role) {
       return NextResponse.json({ error: "Faltam campos obrigatórios." }, { status: 400 });
@@ -135,6 +128,16 @@ export async function PUT(req: Request) {
       .eq("id", id);
       
     if (error) throw error;
+
+    if (password) {
+      if (password.length < 6) {
+        return NextResponse.json({ error: "A senha deve conter no mínimo 6 caracteres." }, { status: 400 });
+      }
+      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        password,
+      });
+      if (authError) throw authError;
+    }
     
     return NextResponse.json({ success: true });
   } catch (err: any) {
