@@ -61,7 +61,7 @@ export default function HubPage() {
 
       // --- Counts ---
       if (isMasterOrFinanceiro) {
-        const [novaSol, emAprov] = await Promise.all([
+        const [novaSol, emAprov, aguardandoPgto] = await Promise.all([
           supabase
             .from("payment_requests")
             .select("id", { count: "exact", head: true })
@@ -72,12 +72,17 @@ export default function HubPage() {
             .select("id", { count: "exact", head: true })
             .eq("status", "EM_APROVACAO")
             .or("is_deleted.eq.false,is_deleted.is.null"),
+          supabase
+            .from("payment_requests")
+            .select("id", { count: "exact", head: true })
+            .eq("status", "AGUARDANDO_PAGAMENTO")
+            .or("is_deleted.eq.false,is_deleted.is.null"),
         ]);
 
         setCounts({
           novaSolicitacao: novaSol.count ?? 0,
           emAprovacao: emAprov.count ?? 0,
-          aguardandoPagamento: 0,
+          aguardandoPagamento: aguardandoPgto.count ?? 0,
           recusado: 0,
           validacaoGestor: 0,
         });

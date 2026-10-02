@@ -95,7 +95,20 @@ export async function GET(req: Request) {
     // Ordenar pelo mais recente
     chatList.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
-    return NextResponse.json(chatList);
+    // Deduplicar: manter apenas 1 conversa por contato (a mais recente)
+    const uniqueChatList: typeof chatList = [];
+    const seenContacts = new Set<string>();
+
+    for (const chat of chatList) {
+      const otherId = chat.participants.find((p: any) => p.profile_id !== userId)?.profile_id || chat.participants[0]?.profile_id;
+      if (!otherId || seenContacts.has(otherId)) {
+        continue;
+      }
+      seenContacts.add(otherId);
+      uniqueChatList.push(chat);
+    }
+
+    return NextResponse.json(uniqueChatList);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
