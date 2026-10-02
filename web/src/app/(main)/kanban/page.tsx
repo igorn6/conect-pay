@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import KanbanBoard from "@/components/KanbanBoard";
@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { PaymentRequest, Category } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Plus, Filter, Calendar, Tag, User } from "lucide-react";
+import { Plus, Filter, Calendar, Tag, User, X } from "lucide-react";
 
 export default function KanbanPage() {
   const { userRole, userId, userName: simulatedUserName, sectorId } = useAuth();
@@ -29,10 +29,8 @@ export default function KanbanPage() {
     type: "success" | "error";
   } | null>(null);
 
-  // Filters State
-  const [filterMonth, setFilterMonth] = useState<string>(
-    new Date().toISOString().slice(0, 7)
-  );
+  // Filters State - padrão vazio para carregar todo o período
+  const [filterMonth, setFilterMonth] = useState<string>("");
   const [filterCategoryId, setFilterCategoryId] = useState<string>("");
   const [filterRequesterId, setFilterRequesterId] = useState<string>("");
 
@@ -258,7 +256,7 @@ export default function KanbanPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950">
+    <div className="flex flex-col h-full min-h-0 bg-slate-950">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b border-slate-800 bg-slate-900 shrink-0">
         
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
@@ -269,7 +267,19 @@ export default function KanbanPage() {
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
               className="bg-transparent text-sm text-white outline-none border-none focus:ring-0 w-44 min-w-[140px]"
+              title={filterMonth ? "Filtrando por mês específico" : "Todo o período (sem filtro de mês)"}
             />
+            {filterMonth && (
+              <button
+                type="button"
+                onClick={() => setFilterMonth("")}
+                title="Limpar e ver todo o período"
+                className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded transition-colors cursor-pointer"
+              >
+                <X size={12} />
+                <span className="text-[11px]">Todos</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg border border-slate-700">

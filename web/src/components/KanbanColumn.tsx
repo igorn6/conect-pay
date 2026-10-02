@@ -24,7 +24,7 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
 
   return (
     <div
-      className="flex flex-col min-w-[280px] flex-1 rounded-xl overflow-hidden"
+      className="flex flex-col min-w-[280px] w-[300px] flex-1 h-full rounded-xl overflow-hidden shrink-0"
       style={{
         backgroundColor: "var(--bg-secondary)",
         border: "1px solid var(--surface-border)",
@@ -33,7 +33,7 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
     >
       {/* ─── Header da Coluna ─────────────── */}
       <div
-        className="flex items-center justify-between px-4 py-3"
+        className="flex items-center justify-between px-4 py-3 shrink-0"
         style={{
           borderBottom: "1px solid var(--surface-border)",
         }}
@@ -89,8 +89,7 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
 
       {/* ─── Área de Cards ────────────────── */}
       <div
-        className="flex-1 p-3 overflow-y-auto"
-        style={{ minHeight: "calc(100vh - 200px)" }}
+        className="flex-1 min-h-0 p-3 overflow-y-auto"
       >
         {cards.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 py-12 opacity-40">
@@ -103,7 +102,7 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2.5 pb-2">
             {cards.map((card) => (
               <div
                 key={card.id}

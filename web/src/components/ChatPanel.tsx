@@ -9,8 +9,6 @@ import {
   Search,
   MessageSquare,
   FileText,
-  Image as ImageIcon,
-  File,
   DollarSign,
   Check,
   CheckCheck,
@@ -22,11 +20,11 @@ import { useAuth } from "@/contexts/AuthContext";
 // ---------- Status labels ----------
 const STATUS_LABELS: Record<string, string> = {
   NOVA_SOLICITACAO: "Nova",
-  EM_APROVACAO: "Em Aprovacao",
+  EM_APROVACAO: "Em Aprovação",
   AGUARDANDO_PAGAMENTO: "Aguardando Pgto",
   VALIDADO_GESTOR: "Validado",
-  VALIDACAO_GESTOR: "Em Validacao",
-  CORRECAO_PENDENTE: "Correcao",
+  VALIDACAO_GESTOR: "Em Validação",
+  CORRECAO_PENDENTE: "Correção",
   FINALIZADO: "Finalizado",
   RECUSADO: "Recusado",
 };
@@ -87,7 +85,9 @@ function CardPreview({ title, amount, status, onClick }: {
         <DollarSign size={16} style={{ color }} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold text-white truncate">{title || "Solicitacao"}</p>
+        <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+          {title || "Solicitação"}
+        </p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs font-bold" style={{ color }}>
             {amount != null ? `R$ ${amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : ""}
@@ -111,23 +111,26 @@ function PendingCardBanner({ card, onRemove }: { card: PendingCardAttachment; on
     <div
       className="flex items-center gap-3 px-4 py-2.5 border-b"
       style={{
-        backgroundColor: "#1e293b",
-        borderColor: "rgba(255,255,255,0.06)",
+        backgroundColor: "var(--bg-card)",
+        borderColor: "var(--surface-border)",
       }}
     >
-      <div className="w-1 h-10 rounded-full" style={{ backgroundColor: color }} />
+      <div className="w-1 h-10 rounded-full shrink-0" style={{ backgroundColor: color }} />
       <div className="flex-1 min-w-0">
         <p className="text-[11px] font-semibold" style={{ color }}>
-          Solicitacao anexada
+          Solicitação anexada
         </p>
-        <p className="text-xs text-slate-300 truncate">{card.title}</p>
-        <span className="text-[10px] text-slate-400">
+        <p className="text-xs truncate font-medium" style={{ color: "var(--text-primary)" }}>
+          {card.title}
+        </p>
+        <span className="text-[10px]" style={{ color: "var(--text-muted)" }}>
           R$ {card.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
         </span>
       </div>
       <button
         onClick={onRemove}
-        className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+        className="p-1 rounded-full hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+        style={{ color: "var(--text-secondary)" }}
       >
         <X size={14} />
       </button>
@@ -142,13 +145,14 @@ function MessageBubble({ msg, isMine }: { msg: ChatMessage; isMine: boolean }) {
   return (
     <div className={`flex ${isMine ? "justify-end" : "justify-start"} mb-2 px-4`}>
       <div
-        className={`max-w-[75%] rounded-2xl px-3.5 py-2 ${
+        className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 shadow-xs ${
           isMine
-            ? "rounded-br-md"
-            : "rounded-bl-md"
+            ? "rounded-br-xs"
+            : "rounded-bl-xs"
         }`}
         style={{
-          backgroundColor: isMine ? "#065f46" : "#1e293b",
+          backgroundColor: isMine ? "#059669" : "var(--bg-card)",
+          border: isMine ? "none" : "1px solid var(--surface-border)",
         }}
       >
         {/* Card attachment inside message */}
@@ -176,16 +180,38 @@ function MessageBubble({ msg, isMine }: { msg: ChatMessage; isMine: boolean }) {
                 href={msg.file_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2.5 rounded-lg border border-white/10 hover:bg-white/5 transition-colors"
+                className="flex items-center gap-2 p-2.5 rounded-lg border transition-colors"
+                style={{
+                  borderColor: isMine ? "rgba(255,255,255,0.2)" : "var(--surface-border)",
+                  backgroundColor: isMine ? "rgba(0,0,0,0.15)" : "var(--bg-secondary)",
+                }}
               >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
-                  <FileText size={16} className="text-emerald-400" />
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                  style={{
+                    backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "rgba(16,185,129,0.15)",
+                  }}
+                >
+                  <FileText size={16} style={{ color: isMine ? "#ffffff" : "#10b981" }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white truncate">{msg.file_name}</p>
-                  <p className="text-[10px] text-slate-400">Documento</p>
+                  <p
+                    className="text-xs font-medium truncate"
+                    style={{ color: isMine ? "#ffffff" : "var(--text-primary)" }}
+                  >
+                    {msg.file_name}
+                  </p>
+                  <p
+                    className="text-[10px]"
+                    style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}
+                  >
+                    Documento
+                  </p>
                 </div>
-                <Download size={14} className="text-slate-400" />
+                <Download
+                  size={14}
+                  style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}
+                />
               </a>
             )}
           </div>
@@ -193,16 +219,26 @@ function MessageBubble({ msg, isMine }: { msg: ChatMessage; isMine: boolean }) {
 
         {/* Text */}
         {msg.text && (
-          <p className="text-sm text-white whitespace-pre-wrap break-words">{msg.text}</p>
+          <p
+            className="text-sm whitespace-pre-wrap break-words leading-relaxed"
+            style={{ color: isMine ? "#ffffff" : "var(--text-primary)" }}
+          >
+            {msg.text}
+          </p>
         )}
 
         {/* Timestamp + read status */}
         <div className={`flex items-center gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
-          <span className="text-[10px] text-slate-400">{formatTime(msg.created_at)}</span>
+          <span
+            className="text-[10px]"
+            style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--text-muted)" }}
+          >
+            {formatTime(msg.created_at)}
+          </span>
           {isMine && (
             msg.read_at
-              ? <CheckCheck size={12} className="text-blue-400" />
-              : <Check size={12} className="text-slate-400" />
+              ? <CheckCheck size={12} style={{ color: "#a7f3d0" }} />
+              : <Check size={12} style={{ color: "rgba(255,255,255,0.6)" }} />
           )}
         </div>
       </div>
@@ -231,12 +267,21 @@ function ChatListView({ onSelectChat, onNewChat }: {
       {/* Search */}
       <div className="px-4 py-3">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: "var(--text-muted)" }}
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar conversa..."
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border focus:outline-none focus:border-emerald-500/50"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--surface-border)",
+              color: "var(--text-primary)",
+            }}
           />
         </div>
       </div>
@@ -245,7 +290,7 @@ function ChatListView({ onSelectChat, onNewChat }: {
       <div className="px-4 pb-3">
         <button
           onClick={onNewChat}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all hover:brightness-110"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold text-white cursor-pointer transition-all hover:brightness-110 shadow-sm"
           style={{
             background: "linear-gradient(135deg, #059669, #10b981)",
           }}
@@ -258,36 +303,53 @@ function ChatListView({ onSelectChat, onNewChat }: {
       {/* Chat list */}
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 text-slate-500">
+          <div
+            className="flex flex-col items-center justify-center h-40"
+            style={{ color: "var(--text-muted)" }}
+          >
             <MessageSquare size={32} className="mb-2 opacity-50" />
-            <p className="text-sm">Nenhuma conversa</p>
+            <p className="text-sm font-medium">Nenhuma conversa encontrada</p>
           </div>
         ) : (
           filtered.map((chat) => {
             const other = chat.participants[0];
-            const lastText = chat.last_message?.text || (chat.last_message?.file_name ? "Arquivo" : (chat.last_message?.card_request_id ? "Solicitacao" : ""));
+            const lastText =
+              chat.last_message?.text ||
+              (chat.last_message?.file_name
+                ? "Arquivo"
+                : chat.last_message?.card_request_id
+                ? "Solicitação"
+                : "");
             return (
               <button
                 key={chat.id}
                 onClick={() => onSelectChat(chat)}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800/60 transition-colors text-left border-b border-slate-800/50"
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-hover)] transition-colors text-left border-b cursor-pointer"
+                style={{ borderColor: "var(--surface-border)" }}
               >
                 <img
                   src={getAvatarUrl(other?.name || "", other?.avatar_url)}
                   alt=""
-                  className="w-10 h-10 rounded-full shrink-0"
+                  className="w-10 h-10 rounded-full shrink-0 object-cover"
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-white truncate">{other?.name || "Usuario"}</p>
+                    <p
+                      className="text-sm font-semibold truncate"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {other?.name || "Usuário"}
+                    </p>
                     {chat.last_message && (
-                      <span className="text-[10px] text-slate-400 shrink-0">
+                      <span className="text-[10px] shrink-0" style={{ color: "var(--text-muted)" }}>
                         {formatDate(chat.last_message.created_at)}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center justify-between mt-0.5">
-                    <p className="text-xs text-slate-400 truncate">{lastText || "Sem mensagens"}</p>
+                    <p className="text-xs truncate" style={{ color: "var(--text-secondary)" }}>
+                      {lastText || "Sem mensagens"}
+                    </p>
                     {chat.unread_count > 0 && (
                       <span className="ml-2 bg-emerald-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shrink-0">
                         {chat.unread_count}
@@ -320,38 +382,68 @@ function ContactPicker({ onSelect, onBack }: {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-800">
-        <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+      <div
+        className="flex items-center gap-3 px-4 py-3 border-b shrink-0"
+        style={{ borderColor: "var(--surface-border)" }}
+      >
+        <button
+          onClick={onBack}
+          className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+          style={{ color: "var(--text-secondary)" }}
+        >
           <ArrowLeft size={18} />
         </button>
-        <h3 className="text-sm font-semibold text-white">Nova Conversa</h3>
+        <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Nova Conversa
+        </h3>
       </div>
       <div className="px-4 py-3">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: "var(--text-muted)" }}
+          />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar contato..."
-            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border focus:outline-none focus:border-emerald-500/50"
+            style={{
+              backgroundColor: "var(--bg-card)",
+              borderColor: "var(--surface-border)",
+              color: "var(--text-primary)",
+            }}
           />
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {filtered.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => onSelect(p.id)}
-            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-800/60 transition-colors text-left border-b border-slate-800/50"
+        {filtered.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center h-40"
+            style={{ color: "var(--text-muted)" }}
           >
-            <img
-              src={getAvatarUrl(p.name, p.avatar_url)}
-              alt=""
-              className="w-10 h-10 rounded-full shrink-0"
-            />
-            <p className="text-sm font-medium text-white">{p.name}</p>
-          </button>
-        ))}
+            <p className="text-sm font-medium">Nenhum contato encontrado</p>
+          </div>
+        ) : (
+          filtered.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onSelect(p.id)}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[var(--surface-hover)] transition-colors text-left border-b cursor-pointer"
+              style={{ borderColor: "var(--surface-border)" }}
+            >
+              <img
+                src={getAvatarUrl(p.name, p.avatar_url)}
+                alt=""
+                className="w-10 h-10 rounded-full shrink-0 object-cover"
+              />
+              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                {p.name}
+              </p>
+            </button>
+          ))
+        )}
       </div>
     </div>
   );
@@ -362,7 +454,7 @@ function ConversationView({ chatId, onBack }: {
   chatId: string;
   onBack: () => void;
 }) {
-  const { messages, loadMessages, sendMessage, pendingCard, setPendingCard, chats } = useChat();
+  const { messages, loadMessages, sendMessage, pendingCard, setPendingCard, chats, allProfiles } = useChat();
   const { userId } = useAuth();
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -370,12 +462,25 @@ function ConversationView({ chatId, onBack }: {
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { allProfiles } = useChat();
   const chat = chats.find((c) => c.id === chatId);
-  const otherUser = chat?.participants?.find((p) => p.profile_id !== userId) || chat?.participants?.[0];
+  const otherParticipant = chat?.participants?.find((p) => p.profile_id !== userId) || chat?.participants?.[0];
   const otherFromMessages = messages.find((m) => m.sender_id !== userId);
-  const resolvedName = otherUser?.name || otherFromMessages?.sender_name || "Conversa";
-  const resolvedAvatar = otherUser?.avatar_url || otherFromMessages?.sender_avatar || null;
+
+  // Fallback to allProfiles if chat participant was not enriched yet
+  const otherProfile = otherParticipant?.profile_id
+    ? allProfiles.find((p) => p.id === otherParticipant.profile_id)
+    : null;
+
+  const resolvedName =
+    otherParticipant?.name ||
+    otherProfile?.name ||
+    otherFromMessages?.sender_name ||
+    "Conversa";
+  const resolvedAvatar =
+    otherParticipant?.avatar_url ||
+    otherProfile?.avatar_url ||
+    otherFromMessages?.sender_avatar ||
+    null;
 
   useEffect(() => {
     loadMessages(chatId);
@@ -421,44 +526,71 @@ function ConversationView({ chatId, onBack }: {
       {/* Chat Header */}
       <div
         className="flex items-center gap-3 px-4 py-3 border-b shrink-0"
-        style={{ borderColor: "rgba(255,255,255,0.06)", backgroundColor: "#0f172a" }}
+        style={{
+          borderColor: "var(--surface-border)",
+          backgroundColor: "var(--bg-secondary)",
+        }}
       >
         <button
           onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+          style={{ color: "var(--text-secondary)" }}
         >
           <ArrowLeft size={18} />
         </button>
         <img
           src={getAvatarUrl(resolvedName, resolvedAvatar)}
           alt=""
-          className="w-9 h-9 rounded-full shrink-0"
+          className="w-9 h-9 rounded-full shrink-0 object-cover"
         />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{resolvedName}</p>
-          <p className="text-[11px] text-emerald-400">online</p>
+          <p
+            className="text-sm font-semibold truncate"
+            style={{ color: "var(--text-primary)" }}
+          >
+            {resolvedName}
+          </p>
+          <p className="text-[11px] text-emerald-500 font-medium">online</p>
         </div>
       </div>
 
       {/* Messages area */}
       <div
-        className="flex-1 overflow-y-auto py-3"
+        className="flex-1 overflow-y-auto py-3 space-y-1"
         style={{
-          backgroundImage: "radial-gradient(circle at 20% 80%, rgba(16,185,129,0.03) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(59,130,246,0.03) 0%, transparent 50%)",
+          backgroundColor: "var(--bg-primary)",
         }}
       >
-        {grouped.map((group) => (
-          <div key={group.date}>
-            <div className="flex justify-center my-3">
-              <span className="text-[11px] text-slate-400 bg-slate-800/80 px-3 py-1 rounded-full">
-                {group.date}
-              </span>
-            </div>
-            {group.msgs.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} isMine={msg.sender_id === userId} />
-            ))}
+        {grouped.length === 0 ? (
+          <div
+            className="flex flex-col items-center justify-center h-48 opacity-60"
+            style={{ color: "var(--text-muted)" }}
+          >
+            <MessageSquare size={36} className="mb-2" />
+            <p className="text-xs">Nenhuma mensagem ainda</p>
+            <p className="text-[11px]">Diga um olá para iniciar!</p>
           </div>
-        ))}
+        ) : (
+          grouped.map((group) => (
+            <div key={group.date}>
+              <div className="flex justify-center my-3">
+                <span
+                  className="text-[11px] px-3 py-0.5 rounded-full border shadow-xs"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    borderColor: "var(--surface-border)",
+                    color: "var(--text-muted)",
+                  }}
+                >
+                  {group.date}
+                </span>
+              </div>
+              {group.msgs.map((msg) => (
+                <MessageBubble key={msg.id} msg={msg} isMine={msg.sender_id === userId} />
+              ))}
+            </div>
+          ))
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -469,10 +601,22 @@ function ConversationView({ chatId, onBack }: {
 
       {/* File preview */}
       {file && (
-        <div className="flex items-center gap-2 px-4 py-2 border-t" style={{ borderColor: "rgba(255,255,255,0.06)", backgroundColor: "#1e293b" }}>
-          <File size={14} className="text-emerald-400" />
-          <span className="text-xs text-slate-300 truncate flex-1">{file.name}</span>
-          <button onClick={() => setFile(null)} className="text-slate-400 hover:text-white">
+        <div
+          className="flex items-center gap-2 px-4 py-2 border-t"
+          style={{
+            borderColor: "var(--surface-border)",
+            backgroundColor: "var(--bg-card)",
+          }}
+        >
+          <FileText size={14} className="text-emerald-500" />
+          <span className="text-xs truncate flex-1 font-medium" style={{ color: "var(--text-primary)" }}>
+            {file.name}
+          </span>
+          <button
+            onClick={() => setFile(null)}
+            className="hover:opacity-75 transition-opacity cursor-pointer"
+            style={{ color: "var(--text-secondary)" }}
+          >
             <X size={14} />
           </button>
         </div>
@@ -481,7 +625,10 @@ function ConversationView({ chatId, onBack }: {
       {/* Input area */}
       <div
         className="flex items-end gap-2 px-3 py-3 border-t shrink-0"
-        style={{ borderColor: "rgba(255,255,255,0.06)", backgroundColor: "#0f172a" }}
+        style={{
+          borderColor: "var(--surface-border)",
+          backgroundColor: "var(--bg-secondary)",
+        }}
       >
         <input
           ref={fileInputRef}
@@ -493,7 +640,8 @@ function ConversationView({ chatId, onBack }: {
         />
         <button
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors shrink-0"
+          className="p-2 rounded-lg hover:bg-[var(--surface-hover)] transition-colors shrink-0 cursor-pointer"
+          style={{ color: "var(--text-secondary)" }}
           title="Anexar arquivo"
         >
           <Paperclip size={18} />
@@ -504,8 +652,13 @@ function ConversationView({ chatId, onBack }: {
           onKeyDown={handleKeyDown}
           placeholder="Digite uma mensagem..."
           rows={1}
-          className="flex-1 px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 resize-none max-h-24"
-          style={{ minHeight: "38px" }}
+          className="flex-1 px-3 py-2 text-sm rounded-xl border focus:outline-none focus:border-emerald-500/50 resize-none max-h-24"
+          style={{
+            minHeight: "38px",
+            backgroundColor: "var(--bg-card)",
+            borderColor: "var(--surface-border)",
+            color: "var(--text-primary)",
+          }}
         />
         <button
           onClick={handleSend}
@@ -513,7 +666,7 @@ function ConversationView({ chatId, onBack }: {
           className="p-2 rounded-lg transition-all shrink-0 disabled:opacity-30 cursor-pointer"
           style={{
             backgroundColor: text.trim() || file || pendingCard ? "#059669" : "transparent",
-            color: text.trim() || file || pendingCard ? "#fff" : "#64748b",
+            color: text.trim() || file || pendingCard ? "#ffffff" : "var(--text-muted)",
           }}
         >
           <Send size={18} />
@@ -525,7 +678,7 @@ function ConversationView({ chatId, onBack }: {
 
 // ==================== MAIN CHAT PANEL ====================
 export default function ChatPanel() {
-  const { isChatOpen, setIsChatOpen, activeChatId, setActiveChatId, startChat, loadChats } = useChat();
+  const { isChatOpen, setIsChatOpen, activeChatId, setActiveChatId, startChat } = useChat();
   const [view, setView] = useState<"list" | "contacts" | "conversation">("list");
 
   // Sync view with activeChatId
@@ -534,13 +687,6 @@ export default function ChatPanel() {
       setView("conversation");
     }
   }, [activeChatId]);
-
-  // Reset when panel closes
-  useEffect(() => {
-    if (!isChatOpen) {
-      // Keep activeChatId so reopening returns to conversation
-    }
-  }, [isChatOpen]);
 
   const handleSelectChat = (chat: Chat) => {
     setActiveChatId(chat.id);
@@ -568,7 +714,7 @@ export default function ChatPanel() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none md:pointer-events-none"
+        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs md:bg-transparent md:backdrop-blur-none md:pointer-events-none"
         onClick={() => setIsChatOpen(false)}
       />
 
@@ -577,23 +723,30 @@ export default function ChatPanel() {
         className="fixed right-0 top-0 h-full z-50 flex flex-col border-l shadow-2xl"
         style={{
           width: "min(400px, 100vw)",
-          backgroundColor: "#0f172a",
-          borderColor: "rgba(255,255,255,0.06)",
+          backgroundColor: "var(--bg-secondary)",
+          borderColor: "var(--surface-border)",
           animation: "slideInRight 0.25s ease-out",
         }}
       >
         {/* Panel Header */}
         <div
           className="flex items-center justify-between px-5 py-4 border-b shrink-0"
-          style={{ borderColor: "rgba(255,255,255,0.06)", backgroundColor: "#0f172a" }}
+          style={{
+            borderColor: "var(--surface-border)",
+            backgroundColor: "var(--bg-secondary)",
+          }}
         >
           <div className="flex items-center gap-2.5">
-            <MessageSquare size={20} className="text-emerald-400" />
-            <h2 className="text-base font-bold text-white">Chat</h2>
+            <MessageSquare size={20} className="text-emerald-500" />
+            <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+              Chat
+            </h2>
           </div>
           <button
             onClick={() => setIsChatOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
+            style={{ color: "var(--text-secondary)" }}
+            title="Fechar chat"
           >
             <X size={18} />
           </button>

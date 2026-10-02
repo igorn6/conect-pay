@@ -20,7 +20,7 @@ interface KanbanBoardProps {
  */
 export default function KanbanBoard({ cards, onCardClick, onOpenTrash, selectable = false, selectedIds = new Set(), onToggleSelect, onSelectAllInColumn, profilesMap = {} }: KanbanBoardProps) {
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* Kanban Header / Actions */}
       <div className="flex justify-end px-6 py-2 shrink-0">
         <button
@@ -32,7 +32,7 @@ export default function KanbanBoard({ cards, onCardClick, onOpenTrash, selectabl
         </button>
       </div>
 
-      <div className="flex-1 overflow-x-auto px-6 pb-6">
+      <div className="flex-1 min-h-0 overflow-x-auto px-6 pb-6">
         <div className="flex gap-4 min-w-max h-full">
         {KANBAN_COLUMNS.map((column) => (
                     <KanbanColumn

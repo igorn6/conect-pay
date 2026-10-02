@@ -1,4 +1,4 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
@@ -56,6 +56,15 @@ export async function GET(req: Request) {
             avatar_url: prof?.avatar_url || null,
           };
         });
+
+      if (participants.length === 0) {
+        const myProf = profileMap.get(userId);
+        participants.push({
+          profile_id: userId,
+          name: myProf?.name || "Você",
+          avatar_url: myProf?.avatar_url || null,
+        });
+      }
 
       // Última mensagem
       const { data: lastMsg } = await supabaseAdmin
