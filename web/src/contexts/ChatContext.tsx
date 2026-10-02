@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
@@ -121,6 +121,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     loadChats();
   }, [loadChats, allProfiles, userName]);
 
+  // Helper de som para mensagens recebidas
+  const playMessageSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.25);
+    } catch {
+      // AudioContext bloqueado ou não suportado
+    }
+  }, []);
+
   const loadMessages = useCallback(
     async (chatId: string) => {
       if (!chatId) return;
@@ -131,15 +151,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const enriched: ChatMessage[] = await res.json();
         setMessages(enriched);
 
-        // Marcar como lidas
-        await supabase
+        // Marca como lidas em background sem travar a interface
+        supabase
           .from("chat_messages")
           .update({ read_at: new Date().toISOString() })
           .eq("chat_id", chatId)
           .neq("sender_id", userId!)
-          .is("read_at", null);
-
-        loadChats();
+          .is("read_at", null)
+          .then(() => loadChats());
       } catch (err) {
         console.error("Erro ao carregar mensagens via API:", err);
       }
@@ -150,6 +169,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Realtime
   useEffect(() => {
     if (!userId) return;
+
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
 
     const channel = supabase
       .channel("chat-realtime")
@@ -162,6 +185,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             loadMessages(activeChatId);
           }
           loadChats();
+
+          // Notificar caso a mensagem seja de outro usuário
+          if (newMsg.sender_id !== userId) {
+            playMessageSound();
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("Nova mensagem no Chat", {
+                body: newMsg.text || (newMsg.file_name ? `Arquivo: ${newMsg.file_name}` : "Solicitação anexada"),
+                icon: "/icon.png",
+              });
+            }
+          }
         }
       )
       .subscribe();
@@ -171,11 +205,31 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, activeChatId, loadMessages, loadChats]);
+  }, [userId, activeChatId, loadMessages, loadChats, playMessageSound]);
 
   const sendMessage = useCallback(
     async (text: string, file?: File | null, cardRequestId?: string | null) => {
       if (!userId || !activeChatId) return;
+
+      // Adiciona mensagem instantaneamente na tela (Optimistic UI)
+      const tempId = "temp-" + Date.now();
+      const optimisticMsg: ChatMessage = {
+        id: tempId,
+        chat_id: activeChatId,
+        sender_id: userId,
+        text: text || null,
+        file_url: null,
+        file_name: file ? file.name : null,
+        file_type: file ? file.type : null,
+        card_request_id: cardRequestId || null,
+        created_at: new Date().toISOString(),
+        read_at: null,
+        card_title: pendingCard?.title,
+        card_amount: pendingCard?.amount,
+        card_status: pendingCard?.status,
+      };
+      setMessages((prev) => [...prev, optimisticMsg]);
+      setPendingCard(null);
 
       let fileUrl: string | null = null;
       let fileName: string | null = null;
@@ -215,17 +269,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Erro ao enviar mensagem");
 
-        // Atualiza imediatamente a interface
         await loadMessages(activeChatId);
-        await loadChats();
+        loadChats();
       } catch (sendErr: any) {
         console.error("Error sending message via API:", sendErr);
+        // Remove mensagem otimista em caso de erro
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
         alert("Erro ao enviar mensagem: " + sendErr.message);
       }
-
-      setPendingCard(null);
     },
-    [userId, activeChatId, loadMessages, loadChats]
+    [userId, activeChatId, loadMessages, loadChats, pendingCard]
   );
 
   const startChat = useCallback(
