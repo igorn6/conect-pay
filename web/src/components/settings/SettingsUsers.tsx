@@ -182,6 +182,10 @@ export default function SettingsUsers() {
         sector: formSector || null,
       };
 
+      if (userRole === "MASTER" && formEmail.trim() && formEmail.trim().toLowerCase() !== (userToEdit.email || "").toLowerCase()) {
+        payload.email = formEmail.trim();
+      }
+
       if (formEditPassword.trim()) {
         if (formEditPassword.trim().length < 6) {
           throw new Error("A nova senha deve ter no mínimo 6 caracteres.");
@@ -727,12 +731,13 @@ export default function SettingsUsers() {
               </div>
               
               <div>
-                <label className="text-sm font-medium text-slate-300">E-mail (Apenas Leitura)</label>
+                <label className="text-sm font-medium text-slate-300">E-mail</label>
                 <input
                   type="email"
-                  disabled
+                  required
                   value={formEmail}
-                  className="w-full mt-1.5 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-400 outline-none cursor-not-allowed opacity-70"
+                  onChange={(e) => setFormEmail(e.target.value)}
+                  className="w-full mt-1.5 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 outline-none focus:border-emerald-500"
                 />
               </div>
               

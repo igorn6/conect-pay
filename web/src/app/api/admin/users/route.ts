@@ -1,6 +1,7 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createClient } from "@/utils/supabase/server";
 
 export async function GET() {
   try {
@@ -116,10 +117,39 @@ export async function PATCH(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id, name, role, sector, password } = body;
+    const { id, name, role, sector, password, email } = body;
     
     if (!id || !name || !role) {
       return NextResponse.json({ error: "Faltam campos obrigatórios." }, { status: 400 });
+    }
+
+    // Alteração de e-mail: somente usuários MASTER (validado no servidor)
+    const newEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (newEmail) {
+      const supabase = await createClient();
+      const { data: { user: caller } } = await supabase.auth.getUser();
+      if (!caller) {
+        return NextResponse.json({ error: "Não autorizado. Faça login novamente." }, { status: 401 });
+      }
+      const { data: callerProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("role")
+        .eq("id", caller.id)
+        .single();
+      if (callerProfile?.role !== "MASTER") {
+        return NextResponse.json({ error: "Apenas o perfil MASTER pode alterar e-mails." }, { status: 403 });
+      }
+
+      const { data: current } = await supabaseAdmin.auth.admin.getUserById(id);
+      if (current?.user && current.user.email?.toLowerCase() !== newEmail) {
+        const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(id, {
+          email: newEmail,
+          email_confirm: true,
+        });
+        if (emailError) {
+          return NextResponse.json({ error: "Erro ao atualizar e-mail: " + emailError.message }, { status: 400 });
+        }
+      }
     }
 
     const { error } = await supabaseAdmin
