@@ -94,7 +94,7 @@ export default function HubPage() {
         let validacaoQuery = supabase
           .from("payment_requests")
           .select("id", { count: "exact", head: true })
-          .in("status", ["NOVA_SOLICITACAO", "VALIDACAO_GESTOR"])
+          .eq("status", "VALIDACAO_GESTOR")
           .or("is_deleted.eq.false,is_deleted.is.null");
           
         if (sectorUserIds.length > 0) {

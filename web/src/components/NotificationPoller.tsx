@@ -29,7 +29,7 @@ export default function NotificationPoller() {
         const { data } = await supabase
           .from("payment_requests")
           .select("id, status, real_requester_id, created_by")
-          .in("status", ["NOVA_SOLICITACAO", "VALIDACAO_GESTOR", "AGUARDANDO_PAGAMENTO", "CORRECAO_PENDENTE", "RECUSADO"])
+          .in("status", ["VALIDACAO_GESTOR", "AGUARDANDO_PAGAMENTO", "CORRECAO_PENDENTE", "RECUSADO"])
           .or("is_deleted.eq.false,is_deleted.is.null");
 
         const items = data || [];
@@ -37,7 +37,7 @@ export default function NotificationPoller() {
           const isMine = req.real_requester_id === userId || req.created_by === userId;
           const isInSector = sectorUserIds.includes(req.real_requester_id) || sectorUserIds.includes(req.created_by);
           
-          if (["NOVA_SOLICITACAO", "VALIDACAO_GESTOR"].includes(req.status)) {
+          if (req.status === "VALIDACAO_GESTOR") {
             return isInSector || isMine;
           } else {
             return isMine;
