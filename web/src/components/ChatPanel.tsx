@@ -13,9 +13,13 @@ import {
   Check,
   CheckCheck,
   Download,
+  ExternalLink,
 } from "lucide-react";
 import { useChat, type Chat, type ChatMessage, type PendingCardAttachment } from "@/contexts/ChatContext";
 import { useAuth } from "@/contexts/AuthContext";
+import CardDetailModal from "@/components/CardDetailModal";
+import { supabase } from "@/lib/supabase";
+import type { PaymentRequest } from "@/types/database";
 
 // ---------- Status labels ----------
 const STATUS_LABELS: Record<string, string> = {
@@ -71,12 +75,16 @@ function CardPreview({ title, amount, status, onClick }: {
   const color = STATUS_COLORS[status || ""] || "#6b7280";
   return (
     <div
-      onClick={onClick}
-      className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:brightness-110 transition-all mb-1"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
+      className="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all mb-1 group"
       style={{
         backgroundColor: `${color}15`,
         borderColor: `${color}40`,
       }}
+      title="Clique para abrir a solicitação"
     >
       <div
         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
@@ -85,7 +93,7 @@ function CardPreview({ title, amount, status, onClick }: {
         <DollarSign size={16} style={{ color }} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+        <p className="text-xs font-semibold truncate group-hover:underline" style={{ color: "var(--text-primary)" }}>
           {title || "Solicitação"}
         </p>
         <div className="flex items-center gap-2 mt-0.5">
@@ -100,6 +108,7 @@ function CardPreview({ title, amount, status, onClick }: {
           </span>
         </div>
       </div>
+      <ExternalLink size={14} className="opacity-60 group-hover:opacity-100 transition-opacity shrink-0" style={{ color }} />
     </div>
   );
 }
@@ -139,7 +148,15 @@ function PendingCardBanner({ card, onRemove }: { card: PendingCardAttachment; on
 }
 
 // ==================== MESSAGE BUBBLE ====================
-function MessageBubble({ msg, isMine }: { msg: ChatMessage; isMine: boolean }) {
+function MessageBubble({
+  msg,
+  isMine,
+  onCardClick,
+}: {
+  msg: ChatMessage;
+  isMine: boolean;
+  onCardClick?: (cardRequestId: string) => void;
+}) {
   const isImage = msg.file_type?.startsWith("image/");
   
   return (
@@ -161,6 +178,7 @@ function MessageBubble({ msg, isMine }: { msg: ChatMessage; isMine: boolean }) {
             title={msg.card_title}
             amount={msg.card_amount}
             status={msg.card_status}
+            onClick={() => onCardClick?.(msg.card_request_id!)}
           />
         )}
 
@@ -460,9 +478,10 @@ function ContactPicker({ onSelect, onBack }: {
 }
 
 // ==================== CONVERSATION VIEW ====================
-function ConversationView({ chatId, onBack }: {
+function ConversationView({ chatId, onBack, onCardClick }: {
   chatId: string;
   onBack: () => void;
+  onCardClick: (cardRequestId: string) => void;
 }) {
   const { messages, loadMessages, sendMessage, pendingCard, setPendingCard, chats, allProfiles, activeTargetUserId } = useChat();
   const { userId } = useAuth();
@@ -601,7 +620,12 @@ function ConversationView({ chatId, onBack }: {
                 </span>
               </div>
               {group.msgs.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} isMine={msg.sender_id === userId} />
+                <MessageBubble
+                  key={msg.id}
+                  msg={msg}
+                  isMine={msg.sender_id === userId}
+                  onCardClick={onCardClick}
+                />
               ))}
             </div>
           ))
@@ -693,9 +717,21 @@ function ConversationView({ chatId, onBack }: {
 
 // ==================== MAIN CHAT PANEL ====================
 export default function ChatPanel() {
-  const { userId } = useAuth();
-  const { isChatOpen, setIsChatOpen, activeChatId, setActiveChatId, startChat, setActiveTargetUserId } = useChat();
+  const { userId, userName, userRole } = useAuth();
+  const { isChatOpen, setIsChatOpen, activeChatId, setActiveChatId, startChat, setActiveTargetUserId, allProfiles, loadMessages } = useChat();
   const [view, setView] = useState<"list" | "contacts" | "conversation">("list");
+  const [viewingCard, setViewingCard] = useState<PaymentRequest | null>(null);
+
+  const profilesMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    (allProfiles || []).forEach((p) => {
+      map[p.id] = p.name;
+    });
+    if (userId && userName) {
+      map[userId] = userName;
+    }
+    return map;
+  }, [allProfiles, userId, userName]);
 
   // Sync view with activeChatId
   useEffect(() => {
@@ -703,6 +739,39 @@ export default function ChatPanel() {
       setView("conversation");
     }
   }, [activeChatId]);
+
+  const handleCardClick = async (cardRequestId: string) => {
+    if (!cardRequestId) return;
+
+    // Se estiver na tela de kanban, rola suavemente até o card e destaca com borda/glow
+    const cardElem = document.getElementById(`kanban-card-${cardRequestId}`);
+    if (cardElem) {
+      cardElem.scrollIntoView({ behavior: "smooth", block: "center" });
+      cardElem.style.transition = "all 0.4s ease";
+      cardElem.style.transform = "scale(1.03)";
+      cardElem.style.boxShadow = "0 0 0 3px #10b981, 0 10px 25px -5px rgba(0,0,0,0.5)";
+      setTimeout(() => {
+        cardElem.style.transform = "";
+        cardElem.style.boxShadow = "";
+      }, 2500);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("payment_requests")
+        .select("*")
+        .eq("id", cardRequestId)
+        .single();
+
+      if (data) {
+        setViewingCard(data);
+      } else {
+        alert("Solicitação não encontrada.");
+      }
+    } catch (err) {
+      console.error("Erro ao abrir solicitação:", err);
+    }
+  };
 
   const handleSelectChat = (chat: Chat) => {
     const other = chat.participants.find((p) => p.profile_id !== userId) || chat.participants[0];
@@ -783,10 +852,34 @@ export default function ChatPanel() {
             <ContactPicker onSelect={handleSelectContact} onBack={handleBack} />
           )}
           {view === "conversation" && activeChatId && (
-            <ConversationView chatId={activeChatId} onBack={handleBack} />
+            <ConversationView
+              chatId={activeChatId}
+              onBack={handleBack}
+              onCardClick={handleCardClick}
+            />
           )}
         </div>
       </div>
+
+      {/* Modal de Detalhes da Solicitação */}
+      {viewingCard && (
+        <CardDetailModal
+          card={viewingCard}
+          userRole={userRole || "GESTOR"}
+          simulatedUserName={userName || "Usuário"}
+          onClose={() => setViewingCard(null)}
+          onUpdate={async () => {
+            const { data } = await supabase
+              .from("payment_requests")
+              .select("*")
+              .eq("id", viewingCard.id)
+              .single();
+            if (data) setViewingCard(data);
+            if (activeChatId) loadMessages(activeChatId);
+          }}
+          profilesMap={profilesMap}
+        />
+      )}
 
       {/* Animation */}
       <style jsx global>{`

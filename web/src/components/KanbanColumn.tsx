@@ -106,6 +106,7 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
             {cards.map((card) => (
               <div
                 key={card.id}
+                id={`kanban-card-${card.id}`}
                 onClick={() => onCardClick(card)}
                 className="p-3.5 rounded-lg cursor-pointer"
                 style={{

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useRef } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
@@ -263,7 +263,7 @@ export default function CardDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0, 0, 0, 0.75)", backdropFilter: "blur(8px)" }}
       onClick={onClose}
     >
