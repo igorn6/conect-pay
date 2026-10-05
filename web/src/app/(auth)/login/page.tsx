@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Mail, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Particles from "@/components/Particles";
+import BrandLogo from "@/components/BrandLogo";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -163,11 +164,19 @@ export default function LoginPage() {
         </div>
 
         <div className="w-full max-w-[400px] relative z-10">
-          <div className="mb-10 text-center">
+          <div className="mb-8 flex flex-col items-center text-center">
+            {/* Logo Conect Pay em destaque (maior e com glow) */}
+            <div className="relative mb-6 group select-none">
+              <div className="absolute -inset-3 bg-gradient-to-r from-purple-600/35 via-indigo-600/25 to-blue-600/35 rounded-3xl blur-2xl opacity-75 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative flex items-center justify-center px-4 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.1] shadow-2xl backdrop-blur-sm hover:border-white/[0.2] transition-all">
+                <BrandLogo size="2xl" forceTheme="dark" />
+              </div>
+            </div>
+
             <h1 className="text-3xl font-bold text-[#ffffff] tracking-wide mb-1 drop-shadow-md">
               Olá!
             </h1>
-            <h2 className="text-xl font-medium text-[#cccccc] tracking-wide drop-shadow-md">
+            <h2 className="text-base font-medium text-[#aaaaaa] tracking-wide drop-shadow-md">
               Bem-vindo de volta
             </h2>
           </div>

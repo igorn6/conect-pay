@@ -75,6 +75,12 @@ export default function CardDetailModal({
   const hasAttachment = !!paymentProofUrl;
   const isTransitionBlocked = isEmAprovacao && !paymentProofUrl;
 
+  // Forma de pagamento Pix (no card ou nos splits)
+  const isPix =
+    card.payment_type?.toUpperCase() === "PIX" ||
+    card.payment_method?.toUpperCase() === "PIX" ||
+    Boolean(card.splits && card.splits.some((s: any) => s.payment_type?.toUpperCase() === "PIX"));
+
   const canAdvance = isMasterOrFinanceiro && NEXT_STATUS[card.status];
   const canRefuseFinanceiro = isMasterOrFinanceiro && card.status !== "RECUSADO" && card.status !== "FINALIZADO";
   const canCancelGestor = userRole === "GESTOR" && card.status !== "RECUSADO" && card.status !== "FINALIZADO";
@@ -102,12 +108,12 @@ export default function CardDetailModal({
       .update({ status: newStatus, payment_proof_url: paymentProofUrl, invoice_url: invoiceUrl })
       .eq("id", card.id);
     setLoading(false);
-    if (error) { alert("Erro ao avanÃ§ar solicitacao."); return; }
-    onUpdate(`Solicitacao avancou para ${newStatus.replace(/_/g, " ")}`);
+    if (error) { alert("Erro ao avançar solicitação."); return; }
+    onUpdate(`Solicitação avançou para ${newStatus.replace(/_/g, " ")}`);
   }
 
   async function handleRefuse() {
-    if (!refusalReason.trim()) { setErrorMsg("O motivo e obrigatorio."); return; }
+    if (!refusalReason.trim()) { setErrorMsg("O motivo é obrigatório."); return; }
     setLoading(true);
     const prefix = userRole === "GESTOR" ? "Cancelado pelo Gestor" : "Recusado pelo Financeiro";
     const { error } = await supabase
@@ -115,8 +121,8 @@ export default function CardDetailModal({
       .update({ status: "RECUSADO", refusal_reason: `${prefix}: ${refusalReason.trim()}`, payment_proof_url: paymentProofUrl, invoice_url: invoiceUrl })
       .eq("id", card.id);
     setLoading(false);
-    if (error) { alert("Erro ao recusar solicitacao."); return; }
-    onUpdate("Solicitacao enviada para Recusados.");
+    if (error) { alert("Erro ao recusar solicitação."); return; }
+    onUpdate("Solicitação enviada para Recusados.");
   }
 
   async function handleTrash() {
@@ -124,8 +130,8 @@ export default function CardDetailModal({
     setLoading(true);
     const { error } = await supabase.from("payment_requests").update({ is_deleted: true }).eq("id", card.id);
     setLoading(false);
-    if (error) { alert("Erro ao excluir card."); return; }
-    onUpdate("Card movido para a Lixeira.");
+    if (error) { alert("Erro ao excluir solicitação."); return; }
+    onUpdate("Solicitação movida para a Lixeira.");
   }
 
   async function handleSendEmail() {
@@ -134,8 +140,14 @@ export default function CardDetailModal({
     const cnpjDisplay = localCnpj || card.cnpj || "Sem CNPJ";
     const subject = encodeURIComponent(`Pagamento Ref. ${card.title} | ${cnpjDisplay}`);
     const formattedAmount = Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+    
+    // Obter dados do Pix (dos splits ou direto do card)
+    const pixSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "PIX");
+    const pixKey = pixSplit?.pix_key || card.pix_key || "";
+    const pixOwner = pixSplit?.pix_owner || card.pix_owner || card.pix_name || "";
+
     const body = encodeURIComponent(
-      `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${card.title}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitavel: ${card.pix_key || ""}\nTitular: ${card.pix_owner || ""}`
+      `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${card.title}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${pixKey}\nTitular: ${pixOwner}`
     );
     window.open(`mailto:tassiolimacs@gmail.com?subject=${subject}&body=${body}`, '_blank');
   }
@@ -268,16 +280,16 @@ export default function CardDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl rounded-2xl flex flex-col max-h-[90vh] shadow-2xl relative"
+        className="w-full max-w-3xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl relative overflow-hidden"
         style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--surface-border)" }}
         onClick={(e) => e.stopPropagation()}
         onPaste={handlePaste}
       >
         {/* HEADER */}
-        <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: "1px solid var(--surface-border)" }}>
+        <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-gray-700/60 bg-gray-900/30">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-white tracking-tight">Detalhes da Solicitacao</h2>
-            <span className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-md" style={{ backgroundColor: "var(--brand-primary)", color: "var(--bg-primary)" }}>
+            <h2 className="text-base font-bold text-white tracking-tight">Detalhes da Solicitação</h2>
+            <span className="px-2.5 py-1 text-[11px] font-black uppercase tracking-wider rounded-md" style={{ backgroundColor: "var(--brand-primary)", color: "var(--bg-primary)" }}>
               #{card.id.substring(0, 6)}
             </span>
           </div>
@@ -295,7 +307,7 @@ export default function CardDetailModal({
               <div className="flex items-start gap-3">
                 <AlertTriangle size={22} className="text-red-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-bold text-red-400 uppercase tracking-wider mb-1">Correcao Exigida pelo Gestor</p>
+                  <p className="text-sm font-bold text-red-400 uppercase tracking-wider mb-1">Correção Exigida pelo Gestor</p>
                   <p className="text-sm text-red-300 leading-relaxed">{card.rejection_reason}</p>
                 </div>
               </div>
@@ -307,54 +319,54 @@ export default function CardDetailModal({
             <div className="flex flex-col gap-5">
               <div>
                 <h3 className="text-2xl font-black text-white leading-tight mb-1">{card.title}</h3>
-                <p className="text-4xl font-black text-emerald-400 tracking-tighter">
+                <p className="text-3xl font-black text-emerald-400 tracking-tight">
                   R$ {Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-sm text-gray-300 bg-gray-800/50 p-3 rounded-xl border border-gray-700/50">
-                  <Tag size={16} className="text-gray-400" />
-                  <span className="font-semibold">{card.category}</span>
+                <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
+                  <Tag size={16} className="text-gray-400 shrink-0" />
+                  <span className="font-semibold text-xs text-gray-300">{card.category}</span>
                 </div>
-                {card.payment_type === "Pix" && isMasterOrFinanceiro && (
-                  <div className="flex items-center gap-3 text-sm text-gray-300 bg-gray-800/50 p-3 rounded-xl border border-gray-700/50">
-                    <Building2 size={16} className="text-gray-400" />
+                {isPix && isMasterOrFinanceiro && (
+                  <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
+                    <Building2 size={16} className="text-gray-400 shrink-0" />
                     <div className="flex flex-col w-full">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-1">CNPJ de Faturamento</span>
-                      <select value={localCnpj} onChange={(e) => handleCnpjChange(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-md px-2 py-1 text-sm text-white outline-none focus:border-brand-primary">
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">CNPJ de Faturamento</span>
+                      <select value={localCnpj} onChange={(e) => handleCnpjChange(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-brand-primary">
                         <option value="">Selecione um CNPJ...</option>
                         {CNPJ_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
                       </select>
                     </div>
                   </div>
                 )}
-                {card.payment_type === "Pix" && !isMasterOrFinanceiro && localCnpj && (
-                  <div className="flex items-center gap-3 text-sm text-gray-300 bg-gray-800/50 p-3 rounded-xl border border-gray-700/50">
-                    <Building2 size={16} className="text-gray-400" />
+                {isPix && !isMasterOrFinanceiro && localCnpj && (
+                  <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
+                    <Building2 size={16} className="text-gray-400 shrink-0" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">CNPJ de Faturamento</span>
-                      <span className="font-semibold">{localCnpj}</span>
+                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">CNPJ de Faturamento</span>
+                      <span className="font-semibold text-xs text-gray-200">{localCnpj}</span>
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-3 text-sm text-gray-300 bg-gray-800/50 p-3 rounded-xl border border-gray-700/50">
-                  <User size={16} className="text-gray-400" />
+                <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
+                  <User size={16} className="text-gray-400 shrink-0" />
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Solicitante Real</span>
-                    <span className="font-semibold">{requesterName}</span>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Solicitante Real</span>
+                    <span className="font-semibold text-xs text-gray-200">{requesterName}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-gray-300 bg-gray-800/50 p-3 rounded-xl border border-gray-700/50">
-                  <Calendar size={16} className="text-gray-400" />
+                <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
+                  <Calendar size={16} className="text-gray-400 shrink-0" />
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Data do Pedido</span>
-                    <span className="font-semibold">{new Date(card.created_at).toLocaleString("pt-BR")}</span>
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Data do Pedido</span>
+                    <span className="font-semibold text-xs text-gray-200">{new Date(card.created_at).toLocaleString("pt-BR")}</span>
                   </div>
                 </div>
                 {card.notes && (
-                  <div className="flex flex-col gap-2 text-sm text-gray-300 bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
-                    <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">ObservaÃ§Ãµes / DescriÃ§Ã£o</span>
-                    <span className="font-medium whitespace-pre-wrap">{card.notes}</span>
+                  <div className="flex flex-col gap-2 text-sm text-gray-200 bg-gray-800/60 p-3.5 rounded-xl border border-gray-700/60">
+                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Observações / Descrição</span>
+                    <span className="font-medium text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">{card.notes}</span>
                   </div>
                 )}
               </div>
@@ -373,13 +385,19 @@ export default function CardDetailModal({
                     id: "legacy", payment_type: card.payment_type || card.payment_method,
                     amount: card.amount, pix_owner: card.pix_owner || card.pix_name,
                     pix_key: card.pix_key, caju_phone: card.caju_phone
-                  }]).map((split: any, idx: number) => (
-                    <div key={split.id || idx} className="p-3 rounded-lg border relative" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                  }]).map((split: any, idx: number) => {
+                    const isSplitPix = split.payment_type?.toUpperCase() === "PIX";
+                    const isSplitCaju = split.payment_type?.toUpperCase() === "CAJU";
+                    const isSplitBoleto = split.payment_type?.toUpperCase() === "BOLETO";
+                    const labelBadge = isSplitPix ? "Pix" : isSplitCaju ? "Caju" : isSplitBoleto ? "Boleto" : (split.payment_type || "Outro");
+
+                    return (
+                    <div key={split.id || idx} className="p-3.5 rounded-xl border relative" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/20">{split.payment_type}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/20">{labelBadge}</span>
                         <span className="text-xs font-bold text-emerald-400">R$ {Number(split.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                       </div>
-                      {split.payment_type === "Pix" && (
+                      {isSplitPix && (
                         <div className="space-y-2 mt-2">
                           <div>
                             <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Chave Pix</span>
@@ -396,19 +414,19 @@ export default function CardDetailModal({
                           </div>
                         </div>
                       )}
-                      {split.payment_type === "Caju" && (
+                      {isSplitCaju && (
                         <div className="mt-2">
                           <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Titular</span>
                           <span className="text-xs font-semibold block truncate" style={{ color: "var(--text-primary)" }}>{split.caju_phone}</span>
                         </div>
                       )}
-                      {split.payment_type === "Boleto" && (
+                      {isSplitBoleto && (
                         <div className="space-y-2 mt-2">
                           <div>
-                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Linha DigitÃ¡vel</span>
+                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Linha Digitável</span>
                             <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
                               <span className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_barcode || "-"}</span>
-                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0" style={{ color: "var(--text-secondary)" }} title="Copiar Linha DigitÃ¡vel">
+                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0" style={{ color: "var(--text-secondary)" }} title="Copiar Linha Digitável">
                                 {copiedKey ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Copy size={12} />}
                               </button>
                             </div>
@@ -417,11 +435,10 @@ export default function CardDetailModal({
                             <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Data de Vencimento</span>
                             <span className="text-xs font-semibold block truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_due_date ? new Date(split.boleto_due_date + "T12:00:00Z").toLocaleDateString("pt-BR") : "-"}</span>
                           </div>
-                          
                         </div>
                       )}
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
 
@@ -499,7 +516,7 @@ export default function CardDetailModal({
                   <UploadCloud size={36} className="text-gray-500" />
                   <div className="text-center">
                     <p className="text-sm font-semibold text-gray-300">Comprovante(s) de Pagamento</p>
-                    <p className="text-xs text-gray-500 mt-1">Apenas para Master/Financeiro. Anexe as imagens ou PDFs.<br /><span className="text-red-400 font-medium">*Obrigatorio para avanÃ§ar</span></p>
+                    <p className="text-xs text-gray-400 mt-1">Apenas para Master/Financeiro. Anexe as imagens ou PDFs.<br /><span className="text-amber-400 font-medium">*Obrigatório para avançar</span></p>
                   </div>
                   <button onClick={() => fileInputRef.current?.click()} className="mt-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors">Selecionar Arquivos</button>
                 </>
@@ -520,7 +537,7 @@ export default function CardDetailModal({
                   <UploadCloud size={36} className="text-red-400" />
                   <div className="text-center mt-2">
                     <p className="text-sm font-bold text-red-300">Envie o Comprovante Corrigido</p>
-                    <p className="text-[11px] text-gray-500 mt-1">O Gestor exigiu uma correcao. Anexe o novo comprovante para reenviar a validacao.</p>
+                    <p className="text-[11px] text-gray-400 mt-1">O Gestor exigiu uma correção. Anexe o novo comprovante para reenviar à validação.</p>
                   </div>
                   <button onClick={() => correctionInputRef.current?.click()} className="mt-3 px-5 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-sm font-bold rounded-xl transition-colors border border-red-500/30">
                     Selecionar Novo Comprovante
@@ -536,14 +553,14 @@ export default function CardDetailModal({
             <div className="mt-6 p-5 rounded-2xl border border-purple-500/30 bg-purple-500/5">
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck size={20} className="text-purple-400" />
-                <h4 className="font-bold text-white text-sm uppercase tracking-wider">Validacao do Pagamento</h4>
+                <h4 className="font-bold text-white text-sm uppercase tracking-wider">Validação do Pagamento</h4>
               </div>
 
               {latestReceipt && (
                 <div className="mb-4 p-3 rounded-lg bg-gray-800/60 border border-gray-700/50">
-                  <span className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Ultimo Comprovante</span>
+                  <span className="text-[10px] uppercase font-bold text-gray-500 block mb-1">Último Comprovante</span>
                   <a href={latestReceipt.url} target="_blank" rel="noreferrer" className="text-sm font-semibold text-blue-400 hover:text-blue-300 underline">Visualizar Comprovante</a>
-                  <p className="text-[10px] text-gray-500 mt-1">
+                  <p className="text-[10px] text-gray-400 mt-1">
                     Enviado em {new Date(latestReceipt.uploadedAt).toLocaleString("pt-BR")}
                     {profilesMap[latestReceipt.uploadedBy] && ` por ${profilesMap[latestReceipt.uploadedBy]}`}
                   </p>
@@ -558,21 +575,21 @@ export default function CardDetailModal({
                   </button>
                   <button onClick={() => setShowRejectForm(true)} disabled={loading} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 transition-all disabled:opacity-50">
                     <ShieldAlert size={18} />
-                    Exigir Correcao
+                    Exigir Correção
                   </button>
                 </div>
               )}
 
               {isOwner && showRejectForm && (
                 <div className="flex flex-col gap-3 mt-2 p-4 rounded-xl bg-gray-900 border border-red-500/40">
-                  <label className="text-xs font-bold text-red-400">Motivo da Correcao *</label>
-                  <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setErrorMsg(""); }} rows={3} placeholder="Descreva o que esta errado nÃ£o comprovante..." className={`w-full px-3 py-2 text-sm rounded-lg outline-none resize-none bg-gray-800 text-white border ${errorMsg ? "border-red-500" : "border-gray-700"}`} />
+                  <label className="text-xs font-bold text-red-400">Motivo da Correção *</label>
+                  <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setErrorMsg(""); }} rows={3} placeholder="Descreva o que está errado no comprovante..." className={`w-full px-3 py-2 text-sm rounded-lg outline-none resize-none bg-gray-800 text-white border ${errorMsg ? "border-red-500" : "border-gray-700"}`} />
                   {errorMsg && <span className="text-xs text-red-500">{errorMsg}</span>}
                   <div className="flex justify-end gap-2">
                     <button onClick={() => { setShowRejectForm(false); setRejectReason(""); setErrorMsg(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition-colors">Cancelar</button>
                     <button onClick={() => handleValidateAction("REJECT")} disabled={loading} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50">
                       {loading && <Loader2 size={14} className="animate-spin" />}
-                      Enviar para Correcao
+                      Enviar para Correção
                     </button>
                   </div>
                 </div>
@@ -582,7 +599,7 @@ export default function CardDetailModal({
                 <div className="mt-3 pt-3 border-t border-gray-700/50">
                   <button onClick={() => handleValidateAction("FORCE_APPROVE")} disabled={loading} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all disabled:opacity-50">
                     {loading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={16} />}
-                    Forcar Aprovacao (Admin)
+                    Forçar Aprovação (Admin)
                   </button>
                 </div>
               )}
@@ -594,7 +611,7 @@ export default function CardDetailModal({
             <div className="mt-4">
               <button onClick={() => handleValidateAction("FORCE_APPROVE")} disabled={loading} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-all disabled:opacity-50">
                 {loading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={16} />}
-                Forcar Aprovacao (Admin Override)
+                Forçar Aprovação (Admin Override)
               </button>
             </div>
           )}
@@ -605,7 +622,7 @@ export default function CardDetailModal({
               <button onClick={() => setHistoryOpen(!historyOpen)} className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800/80 transition-colors">
                 <div className="flex items-center gap-2">
                   <History size={16} className="text-gray-400" />
-                  <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">HistÃ³rico de Comprovantes ({receiptsHistory.length})</span>
+                  <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Histórico de Comprovantes ({receiptsHistory.length})</span>
                 </div>
                 {historyOpen ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
               </button>
@@ -619,7 +636,7 @@ export default function CardDetailModal({
                           <a href={receipt.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline">
                             {idx === receiptsHistory.length - 1 ? "Comprovante Atual" : `Comprovante v${idx + 1}`}
                           </a>
-                          <p className="text-[10px] text-gray-500">
+                          <p className="text-[10px] text-gray-400">
                             {new Date(receipt.uploadedAt).toLocaleString("pt-BR")}
                             {profilesMap[receipt.uploadedBy] && ` - ${profilesMap[receipt.uploadedBy]}`}
                           </p>
@@ -635,7 +652,7 @@ export default function CardDetailModal({
 
           {/* Legacy refuse form */}
           {showRefuseForm && (
-            <div className="mt-2 p-4 rounded-xl flex flex-col gap-3 bg-gray-900 border border-red-500/50">
+            <div className="mt-4 p-4 rounded-xl flex flex-col gap-3 bg-gray-900 border border-red-500/50">
               <label className="text-xs font-bold text-red-400">Motivo da Recusa / Cancelamento *</label>
               <textarea value={refusalReason} onChange={(e) => { setRefusalReason(e.target.value); setErrorMsg(""); }} rows={3} placeholder="Explique o motivo..." className={`w-full px-3 py-2 text-sm rounded-lg outline-none resize-none bg-gray-800 text-white border ${errorMsg ? "border-red-500" : "border-gray-700"}`} />
               {errorMsg && <span className="text-xs text-red-500">{errorMsg}</span>}
@@ -651,96 +668,161 @@ export default function CardDetailModal({
         </div>
 
         {/* FOOTER */}
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-4 px-6 py-5 shrink-0" style={{ borderTop: "1px solid var(--surface-border)", backgroundColor: "rgba(0,0,0,0.2)" }}>
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            {/* Enviar no Chat */}
-            <div className="relative group">
+        <div className="flex flex-col gap-3 px-6 py-4 shrink-0 bg-gray-950/70 border-t border-gray-700/60">
+          {/* Aviso se a transição estiver bloqueada */}
+          {isTransitionBlocked && isMasterOrFinanceiro && (
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300">
+              <AlertTriangle size={15} className="shrink-0 text-amber-400" />
+              <span className="text-xs font-semibold">Anexe o comprovante de pagamento acima para habilitar o avanço de etapa.</span>
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
+            {/* LADO ESQUERDO: Botões de Comunicação / Envio */}
+            <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+              {/* Enviar no Chat */}
               <button
+                type="button"
                 onClick={() => {
                   const cardPayload = {
-                      requestId: card.id,
-                      title: card.title || "Sem título",
-                      amount: card.amount,
-                      status: card.status,
-                    };
-                    
-                    const targetId = card.real_requester_id || card.created_by;
-                    if (targetId && userId !== targetId) {
-                      openChatWithCard(targetId, cardPayload);
-                    } else {
-                      setPendingCard(cardPayload);
-                      setIsChatOpen(true);
-                    }
+                    requestId: card.id,
+                    title: card.title || "Sem título",
+                    amount: card.amount,
+                    status: card.status,
+                  };
+                  
+                  const targetId = card.real_requester_id || card.created_by;
+                  if (targetId && userId !== targetId) {
+                    openChatWithCard(targetId, cardPayload);
+                  } else {
+                    setPendingCard(cardPayload);
+                    setIsChatOpen(true);
+                  }
                 }}
-                className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 transition-all border border-emerald-500/20 hover:border-emerald-500/40 shadow-sm cursor-pointer"
+                className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 hover:border-emerald-500/40 transition-all shadow-sm cursor-pointer"
+                title="Conversar sobre esta solicitação no chat"
               >
-                <MessageSquare size={16} />
-                Enviar no Chat
+                <MessageSquare size={15} />
+                <span>Enviar no Chat</span>
               </button>
-            </div>
-            {isEmAprovacao && card.payment_type === "Pix" && isMasterOrFinanceiro && (
-              <button onClick={handleSendEmail} className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-xl bg-gray-800 hover:bg-gray-700 text-gray-300 transition-all border border-gray-700 shadow-sm">
-                <Mail size={16} />
-                Solicitar via E-mail
-              </button>
-            )}
-            {isTransitionBlocked && isMasterOrFinanceiro && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400">
-                <Ban size={14} />
-                <span className="text-xs font-semibold">Anexe o comprovante de Pgto para avanÃ§ar</span>
-              </div>
-            )}
-          </div>
 
-          <div className="flex items-center justify-end gap-3 w-full lg:w-auto flex-wrap">
-            <div className="flex items-center gap-2">
+              {/* Solicitar via E-mail (Sempre que for Pix) */}
+              {isPix && isMasterOrFinanceiro && card.status !== "RECUSADO" && card.status !== "FINALIZADO" && (
+                <button
+                  type="button"
+                  onClick={handleSendEmail}
+                  className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 border border-blue-500/30 hover:border-blue-500/50 transition-all shadow-sm cursor-pointer"
+                  title="Abrir solicitação de pagamento via e-mail para Tassio"
+                >
+                  <Mail size={15} />
+                  <span>Solicitar via E-mail</span>
+                </button>
+              )}
+            </div>
+
+            {/* LADO DIREITO: Ações de Decisão e Avanço */}
+            <div className="flex items-center justify-end gap-2.5 w-full sm:w-auto flex-wrap">
+              {/* Mover para Lixeira */}
               {canTrash && (
-                <button onClick={handleTrash} disabled={loading} className="flex items-center justify-center p-2.5 rounded-xl bg-gray-800/50 text-gray-400 hover:text-red-400 hover:bg-red-500/10 border border-gray-700/50 hover:border-red-500/30 transition-all disabled:opacity-50" title="Mover para Lixeira">
-                  <Trash2 size={18} />
+                <button
+                  type="button"
+                  onClick={handleTrash}
+                  disabled={loading}
+                  className="p-2.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl border border-gray-700/60 hover:border-red-500/30 transition-all disabled:opacity-50"
+                  title="Mover para Lixeira"
+                >
+                  <Trash2 size={16} />
                 </button>
               )}
+
+              {/* Recusar / Cancelar */}
               {canRefuse && !showRefuseForm && !isValidacaoGestor && !isCorrecaoPendente && (
-                <button onClick={() => setShowRefuseForm(true)} disabled={loading} className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-gray-800/50 text-gray-300 hover:text-red-400 hover:bg-red-500/10 border border-gray-700/50 hover:border-red-500/30 transition-all disabled:opacity-50">
-                  <Ban size={16} />
-                  {userRole === "GESTOR" ? "Solicitar Cancelamento" : "Recusar"}
+                <button
+                  type="button"
+                  onClick={() => setShowRefuseForm(true)}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold rounded-xl text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 hover:border-red-500/40 transition-all disabled:opacity-50"
+                >
+                  <Ban size={14} />
+                  <span>{userRole === "GESTOR" ? "Solicitar Cancelamento" : "Recusar"}</span>
+                </button>
+              )}
+
+              {((canTrash || canRefuse) && !showRefuseForm && canAdvance) && (
+                <div className="hidden sm:block w-px h-6 bg-gray-700/60 mx-1" />
+              )}
+
+              {/* Botões quando Em Aprovação ou Correção Pendente */}
+              {(isEmAprovacao || isCorrecaoPendente) && isMasterOrFinanceiro && !showRefuseForm && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleAdvance("VALIDACAO_GESTOR")}
+                    disabled={loading || isTransitionBlocked}
+                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/40 hover:border-purple-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    Validação do Gestor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
+                    disabled={loading || isTransitionBlocked}
+                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    Aguardando Nota
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdvance("FINALIZADO")}
+                    disabled={loading || isTransitionBlocked}
+                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/25 text-emerald-300 hover:bg-emerald-600/35 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    Finalizar Direto
+                  </button>
+                </div>
+              )}
+
+              {/* Botões quando Validado pelo Gestor */}
+              {isValidadoGestor && isMasterOrFinanceiro && !showRefuseForm && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
+                    disabled={loading}
+                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    Aguardando Nota
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdvance("FINALIZADO")}
+                    disabled={loading}
+                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/25 text-emerald-300 hover:bg-emerald-600/35 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                  >
+                    Finalizar Direto
+                  </button>
+                </div>
+              )}
+
+              {/* Botão de avanço padrão */}
+              {!isEmAprovacao && !isValidacaoGestor && !isCorrecaoPendente && !isValidadoGestor && !isFinalizado && canAdvance && !showRefuseForm && (
+                <button
+                  type="button"
+                  onClick={() => handleAdvance()}
+                  disabled={loading || isTransitionBlocked}
+                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl bg-brand-primary hover:brightness-110 border border-brand-primary/50 shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <>
+                      <span>{isNovaSolicitacao ? "Aprovar Solicitação" : "Avançar Status"}</span>
+                      <ArrowRight size={15} />
+                    </>
+                  )}
                 </button>
               )}
             </div>
-
-            {((canTrash || canRefuse) && !showRefuseForm && canAdvance) && (
-              <div className="hidden sm:block w-px h-8 bg-gray-700/50 mx-1" />
-            )}
-
-            {(isEmAprovacao || isCorrecaoPendente) && isMasterOrFinanceiro && !showRefuseForm && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => handleAdvance("VALIDACAO_GESTOR")} disabled={loading || isTransitionBlocked} className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/20 hover:border-purple-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-                  ValidaÃ§Ã£o do Gestor
-                </button>
-                <button onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")} disabled={loading || isTransitionBlocked} className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-                  Aguardando Nota
-                </button>
-                <button onClick={() => handleAdvance("FINALIZADO")} disabled={loading || isTransitionBlocked} className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                  Finalizar Direto
-                </button>
-              </div>
-            )}
-
-            {isValidadoGestor && isMasterOrFinanceiro && !showRefuseForm && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")} disabled={loading} className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/20 hover:border-blue-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm">
-                  Aguardando Nota
-                </button>
-                <button onClick={() => handleAdvance("FINALIZADO")} disabled={loading} className="px-5 py-2.5 text-sm font-semibold rounded-xl bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                  Finalizar Direto
-                </button>
-              </div>
-            )}
-
-            {!isEmAprovacao && !isValidacaoGestor && !isCorrecaoPendente && !isValidadoGestor && !isFinalizado && canAdvance && !showRefuseForm && (
-              <button onClick={() => handleAdvance()} disabled={loading || isTransitionBlocked} className="flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-white rounded-xl bg-brand-primary hover:bg-brand-primary/90 border border-brand-primary/50 shadow-[0_4px_12px_var(--brand-glow)] transition-all disabled:opacity-50 disabled:cursor-not-allowed" style={{ backgroundColor: "var(--brand-primary)" }}>
-                {loading ? (<Loader2 size={18} className="animate-spin" />) : (<>{isNovaSolicitacao ? "Aprovar SolicitaÃ§Ã£o" : "AvanÃ§ar Status"}<ArrowRight size={18} /></>)}
-              </button>
-            )}
           </div>
         </div>
       </div>

@@ -185,7 +185,7 @@ export default function KanbanPage() {
     if (selectedIds.size === 0) return;
     
     if (action === "LIXEIRA") {
-      if (!window.confirm("Deseja mover " + selectedIds.size + " solicitaÃ§Ãµes para a lixeira?")) return;
+      if (!window.confirm("Deseja mover " + selectedIds.size + " solicitações para a lixeira?")) return;
       
       const { error } = await supabase
         .from("payment_requests")
@@ -196,12 +196,12 @@ export default function KanbanPage() {
         setToast({ message: "Erro ao excluir", type: "error" });
         return;
       }
-      setToast({ message: selectedIds.size + " solicitaÃ§Ãµes removidas", type: "success" });
+      setToast({ message: selectedIds.size + " solicitações removidas", type: "success" });
       setSelectedIds(new Set());
       fetchCards();
     } 
     else if (action === "RECUSAR") {
-      const reason = window.prompt("Motivo da recusa para as " + selectedIds.size + " solicitaÃ§Ãµes:");
+      const reason = window.prompt("Motivo da recusa para as " + selectedIds.size + " solicitações:");
       if (!reason || !reason.trim()) return;
       
       const { error } = await supabase
@@ -216,12 +216,12 @@ export default function KanbanPage() {
         setToast({ message: "Erro ao recusar", type: "error" });
         return;
       }
-      setToast({ message: selectedIds.size + " solicitaÃ§Ãµes recusaídas", type: "success" });
+      setToast({ message: selectedIds.size + " solicitações recusadas", type: "success" });
       setSelectedIds(new Set());
       fetchCards();
     }
     else if (action === "APROVAR") {
-      if (!window.confirm("Deseja avanÃ§ar " + selectedIds.size + " solicitaÃ§Ãµes para a prÃ³xima etapa?")) return;
+      if (!window.confirm("Deseja avançar " + selectedIds.size + " solicitações para a próxima etapa?")) return;
       
       const NEXT_STATUS = {
         NOVA_SOLICITACAO: "EM_APROVACAO",
@@ -240,8 +240,8 @@ export default function KanbanPage() {
         if (error) hasError = true;
       }
       
-      if (hasError) setToast({ message: "Alguns erros ao avanÃ§ar", type: "error" });
-      else setToast({ message: toUpdate.length + " solicitaÃ§Ãµes avanÃ§adas", type: "success" });
+      if (hasError) setToast({ message: "Alguns erros ao avançar", type: "error" });
+      else setToast({ message: toUpdate.length + " solicitações avançadas", type: "success" });
       
       setSelectedIds(new Set());
       fetchCards();
