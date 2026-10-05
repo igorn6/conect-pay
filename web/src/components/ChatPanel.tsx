@@ -255,9 +255,19 @@ function ChatListView({ onSelectChat, onNewChat }: {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return chats;
+    // Filtrar apenas conversas que possuem mensagens (não exibir as que não têm msg)
+    const withMessages = chats.filter((c) => Boolean(c.last_message));
+
+    // Ordenar da última mensagem enviada (mais recente) para a primeira enviada (mais antiga)
+    const sorted = [...withMessages].sort((a, b) => {
+      const timeA = a.last_message?.created_at ? new Date(a.last_message.created_at).getTime() : 0;
+      const timeB = b.last_message?.created_at ? new Date(b.last_message.created_at).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    if (!search.trim()) return sorted;
     const s = search.toLowerCase();
-    return chats.filter((c) =>
+    return sorted.filter((c) =>
       c.participants.some((p) => p.name.toLowerCase().includes(s))
     );
   }, [chats, search]);
@@ -454,7 +464,7 @@ function ConversationView({ chatId, onBack }: {
   chatId: string;
   onBack: () => void;
 }) {
-  const { messages, loadMessages, sendMessage, pendingCard, setPendingCard, chats, allProfiles } = useChat();
+  const { messages, loadMessages, sendMessage, pendingCard, setPendingCard, chats, allProfiles, activeTargetUserId } = useChat();
   const { userId } = useAuth();
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -466,9 +476,14 @@ function ConversationView({ chatId, onBack }: {
   const otherParticipant = chat?.participants?.find((p) => p.profile_id !== userId) || chat?.participants?.[0];
   const otherFromMessages = messages.find((m) => m.sender_id !== userId);
 
-  // Fallback to allProfiles if chat participant was not enriched yet
-  const otherProfile = otherParticipant?.profile_id
-    ? allProfiles.find((p) => p.id === otherParticipant.profile_id)
+  // Fallback to activeTargetUserId or allProfiles if chat participant was not enriched yet
+  const fallbackProfileId =
+    otherParticipant?.profile_id ||
+    activeTargetUserId ||
+    (otherFromMessages?.sender_id !== userId ? otherFromMessages?.sender_id : null);
+
+  const otherProfile = fallbackProfileId
+    ? allProfiles.find((p) => p.id === fallbackProfileId)
     : null;
 
   const resolvedName =
@@ -678,7 +693,8 @@ function ConversationView({ chatId, onBack }: {
 
 // ==================== MAIN CHAT PANEL ====================
 export default function ChatPanel() {
-  const { isChatOpen, setIsChatOpen, activeChatId, setActiveChatId, startChat } = useChat();
+  const { userId } = useAuth();
+  const { isChatOpen, setIsChatOpen, activeChatId, setActiveChatId, startChat, setActiveTargetUserId } = useChat();
   const [view, setView] = useState<"list" | "contacts" | "conversation">("list");
 
   // Sync view with activeChatId
@@ -689,6 +705,10 @@ export default function ChatPanel() {
   }, [activeChatId]);
 
   const handleSelectChat = (chat: Chat) => {
+    const other = chat.participants.find((p) => p.profile_id !== userId) || chat.participants[0];
+    if (other?.profile_id) {
+      setActiveTargetUserId(other.profile_id);
+    }
     setActiveChatId(chat.id);
     setView("conversation");
   };
@@ -698,6 +718,7 @@ export default function ChatPanel() {
   };
 
   const handleSelectContact = async (profileId: string) => {
+    setActiveTargetUserId(profileId);
     const chatId = await startChat(profileId);
     setActiveChatId(chatId);
     setView("conversation");
@@ -705,6 +726,7 @@ export default function ChatPanel() {
 
   const handleBack = () => {
     setActiveChatId(null);
+    setActiveTargetUserId(null);
     setView("list");
   };
 

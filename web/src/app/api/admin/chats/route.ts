@@ -75,6 +75,11 @@ export async function GET(req: Request) {
         .limit(1)
         .maybeSingle();
 
+      // Descartar chats sem nenhuma mensagem (não devem aparecer na lista)
+      if (!lastMsg) {
+        continue;
+      }
+
       // Contagem de não lidas
       const { count: unreadCount } = await supabaseAdmin
         .from("chat_messages")
@@ -86,13 +91,13 @@ export async function GET(req: Request) {
       chatList.push({
         id: chatId,
         participants,
-        last_message: lastMsg || null,
+        last_message: lastMsg,
         unread_count: unreadCount || 0,
-        updated_at: lastMsg?.created_at || new Date().toISOString(),
+        updated_at: lastMsg.created_at,
       });
     }
 
-    // Ordenar pelo mais recente
+    // Ordenar pelo mais recente (da última mensagem mais recente para a primeira enviada)
     chatList.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
     // Deduplicar: manter apenas 1 conversa por contato (a mais recente)

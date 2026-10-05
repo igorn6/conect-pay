@@ -52,6 +52,8 @@ interface ChatContextType {
   setIsChatOpen: (open: boolean) => void;
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
+  activeTargetUserId: string | null;
+  setActiveTargetUserId: (id: string | null) => void;
   chats: Chat[];
   messages: ChatMessage[];
   loadChats: () => Promise<void>;
@@ -71,12 +73,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const { userId, userName } = useAuth();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [activeTargetUserId, setActiveTargetUserId] = useState<string | null>(null);
   const [chats, setChats] = useState<Chat[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [pendingCard, setPendingCard] = useState<PendingCardAttachment | null>(null);
   const [allProfiles, setAllProfiles] = useState<{ id: string; name: string; avatar_url: string | null }[]>([]);
   const [totalUnread, setTotalUnread] = useState(0);
   const subscriptionRef = useRef<any>(null);
+  const allProfilesRef = useRef(allProfiles);
+
+  useEffect(() => {
+    allProfilesRef.current = allProfiles;
+  }, [allProfiles]);
 
   // Load all profiles for contact list
   useEffect(() => {
@@ -190,10 +198,43 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           if (newMsg.sender_id !== userId) {
             playMessageSound();
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("Nova mensagem no Chat", {
-                body: newMsg.text || (newMsg.file_name ? `Arquivo: ${newMsg.file_name}` : "Solicitação anexada"),
-                icon: "/icon.png",
-              });
+              const notifyUser = async () => {
+                let sender = allProfilesRef.current.find((p) => p.id === newMsg.sender_id);
+                if (!sender) {
+                  try {
+                    const { data: prof } = await supabase
+                      .from("profiles")
+                      .select("name, avatar_url")
+                      .eq("id", newMsg.sender_id)
+                      .maybeSingle();
+                    if (prof) {
+                      sender = { id: newMsg.sender_id, name: prof.name, avatar_url: prof.avatar_url };
+                    }
+                  } catch (e) {
+                    console.error("Erro ao buscar remetente:", e);
+                  }
+                }
+
+                const senderName = sender?.name || "Nova mensagem";
+                const avatar = sender?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(senderName)}&background=10b981&color=fff&size=80`;
+
+                const notification = new Notification(senderName, {
+                  body: newMsg.text || (newMsg.file_name ? `Arquivo: ${newMsg.file_name}` : "Solicitação anexada"),
+                  icon: avatar,
+                  tag: `chat-${newMsg.chat_id}`,
+                });
+
+                notification.onclick = () => {
+                  window.focus();
+                  setIsChatOpen(true);
+                  if (sender?.id) {
+                    setActiveTargetUserId(sender.id);
+                  }
+                  setActiveChatId(newMsg.chat_id);
+                };
+              };
+
+              notifyUser();
             }
           }
         }
@@ -205,7 +246,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, activeChatId, loadMessages, loadChats, playMessageSound]);
+  }, [userId, activeChatId, loadMessages, loadChats, playMessageSound, setIsChatOpen, setActiveChatId, setActiveTargetUserId]);
 
   const sendMessage = useCallback(
     async (text: string, file?: File | null, cardRequestId?: string | null) => {
@@ -286,6 +327,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (!userId) throw new Error("Not authenticated");
 
       try {
+        setActiveTargetUserId(targetUserId);
         const res = await fetch("/api/admin/chats", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -311,6 +353,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     (targetUserId: string, card: PendingCardAttachment) => {
       setPendingCard(card);
       setIsChatOpen(true);
+      setActiveTargetUserId(targetUserId);
       startChat(targetUserId).then((chatId) => {
         setActiveChatId(chatId);
       });
@@ -325,6 +368,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setIsChatOpen,
         activeChatId,
         setActiveChatId,
+        activeTargetUserId,
+        setActiveTargetUserId,
         chats,
         messages,
         loadChats,
