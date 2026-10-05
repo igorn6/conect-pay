@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Camera, Lock, CheckCircle2, AlertCircle, Loader2, User, Save } from "lucide-react";
+import { Camera, Lock, CheckCircle2, AlertCircle, Loader2, User, Save, Briefcase } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 
 export default function SettingsProfile() {
-  const { userName, setUserName, userId, avatarUrl: authAvatarUrl, setAvatarUrl, userRole } = useAuth();
+  const { userName, setUserName, userId, avatarUrl: authAvatarUrl, setAvatarUrl, userRole, sectorId, sectorName: authSectorName } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [userEmail, setUserEmail] = useState("");
+  const [sectorName, setSectorName] = useState<string | null>(authSectorName || null);
   
   // Nome
   const [nome, setNome] = useState(userName || "");
@@ -27,6 +28,47 @@ export default function SettingsProfile() {
       setNome(userName);
     }
   }, [userName]);
+
+  useEffect(() => {
+    if (authSectorName) {
+      setSectorName(authSectorName);
+    }
+  }, [authSectorName]);
+
+  useEffect(() => {
+    async function loadSectorFallback() {
+      if (sectorName) return;
+      try {
+        const res = await fetch(`/api/auth/me${userId ? `?userId=${userId}` : ""}`, { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.sector_name) {
+            setSectorName(data.sector_name);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar setor do usuário:", e);
+      }
+
+      if (sectorId) {
+        try {
+          const { data: sec } = await supabase
+            .from("sectors")
+            .select("name")
+            .eq("id", sectorId)
+            .maybeSingle();
+          if (sec?.name) {
+            setSectorName(sec.name);
+          }
+        } catch (e) {
+          console.warn("Erro ao buscar nome do setor:", e);
+        }
+      }
+    }
+
+    loadSectorFallback();
+  }, [sectorName, sectorId, userId]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -245,11 +287,27 @@ export default function SettingsProfile() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Perfil de Acesso</label>
-              <div className="mt-1 px-4 py-2 bg-slate-900/60 border border-slate-700/60 rounded-lg text-slate-300 text-xs font-semibold tracking-wide uppercase inline-flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {userRole === "MASTER" ? "Master (Administrador Total)" : (userRole === "FINANCEIRO" ? "Financeiro" : "Gestor")}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <div>
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Perfil de Acesso</label>
+                <div className="mt-1.5 px-3.5 py-2.5 bg-slate-900/80 border border-slate-700/70 rounded-lg text-slate-200 text-xs font-semibold tracking-wide uppercase flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span className="truncate">
+                    {userRole === "MASTER" ? "Master (Administrador Total)" : (userRole === "FINANCEIRO" ? "Financeiro" : "Gestor")}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Setor Vinculado</label>
+                <div className="mt-1.5 px-3.5 py-2.5 bg-slate-900/80 border border-slate-700/70 rounded-lg text-slate-200 text-xs font-medium flex items-center gap-2">
+                  <Briefcase size={14} className="text-emerald-400 shrink-0" />
+                  <span className="truncate font-medium">
+                    {userRole === "MASTER"
+                      ? "Acesso Global (Todos os Setores)"
+                      : (sectorName || (sectorId ? "Carregando..." : "Nenhum setor vinculado"))}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

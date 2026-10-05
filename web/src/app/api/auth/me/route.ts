@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -82,12 +82,24 @@ export async function GET(req: Request) {
     const fallbackName = user.user_metadata?.name || user.user_metadata?.full_name || (user.email ? user.email.split("@")[0] : "Usuário");
     const resolvedName = (profile?.name && profile.name.trim() !== "") ? profile.name.trim() : fallbackName;
 
+    let resolvedSectorName: string | null = null;
+    if (profile?.sector) {
+      const { data: sec } = await supabaseAdmin
+        .from("sectors")
+        .select("name")
+        .eq("id", profile.sector)
+        .maybeSingle();
+
+      resolvedSectorName = sec?.name || profile.sector;
+    }
+
     return NextResponse.json({
       id: user.id,
       email: user.email,
       name: resolvedName,
       role: role,
       sector: profile?.sector || null,
+      sector_name: resolvedSectorName,
       must_change_password: !!profile?.must_change_password,
       avatar_url: profile?.avatar_url || null
     });

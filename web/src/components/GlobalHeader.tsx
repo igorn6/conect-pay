@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { MessageSquare, LogOut, UserCircle, Palette } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 export default function GlobalHeader() {
   const [showThemeMenu, setShowThemeMenu] = React.useState(false);
   const { theme, changeThemeWithTransition } = useTheme();
-  const { userName, userRole, avatarUrl, logout } = useAuth();
+  const { userName, userRole, avatarUrl, logout, sectorName } = useAuth();
   const { isChatOpen, setIsChatOpen, totalUnread } = useChat();
   const router = useRouter();
 
@@ -26,6 +26,8 @@ export default function GlobalHeader() {
       ? "Master"
       : userRole === "FINANCEIRO"
       ? "Financeiro"
+      : sectorName
+      ? `Gestor • ${sectorName}`
       : "Gestor";
 
   return (

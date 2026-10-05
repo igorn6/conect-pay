@@ -32,7 +32,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { theme } = useTheme();
-  const { userRole, userName, avatarUrl } = useAuth();
+  const { userRole, userName, avatarUrl, sectorName } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -90,14 +90,14 @@ export default function Sidebar() {
               title="Meu Perfil"
             >
               <img 
-                src={`Https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'G')}&background=10b981&color=fff&size=32`} 
+                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'G')}&background=10b981&color=fff&size=32`} 
                 alt="Avatar" 
                 className="w-8 h-8 rounded-full shrink-0"
               />
               {!isCollapsed && (
                 <div className="overflow-hidden">
                   <p className="text-sm font-medium text-slate-200 truncate">{userName || "Meu Perfil"}</p>
-                  <p className="text-xs text-slate-500 truncate">{userRole === "GESTOR" ? "Gestor" : (userRole === "FINANCEIRO" ? "Financeiro" : "Master")}</p>
+                  <p className="text-xs text-slate-500 truncate">{userRole === "GESTOR" ? (sectorName ? `Gestor • ${sectorName}` : "Gestor") : (userRole === "FINANCEIRO" ? "Financeiro" : "Master")}</p>
                 </div>
               )}
             </Link>

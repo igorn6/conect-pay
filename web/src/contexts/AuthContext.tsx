@@ -11,6 +11,7 @@ interface AuthContextType {
   userName: string | null;
   userId: string | null;
   sectorId: string | null;
+  sectorName: string | null;
   avatarUrl: string | null;
   setAvatarUrl: (url: string | null) => void;
   setUserName: (name: string) => void;
@@ -24,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [sectorId, setSectorId] = useState<string | null>(null);
+  const [sectorName, setSectorName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) {
           setUserId(null);
           setSectorId(null);
+          setSectorName(null);
           setUserName(null);
           setUserRole(null);
           setMustChangePassword(false);
@@ -103,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!error && data) {
           setUserId(id);
           setSectorId(data.sector);
+          setSectorName(data.sector_name || data.sector || null);
           setAvatarUrl(data.avatar_url);
           setUserName(data.name);
           setMustChangePassword(!!data.must_change_password);
@@ -280,7 +284,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ userRole, userName, setUserName, userId, sectorId, avatarUrl, setAvatarUrl, logout }}>
+    <AuthContext.Provider value={{ userRole, userName, setUserName, userId, sectorId, sectorName, avatarUrl, setAvatarUrl, logout }}>
       {children}
     </AuthContext.Provider>
   );
