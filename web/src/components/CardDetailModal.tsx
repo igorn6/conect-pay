@@ -286,14 +286,15 @@ export default function CardDetailModal({
         onPaste={handlePaste}
       >
         {/* HEADER */}
-        <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b border-gray-700/60 bg-gray-900/30">
+        <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b"
+             style={{ borderColor: "var(--surface-border)", backgroundColor: "var(--surface-hover)" }}>
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-bold text-white tracking-tight">Detalhes da Solicitação</h2>
-            <span className="px-2.5 py-1 text-[11px] font-black uppercase tracking-wider rounded-md" style={{ backgroundColor: "var(--brand-primary)", color: "var(--bg-primary)" }}>
+            <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>Detalhes da Solicitação</h2>
+            <span className="px-2.5 py-1 text-[11px] font-black uppercase tracking-wider rounded-md bg-brand-primary text-white">
               #{card.id.substring(0, 6)}
             </span>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+          <button onClick={onClose} className="p-2 rounded-xl transition-colors hover:opacity-80" style={{ color: "var(--text-secondary)" }}>
             <X size={20} />
           </button>
         </div>
@@ -305,10 +306,10 @@ export default function CardDetailModal({
           {isCorrecaoPendente && card.rejection_reason && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border-2 border-red-500/40">
               <div className="flex items-start gap-3">
-                <AlertTriangle size={22} className="text-red-400 mt-0.5 shrink-0" />
+                <AlertTriangle size={22} className="text-red-500 dark:text-red-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-bold text-red-400 uppercase tracking-wider mb-1">Correção Exigida pelo Gestor</p>
-                  <p className="text-sm text-red-300 leading-relaxed">{card.rejection_reason}</p>
+                  <p className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Correção Exigida pelo Gestor</p>
+                  <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed font-medium">{card.rejection_reason}</p>
                 </div>
               </div>
             </div>
@@ -318,55 +319,68 @@ export default function CardDetailModal({
             {/* LEFT COLUMN */}
             <div className="flex flex-col gap-5">
               <div>
-                <h3 className="text-2xl font-black text-white leading-tight mb-1">{card.title}</h3>
-                <p className="text-3xl font-black text-emerald-400 tracking-tight">
+                <h3 className="text-2xl font-black leading-tight mb-1" style={{ color: "var(--text-primary)" }}>{card.title}</h3>
+                <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
                   R$ {Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
               </div>
               <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
-                  <Tag size={16} className="text-gray-400 shrink-0" />
-                  <span className="font-semibold text-xs text-gray-300">{card.category}</span>
+                <div className="flex items-center gap-3 p-3 rounded-xl border"
+                     style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                  <Tag size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                  <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{card.category}</span>
                 </div>
                 {isPix && isMasterOrFinanceiro && (
-                  <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
-                    <Building2 size={16} className="text-gray-400 shrink-0" />
+                  <div className="flex items-center gap-3 p-3 rounded-xl border"
+                       style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                    <Building2 size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                     <div className="flex flex-col w-full">
-                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">CNPJ de Faturamento</span>
-                      <select value={localCnpj} onChange={(e) => handleCnpjChange(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none focus:border-brand-primary">
-                        <option value="">Selecione um CNPJ...</option>
-                        {CNPJ_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                      <span className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>CNPJ de Faturamento</span>
+                      <select 
+                        value={localCnpj} 
+                        onChange={(e) => handleCnpjChange(e.target.value)} 
+                        className="w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium"
+                        style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                      >
+                        <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>Selecione um CNPJ...</option>
+                        {CNPJ_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>{opt}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
                 )}
                 {isPix && !isMasterOrFinanceiro && localCnpj && (
-                  <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
-                    <Building2 size={16} className="text-gray-400 shrink-0" />
+                  <div className="flex items-center gap-3 p-3 rounded-xl border"
+                       style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                    <Building2 size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">CNPJ de Faturamento</span>
-                      <span className="font-semibold text-xs text-gray-200">{localCnpj}</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>CNPJ de Faturamento</span>
+                      <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{localCnpj}</span>
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
-                  <User size={16} className="text-gray-400 shrink-0" />
+                <div className="flex items-center gap-3 p-3 rounded-xl border"
+                     style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                  <User size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Solicitante Real</span>
-                    <span className="font-semibold text-xs text-gray-200">{requesterName}</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Solicitante Real</span>
+                    <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{requesterName}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 text-sm text-gray-200 bg-gray-800/60 p-3 rounded-xl border border-gray-700/60">
-                  <Calendar size={16} className="text-gray-400 shrink-0" />
+                <div className="flex items-center gap-3 p-3 rounded-xl border"
+                     style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                  <Calendar size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                   <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Data do Pedido</span>
-                    <span className="font-semibold text-xs text-gray-200">{new Date(card.created_at).toLocaleString("pt-BR")}</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Data do Pedido</span>
+                    <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{new Date(card.created_at).toLocaleString("pt-BR")}</span>
                   </div>
                 </div>
                 {card.notes && (
-                  <div className="flex flex-col gap-2 text-sm text-gray-200 bg-gray-800/60 p-3.5 rounded-xl border border-gray-700/60">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Observações / Descrição</span>
-                    <span className="font-medium text-xs text-gray-300 whitespace-pre-wrap leading-relaxed">{card.notes}</span>
+                  <div className="flex flex-col gap-2 p-3.5 rounded-xl border"
+                       style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Observações / Descrição</span>
+                    <span className="font-medium text-xs whitespace-pre-wrap leading-relaxed" style={{ color: "var(--text-primary)" }}>{card.notes}</span>
                   </div>
                 )}
               </div>
@@ -375,10 +389,11 @@ export default function CardDetailModal({
             {/* RIGHT COLUMN */}
             <div className="flex flex-col gap-4">
               {/* Payment Data */}
-              <div className="p-5 rounded-2xl bg-gray-800/80 border border-gray-700 shadow-inner">
+              <div className="p-5 rounded-2xl border shadow-sm"
+                   style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                 <div className="flex items-center gap-2 mb-4">
-                  <CreditCard size={18} className="text-blue-400" />
-                  <h4 className="font-bold text-white text-sm uppercase tracking-wider">Dados de Pagamento</h4>
+                  <CreditCard size={18} className="text-blue-500" />
+                  <h4 className="font-bold text-sm uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>Dados de Pagamento</h4>
                 </div>
                 <div className="space-y-4">
                   {(card.splits && card.splits.length > 0 ? card.splits : [{
@@ -392,48 +407,48 @@ export default function CardDetailModal({
                     const labelBadge = isSplitPix ? "Pix" : isSplitCaju ? "Caju" : isSplitBoleto ? "Boleto" : (split.payment_type || "Outro");
 
                     return (
-                    <div key={split.id || idx} className="p-3.5 rounded-xl border relative" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                    <div key={split.id || idx} className="p-3.5 rounded-xl border relative" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/20">{labelBadge}</span>
-                        <span className="text-xs font-bold text-emerald-400">R$ {Number(split.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">{labelBadge}</span>
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">R$ {Number(split.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
                       </div>
                       {isSplitPix && (
                         <div className="space-y-2 mt-2">
                           <div>
-                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Chave Pix</span>
-                            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
-                              <span className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>{split.pix_key}</span>
-                              <button onClick={async () => { if (split.pix_key) { await navigator.clipboard.writeText(split.pix_key); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0" style={{ color: "var(--text-secondary)" }} title="Copiar Chave Pix">
-                                {copiedKey ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Chave Pix</span>
+                            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                              <span className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>{split.pix_key}</span>
+                              <button onClick={async () => { if (split.pix_key) { await navigator.clipboard.writeText(split.pix_key); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0 cursor-pointer" style={{ color: "var(--text-secondary)" }} title="Copiar Chave Pix">
+                                {copiedKey ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Copy size={12} />}
                               </button>
                             </div>
                           </div>
                           <div>
-                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Titular</span>
-                            <span className="text-xs font-semibold block truncate" style={{ color: "var(--text-primary)" }}>{split.pix_owner}</span>
+                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Titular</span>
+                            <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.pix_owner}</span>
                           </div>
                         </div>
                       )}
                       {isSplitCaju && (
                         <div className="mt-2">
-                          <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Titular</span>
-                          <span className="text-xs font-semibold block truncate" style={{ color: "var(--text-primary)" }}>{split.caju_phone}</span>
+                          <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Titular</span>
+                          <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.caju_phone}</span>
                         </div>
                       )}
                       {isSplitBoleto && (
                         <div className="space-y-2 mt-2">
                           <div>
-                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Linha Digitável</span>
-                            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
-                              <span className="text-xs font-medium truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_barcode || "-"}</span>
-                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0" style={{ color: "var(--text-secondary)" }} title="Copiar Linha Digitável">
-                                {copiedKey ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Linha Digitável</span>
+                            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                              <span className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_barcode || "-"}</span>
+                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0 cursor-pointer" style={{ color: "var(--text-secondary)" }} title="Copiar Linha Digitável">
+                                {copiedKey ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Copy size={12} />}
                               </button>
                             </div>
                           </div>
                           <div>
-                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-secondary)" }}>Data de Vencimento</span>
-                            <span className="text-xs font-semibold block truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_due_date ? new Date(split.boleto_due_date + "T12:00:00Z").toLocaleDateString("pt-BR") : "-"}</span>
+                            <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Data de Vencimento</span>
+                            <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_due_date ? new Date(split.boleto_due_date + "T12:00:00Z").toLocaleDateString("pt-BR") : "-"}</span>
                           </div>
                         </div>
                       )}
@@ -443,33 +458,38 @@ export default function CardDetailModal({
               </div>
 
               {/* Notinha */}
-              <div className={`p-4 rounded-xl border ${isValidacaoGestor && !invoiceUrl ? "border-amber-500/50 bg-amber-500/10" : "border-gray-700/50 bg-gray-800/30"} flex flex-col gap-2`}>
-                <div className="flex items-center gap-3 text-gray-300">
-                  <FileText size={20} className={invoiceUrl ? "text-blue-400" : "text-amber-400"} />
+              <div className={`p-4 rounded-xl border ${isValidacaoGestor && !invoiceUrl ? "border-amber-500/50 bg-amber-500/10" : ""} flex flex-col gap-2`}
+                   style={!(isValidacaoGestor && !invoiceUrl) ? { backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" } : undefined}>
+                <div className="flex items-center gap-3">
+                  <FileText size={20} className={invoiceUrl ? "text-blue-500" : "text-amber-500"} />
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider">Notinha ou Nota Fiscal</p>
-                    <p className="text-[10px] text-gray-500">Comprovante de compra/gasto real</p>
+                    <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>Notinha ou Nota Fiscal</p>
+                    <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Comprovante de compra/gasto real</p>
                   </div>
                 </div>
                 {isUploadingInvoice ? (
-                  <div className="flex items-center justify-center gap-2 py-3 text-blue-400">
+                  <div className="flex items-center justify-center gap-2 py-3 text-blue-500">
                     <Loader2 size={16} className="animate-spin" />
                     <span className="text-xs font-semibold">Enviando nota...</span>
                   </div>
                 ) : invoiceUrl ? (
-                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-gray-700/50">
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--surface-border)" }}>
                     <div className="flex flex-wrap gap-2">
                       {invoiceUrl.split(',').map((url, i) => (
-                        <a key={i} href={url} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-xs font-bold bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-lg transition-colors flex items-center gap-1">
+                        <a key={i} href={url} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-xs font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/30 rounded-lg transition-colors flex items-center gap-1">
                           Nota {i + 1}
                         </a>
                       ))}
                     </div>
-                    <button onClick={() => invoiceInputRef.current?.click()} className="text-[10px] text-gray-400 hover:text-white underline self-start">+ Adicionar Mais</button>
+                    <button onClick={() => invoiceInputRef.current?.click()} className="text-[10px] hover:underline self-start cursor-pointer" style={{ color: "var(--text-muted)" }}>+ Adicionar Mais</button>
                   </div>
                 ) : (
                   <div className="mt-2">
-                    <button onClick={() => invoiceInputRef.current?.click()} disabled={isUploadingInvoice} className="px-3 py-1.5 text-xs font-medium border border-dashed border-gray-600 rounded text-gray-400 hover:text-white hover:border-gray-400 transition-colors w-full flex items-center justify-center gap-2">+ Anexar Nota / Recibo</button>
+                    <button onClick={() => invoiceInputRef.current?.click()} disabled={isUploadingInvoice} 
+                      className="px-3 py-2 text-xs font-medium border border-dashed rounded-lg transition-colors w-full flex items-center justify-center gap-2 hover:opacity-80 cursor-pointer"
+                      style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)", backgroundColor: "var(--surface-hover)" }}>
+                      + Anexar Nota / Recibo
+                    </button>
                   </div>
                 )}
                 <input type="file" multiple ref={invoiceInputRef} className="hidden" accept="image/*,.pdf" onChange={handleInvoiceUpload} />
@@ -494,31 +514,32 @@ export default function CardDetailModal({
 
           {/* COMPROVANTE UPLOAD (Financeiro) - Normal flow */}
           {!isNovaSolicitacao && isMasterOrFinanceiro && !isCorrecaoPendente && !isValidacaoGestor && (
-            <div className={`mt-6 p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploading ? 'border-blue-500/50 bg-blue-500/5' : hasAttachment ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-gray-700 hover:border-gray-500 bg-gray-800/30 hover:bg-gray-800/50'}`}>
+            <div className={`mt-6 p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploading ? 'border-blue-500/50 bg-blue-500/5' : hasAttachment ? 'border-emerald-500/40 bg-emerald-500/5' : 'hover:opacity-90'}`}
+                 style={!isUploading && !hasAttachment ? { backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" } : undefined}>
               {isUploading ? (
-                <div className="flex flex-col items-center gap-2 text-gray-400">
-                  <Loader2 className="animate-spin" size={32} />
+                <div className="flex flex-col items-center gap-2" style={{ color: "var(--text-muted)" }}>
+                  <Loader2 className="animate-spin text-blue-500" size={32} />
                   <span className="text-sm font-medium">Enviando anexo...</span>
                 </div>
               ) : paymentProofUrl ? (
-                <div className="flex flex-col items-center gap-2 text-emerald-400 w-full">
+                <div className="flex flex-col items-center gap-2 text-emerald-600 dark:text-emerald-400 w-full">
                   <CheckCircle2 size={32} />
                   <span className="text-sm font-bold">Comprovante(s) Anexado(s)</span>
                   <div className="flex flex-wrap justify-center gap-2 mt-1">
                     {paymentProofUrl.split(',').map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs underline text-blue-400 hover:text-blue-300">Visualizar {i + 1}</a>
+                      <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs underline font-semibold text-blue-600 dark:text-blue-400 hover:opacity-80">Visualizar {i + 1}</a>
                     ))}
                   </div>
-                  <button onClick={() => fileInputRef.current?.click()} className="text-xs mt-2 text-gray-400 hover:text-white underline">+ Adicionar Mais Comprovantes</button>
+                  <button onClick={() => fileInputRef.current?.click()} className="text-xs mt-2 underline cursor-pointer" style={{ color: "var(--text-muted)" }}>+ Adicionar Mais Comprovantes</button>
                 </div>
               ) : (
                 <>
-                  <UploadCloud size={36} className="text-gray-500" />
+                  <UploadCloud size={36} style={{ color: "var(--text-muted)" }} />
                   <div className="text-center">
-                    <p className="text-sm font-semibold text-gray-300">Comprovante(s) de Pagamento</p>
-                    <p className="text-xs text-gray-400 mt-1">Apenas para Master/Financeiro. Anexe as imagens ou PDFs.<br /><span className="text-amber-400 font-medium">*Obrigatório para avançar</span></p>
+                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Comprovante(s) de Pagamento</p>
+                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Apenas para Master/Financeiro. Anexe as imagens ou PDFs.<br /><span className="text-amber-600 dark:text-amber-400 font-bold">*Obrigatório para avançar</span></p>
                   </div>
-                  <button onClick={() => fileInputRef.current?.click()} className="mt-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm font-medium rounded-lg transition-colors">Selecionar Arquivos</button>
+                  <button onClick={() => fileInputRef.current?.click()} className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer">Selecionar Arquivos</button>
                 </>
               )}
             </div>
@@ -668,12 +689,13 @@ export default function CardDetailModal({
         </div>
 
         {/* FOOTER */}
-        <div className="flex flex-col gap-3 px-6 py-4 shrink-0 bg-gray-950/70 border-t border-gray-700/60">
+        <div className="flex flex-col gap-3 px-6 py-4 shrink-0 border-t"
+             style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
           {/* Aviso se a transição estiver bloqueada */}
           {isTransitionBlocked && isMasterOrFinanceiro && (
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300">
-              <AlertTriangle size={15} className="shrink-0 text-amber-400" />
-              <span className="text-xs font-semibold">Anexe o comprovante de pagamento acima para habilitar o avanço de etapa.</span>
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300">
+              <AlertTriangle size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />
+              <span className="text-xs font-bold leading-normal">Anexe o comprovante de pagamento acima para habilitar o avanço de etapa.</span>
             </div>
           )}
 
@@ -699,7 +721,7 @@ export default function CardDetailModal({
                     setIsChatOpen(true);
                   }
                 }}
-                className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 hover:border-emerald-500/40 transition-all shadow-sm cursor-pointer"
+                className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/60 transition-all shadow-sm cursor-pointer"
                 title="Conversar sobre esta solicitação no chat"
               >
                 <MessageSquare size={15} />
@@ -711,7 +733,7 @@ export default function CardDetailModal({
                 <button
                   type="button"
                   onClick={handleSendEmail}
-                  className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-blue-600/15 hover:bg-blue-600/25 text-blue-300 border border-blue-500/30 hover:border-blue-500/50 transition-all shadow-sm cursor-pointer"
+                  className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-blue-600/15 hover:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-500/40 hover:border-blue-500/60 transition-all shadow-sm cursor-pointer"
                   title="Abrir solicitação de pagamento via e-mail para Tassio"
                 >
                   <Mail size={15} />
@@ -728,7 +750,8 @@ export default function CardDetailModal({
                   type="button"
                   onClick={handleTrash}
                   disabled={loading}
-                  className="p-2.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-xl border border-gray-700/60 hover:border-red-500/30 transition-all disabled:opacity-50"
+                  className="p-2.5 rounded-xl border transition-all hover:bg-red-500/10 hover:border-red-500/40 cursor-pointer disabled:opacity-50"
+                  style={{ borderColor: "var(--surface-border)", color: "var(--text-muted)" }}
                   title="Mover para Lixeira"
                 >
                   <Trash2 size={16} />
@@ -741,7 +764,7 @@ export default function CardDetailModal({
                   type="button"
                   onClick={() => setShowRefuseForm(true)}
                   disabled={loading}
-                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold rounded-xl text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/25 hover:border-red-500/40 transition-all disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold rounded-xl text-red-600 dark:text-red-400 bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 transition-all cursor-pointer disabled:opacity-50"
                 >
                   <Ban size={14} />
                   <span>{userRole === "GESTOR" ? "Solicitar Cancelamento" : "Recusar"}</span>
@@ -749,7 +772,7 @@ export default function CardDetailModal({
               )}
 
               {((canTrash || canRefuse) && !showRefuseForm && canAdvance) && (
-                <div className="hidden sm:block w-px h-6 bg-gray-700/60 mx-1" />
+                <div className="hidden sm:block w-px h-6 mx-1" style={{ backgroundColor: "var(--surface-border)" }} />
               )}
 
               {/* Botões quando Em Aprovação ou Correção Pendente */}
@@ -759,7 +782,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("VALIDACAO_GESTOR")}
                     disabled={loading || isTransitionBlocked}
-                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/40 hover:border-purple-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-purple-600/15 text-purple-700 dark:text-purple-300 hover:bg-purple-600/25 border border-purple-500/40 hover:border-purple-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Validação do Gestor
                   </button>
@@ -767,7 +790,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
                     disabled={loading || isTransitionBlocked}
-                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/15 text-sky-700 dark:text-sky-300 hover:bg-sky-600/25 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Aguardando Nota
                   </button>
@@ -775,7 +798,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("FINALIZADO")}
                     disabled={loading || isTransitionBlocked}
-                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/25 text-emerald-300 hover:bg-emerald-600/35 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Finalizar Direto
                   </button>
@@ -789,7 +812,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
                     disabled={loading}
-                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/20 text-sky-300 hover:bg-sky-600/30 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/15 text-sky-700 dark:text-sky-300 hover:bg-sky-600/25 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Aguardando Nota
                   </button>
@@ -797,7 +820,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("FINALIZADO")}
                     disabled={loading}
-                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/25 text-emerald-300 hover:bg-emerald-600/35 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Finalizar Direto
                   </button>
@@ -810,7 +833,7 @@ export default function CardDetailModal({
                   type="button"
                   onClick={() => handleAdvance()}
                   disabled={loading || isTransitionBlocked}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl bg-brand-primary hover:brightness-110 border border-brand-primary/50 shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <Loader2 size={16} className="animate-spin" />
