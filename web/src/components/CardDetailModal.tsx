@@ -9,11 +9,13 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
 import type { PaymentRequest, ReceiptHistoryItem } from "@/types/database";
+import { getStatusLabel } from "@/constants/kanban";
 
 const NEXT_STATUS: Record<string, string> = {
   NOVA_SOLICITACAO: "EM_APROVACAO",
   EM_APROVACAO: "AGUARDANDO_PAGAMENTO",
-  AGUARDANDO_PAGAMENTO: "VALIDACAO_GESTOR",
+  VALIDADO_GESTOR: "AGUARDANDO_PAGAMENTO",
+  AGUARDANDO_PAGAMENTO: "FINALIZADO",
 };
 
 const CNPJ_OPTIONS = ["CNPJ 1", "CNPJ 2", "CNPJ 3", "CNPJ 4", "CNPJ 5", "CNPJ 6"];
@@ -99,7 +101,14 @@ export default function CardDetailModal({
 
   async function handleAdvance(targetStatus?: string) {
     if (!isMasterOrFinanceiro) return;
-    const newStatus = targetStatus || NEXT_STATUS[card.status];
+    let newStatus = targetStatus;
+    if (!newStatus) {
+      if (card.status === "AGUARDANDO_PAGAMENTO" || (card.status as string) === "AGUARDANDO_NOTINHA") {
+        newStatus = "FINALIZADO";
+      } else {
+        newStatus = NEXT_STATUS[card.status];
+      }
+    }
     if (!newStatus) return;
     if (isTransitionBlocked) return;
     setLoading(true);
@@ -109,7 +118,7 @@ export default function CardDetailModal({
       .eq("id", card.id);
     setLoading(false);
     if (error) { alert("Erro ao avançar solicitação."); return; }
-    onUpdate(`Solicitação avançou para ${newStatus.replace(/_/g, " ")}`);
+    onUpdate(`Solicitação avançou para ${getStatusLabel(newStatus)}`);
   }
 
   async function handleRefuse() {
@@ -146,8 +155,20 @@ export default function CardDetailModal({
     const pixKey = pixSplit?.pix_key || card.pix_key || "";
     const pixOwner = pixSplit?.pix_owner || card.pix_owner || card.pix_name || "";
 
+    // Obter nome do solicitante / gestor
+    let gestorName = requesterName;
+    if (!gestorName || gestorName === "Desconhecido") {
+      const targetId = card.real_requester_id || card.created_by;
+      if (targetId) {
+        try {
+          const { data } = await supabase.from("profiles").select("name").eq("id", targetId).single();
+          if (data?.name) gestorName = data.name;
+        } catch {}
+      }
+    }
+
     const body = encodeURIComponent(
-      `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${card.title}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${pixKey}\nTitular: ${pixOwner}`
+      `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${card.title}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${pixKey}\nTitular: ${pixOwner}\nSolicitante: ${gestorName}`
     );
     window.open(`mailto:tassiolimacs@gmail.com?subject=${subject}&body=${body}`, '_blank');
   }
@@ -827,8 +848,35 @@ export default function CardDetailModal({
                 </div>
               )}
 
-              {/* Botão de avanço padrão */}
-              {!isEmAprovacao && !isValidacaoGestor && !isCorrecaoPendente && !isValidadoGestor && !isFinalizado && canAdvance && !showRefuseForm && (
+              {/* Botão dedicado para Aguardando Nota (vai DIRETO para Finalizado) */}
+              {(card.status === "AGUARDANDO_PAGAMENTO" || (card.status as string) === "AGUARDANDO_NOTINHA") && isMasterOrFinanceiro && !showRefuseForm && (
+                <button
+                  type="button"
+                  onClick={() => handleAdvance("FINALIZADO")}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <>
+                      <span>Finalizar Pagamento</span>
+                      <CheckCircle2 size={15} />
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* Botão de avanço padrão (apenas para etapas genéricas) */}
+              {!isEmAprovacao &&
+                !isValidacaoGestor &&
+                !isCorrecaoPendente &&
+                !isValidadoGestor &&
+                !isFinalizado &&
+                card.status !== "AGUARDANDO_PAGAMENTO" &&
+                (card.status as string) !== "AGUARDANDO_NOTINHA" &&
+                canAdvance &&
+                !showRefuseForm && (
                 <button
                   type="button"
                   onClick={() => handleAdvance()}

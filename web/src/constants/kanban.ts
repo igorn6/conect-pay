@@ -50,3 +50,19 @@ export const KANBAN_COLUMNS: KanbanColumnConfig[] = [
     bgColor: "#ef444410"
   }
 ];
+
+export const STATUS_LABELS: Record<string, string> = {
+  NOVA_SOLICITACAO: "Novas Solicitações",
+  EM_APROVACAO: "Pendente",
+  VALIDACAO_GESTOR: "Validação do Gestor",
+  CORRECAO_PENDENTE: "Correção Pendente",
+  VALIDADO_GESTOR: "Validado pelo Gestor",
+  AGUARDANDO_PAGAMENTO: "Aguardando Nota",
+  FINALIZADO: "Finalizado",
+  RECUSADO: "Recusado",
+};
+
+export function getStatusLabel(status: string): string {
+  if (!status) return "";
+  return STATUS_LABELS[status] || status.replace(/_/g, " ");
+}

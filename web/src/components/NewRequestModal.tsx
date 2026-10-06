@@ -8,6 +8,7 @@ import { useProfilesMap } from "@/hooks/useProfilesMap";
 import { useCategories } from "@/hooks/useCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
+import { sendPushNotification } from "@/lib/pushNotifications";
 
 interface NewRequestModalProps {
   onClose: () => void;
@@ -159,6 +160,16 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
       }]);
 
       if (error) throw error;
+
+      // Disparar Web Push nativo em segundo plano para MASTER e FINANCEIRO
+      sendPushNotification({
+        title: "Nova Solicitação de Pagamento!",
+        body: `${title} - R$ ${totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+        url: "/kanban",
+        targetRoles: ["MASTER", "FINANCEIRO"],
+        excludeUserId: userId,
+      }).catch((e) => console.warn("Falha no envio de push em background:", e));
+
       onSave();
     } catch (err: any) {
       console.error(err);
