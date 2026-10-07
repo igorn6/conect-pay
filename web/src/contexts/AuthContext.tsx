@@ -176,11 +176,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (newPassword.length < 6) {
-      setResetError("A senha deve ter não mínimo 6 caracteres.");
+      setResetError("A senha deve ter no mínimo 6 caracteres.");
       return;
     }
     if (newPassword === "Conectsol123") {
-      setResetError("Vocêê não pode usar a senha padrão.");
+      setResetError("Você não pode usar a senha padrão.");
       return;
     }
 
@@ -188,19 +188,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setResetError("");
 
     try {
-      const res = await fetch(`/api/users/${userId}`, {
-        method: "PATCH",
+      if (!userId) {
+        throw new Error("Sessão não identificada. Por favor, recarregue a página.");
+      }
+
+      // 1. Tenta atualizar via rota de administração de senha
+      let res = await fetch("/api/admin/users/password", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newPassword, reset: false }), // Not a master reset
+        body: JSON.stringify({
+          userId,
+          newPassword,
+          mustChangePassword: false,
+        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao alterar senha");
+
+      // Se falhar ou não encontrar, tenta a rota de usuário direta
+      if (!res.ok) {
+        res = await fetch(`/api/users/${userId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newPassword, mustChangePassword: false }),
+        });
+      }
+
+      let data: any = {};
+      try {
+        const text = await res.text();
+        if (text) {
+          data = JSON.parse(text);
+        }
+      } catch {
+        // Fallback se não for JSON válido
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao alterar senha. Tente novamente.");
+      }
+
+      // 2. Atualiza a senha no cliente Supabase Auth se houver sessão ativa
+      try {
+        await supabase.auth.updateUser({ password: newPassword });
+      } catch (authErr) {
+        console.warn("Aviso ao atualizar sessão local:", authErr);
+      }
       
-      // Update local state
+      // 3. Libera o acesso imediato
       setMustChangePassword(false);
-      alert("Senha atualizada com sucesso!");
+      setNewPassword("");
+      setConfirmPassword("");
     } catch (err: any) {
-      setResetError(err.message);
+      setResetError(err.message || "Erro inesperado ao alterar senha.");
     } finally {
       setResetLoading(false);
     }
@@ -226,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             Atualize sua senha
           </h2>
           <p className="mt-2 text-center text-sm text-gray-400">
-            Por motivos de segurança, vocêê precisa alterar a senha padrão antes de acessar o sistema.
+            Por motivos de segurança, você precisa alterar a senha padrão antes de acessar o sistema.
           </p>
         </div>
 
