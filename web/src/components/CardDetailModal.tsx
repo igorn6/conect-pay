@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
-  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink
+  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,6 +64,8 @@ export default function CardDetailModal({
   const [localCnpj, setLocalCnpj] = useState(card.cnpj || "");
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailCopied, setEmailCopied] = useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
+  const [descriptionCopied, setDescriptionCopied] = useState(false);
 
   // Status helpers
   const isNovaSolicitacao = card.status === "NOVA_SOLICITACAO";
@@ -418,11 +420,47 @@ export default function CardDetailModal({
                     <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{new Date(card.created_at).toLocaleString("pt-BR")}</span>
                   </div>
                 </div>
-                {card.notes && (
-                  <div className="flex flex-col gap-2 p-3.5 rounded-xl border"
-                       style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Observações / Descrição</span>
-                    <span className="font-medium text-xs whitespace-pre-wrap leading-relaxed" style={{ color: "var(--text-primary)" }}>{card.notes}</span>
+                {(card.notes || card.description) && (
+                  <div
+                    className="flex flex-col gap-2.5 p-3.5 rounded-xl border transition-all"
+                    style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <AlignLeft size={14} className="text-emerald-500 shrink-0" />
+                        <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>
+                          Observações / Descrição
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(card.notes || card.description || "");
+                            setDescriptionCopied(true);
+                            setTimeout(() => setDescriptionCopied(false), 2000);
+                          }}
+                          className="p-1 rounded hover:bg-[var(--surface-hover)] transition-colors cursor-pointer text-slate-400 hover:text-white"
+                          title="Copiar texto da descrição"
+                        >
+                          {descriptionCopied ? <CheckCircle2 size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsDescriptionModalOpen(true)}
+                          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 transition-all cursor-pointer"
+                          title="Abrir descrição completa em janela expandida"
+                        >
+                          <Maximize2 size={11} />
+                          <span>Ver Completa</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg border max-h-64 overflow-y-auto custom-scrollbar" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)" }}>
+                      <p className="font-medium text-xs whitespace-pre-wrap leading-relaxed select-text" style={{ color: "var(--text-primary)" }}>
+                        {card.notes || card.description}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1005,6 +1043,82 @@ export default function CardDetailModal({
                 >
                   {emailCopied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
                   <span>{emailCopied ? "Texto copiado para a área de transferência!" : "Copiar Texto da Mensagem"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Descrição Completa Expandida */}
+      {isDescriptionModalOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setIsDescriptionModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[85vh] rounded-2xl border shadow-2xl flex flex-col bg-slate-900 border-slate-800 text-slate-100 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/90 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                  <AlignLeft size={18} />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-bold text-white truncate">
+                    Descrição Completa da Solicitação
+                  </h3>
+                  <p className="text-xs text-slate-400 truncate">
+                    {card.title} • <span className="font-mono text-emerald-400">#{card.id.substring(0, 6)}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDescriptionModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Corpo */}
+            <div className="p-6 flex-1 overflow-y-auto custom-scrollbar space-y-4">
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 text-slate-200 text-sm whitespace-pre-wrap leading-relaxed select-text shadow-inner">
+                {card.notes || card.description}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-900/80 flex items-center justify-between gap-3 shrink-0">
+              <span className="text-xs text-slate-500">
+                {(card.notes || card.description || "").length} caracteres
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(card.notes || card.description || "");
+                    setDescriptionCopied(true);
+                    setTimeout(() => setDescriptionCopied(false), 2000);
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                    descriptionCopied
+                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                      : "bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-200"
+                  }`}
+                >
+                  {descriptionCopied ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                  <span>{descriptionCopied ? "Copiado!" : "Copiar Texto"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsDescriptionModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer shadow-sm"
+                >
+                  Fechar
                 </button>
               </div>
             </div>
