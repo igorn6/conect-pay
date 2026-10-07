@@ -307,13 +307,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={resetLoading}
-                className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 transition-colors"
-              >
-                {resetLoading ? <Loader2 size={16} className="animate-spin" /> : "Salvar Nova Senha"}
-              </button>
+              <div className="space-y-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 transition-colors"
+                >
+                  {resetLoading ? <Loader2 size={16} className="animate-spin" /> : "Salvar Nova Senha"}
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMustChangePassword(false)}
+                    className="flex-1 py-2 px-3 border border-gray-700/80 rounded-lg text-xs font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors text-center"
+                    title="Pular e acessar o sistema com a senha atual"
+                  >
+                    Agora não (Entrar)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    className="flex-1 py-2 px-3 border border-gray-700/80 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors text-center"
+                    title="Sair desta conta e voltar para tela de login"
+                  >
+                    Voltar / Sair
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         </div>
