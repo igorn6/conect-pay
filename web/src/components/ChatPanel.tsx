@@ -525,12 +525,25 @@ function ConversationView({ chatId, onBack, onCardClick }: {
   }, [messages]);
 
   const handleSend = async () => {
-    if ((!text.trim() && !file && !pendingCard) || sending) return;
-    setSending(true);
-    await sendMessage(text.trim(), file, pendingCard?.requestId || null);
+    const textToSend = text.trim();
+    const fileToSend = file;
+    const cardToSend = pendingCard?.requestId || null;
+
+    if ((!textToSend && !fileToSend && !cardToSend) || sending) return;
+
+    // Limpa a barra de digitação imediatamente no mesmo milissegundo (estilo WhatsApp)
     setText("");
     setFile(null);
-    setSending(false);
+    setSending(true);
+
+    try {
+      await sendMessage(textToSend, fileToSend, cardToSend);
+    } catch (err) {
+      // Se ocorrer falha no envio, restaura o texto para não perder o que foi digitado
+      setText(textToSend);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
