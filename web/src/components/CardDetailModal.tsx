@@ -635,7 +635,17 @@ export default function CardDetailModal({
                     </button>
                   </div>
                 )}
-                <input type="file" multiple ref={invoiceInputRef} className="hidden" accept="image/*,.pdf" onChange={handleInvoiceUpload} />
+                <input 
+                  type="file" 
+                  multiple 
+                  ref={invoiceInputRef} 
+                  className="hidden" 
+                  accept="image/*,.pdf" 
+                  onClick={(e) => {
+                    (e.target as HTMLInputElement).value = "";
+                  }}
+                  onChange={handleInvoiceUpload} 
+                />
               </div>
 
               {/* Legacy refusal reason */}

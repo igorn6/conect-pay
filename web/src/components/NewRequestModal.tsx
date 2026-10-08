@@ -63,12 +63,9 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setInvoiceFiles(prev => [...prev, ...Array.from(e.target.files as FileList)]);
-    }
-    // Reseta o valor do input para permitir selecionar o mesmo arquivo novamente se necessário
-    if (e.target) {
-      e.target.value = "";
+    const selectedFiles = e.target.files ? Array.from(e.target.files) : [];
+    if (selectedFiles.length > 0) {
+      setInvoiceFiles(prev => [...prev, ...selectedFiles]);
     }
   };
 
@@ -125,15 +122,24 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
     try {
       let fileUrl = null;
       if (invoiceFiles && invoiceFiles.length > 0) {
-        const uploadedUrls = [];
+        const uploadedUrls: string[] = [];
         for (const file of invoiceFiles) {
-          const fileExt = file.name.split('.').pop();
-          const fileName = `${Math.random()}.${fileExt}`;
+          const fileExt = file.name.split('.').pop() || 'png';
+          const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
           const filePath = `invoices/${fileName}`;
-          const { error: uploadError } = await supabase.storage.from('receipts').upload(filePath, file);
-          if (uploadError) throw uploadError;
-          const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(filePath);
-          uploadedUrls.push(publicUrl);
+          let { error: uploadError } = await supabase.storage.from('receipts').upload(filePath, file);
+          if (uploadError) {
+            const { error: fallbackError } = await supabase.storage.from('attachments').upload(`receipts/${fileName}`, file);
+            if (fallbackError) {
+              console.error("Erro ao subir comprovante:", uploadError, fallbackError);
+              throw uploadError;
+            }
+            const { data: urlData } = supabase.storage.from('attachments').getPublicUrl(`receipts/${fileName}`);
+            uploadedUrls.push(urlData.publicUrl);
+          } else {
+            const { data: { publicUrl } } = supabase.storage.from('receipts').getPublicUrl(filePath);
+            uploadedUrls.push(publicUrl);
+          }
         }
         fileUrl = uploadedUrls.join(',');
       }
@@ -469,6 +475,9 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
               className="hidden"
               multiple
               accept="image/*,.pdf"
+              onClick={(e) => {
+                (e.target as HTMLInputElement).value = "";
+              }}
               onChange={handleFileChange}
             />
 
