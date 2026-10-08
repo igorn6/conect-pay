@@ -490,7 +490,7 @@ export default function CardDetailModal({
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <AlignLeft size={14} className="text-emerald-500 shrink-0" />
+                        <AlignLeft size={14} className="text-slate-400 shrink-0" />
                         <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>
                           Observações / Descrição
                         </span>
@@ -511,10 +511,10 @@ export default function CardDetailModal({
                         <button
                           type="button"
                           onClick={() => setIsDescriptionModalOpen(true)}
-                          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/25 transition-all cursor-pointer"
+                          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/70 transition-all cursor-pointer"
                           title="Abrir descrição completa em janela expandida"
                         >
-                          <Maximize2 size={11} />
+                          <Maximize2 size={11} className="text-slate-400" />
                           <span>Ver Completa</span>
                         </button>
                       </div>
@@ -846,15 +846,15 @@ export default function CardDetailModal({
              style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
           {/* Aviso se a transição estiver bloqueada */}
           {isTransitionBlocked && isMasterOrFinanceiro && (
-            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-800 dark:text-amber-300">
-              <AlertTriangle size={18} className="shrink-0 text-amber-600 dark:text-amber-400" />
-              <span className="text-xs font-bold leading-normal">Anexe o comprovante de pagamento acima para habilitar o avanço de etapa.</span>
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300">
+              <AlertTriangle size={15} className="shrink-0 text-amber-400" />
+              <span className="text-xs font-medium leading-normal">Anexe o comprovante de pagamento para habilitar o avanço de etapa.</span>
             </div>
           )}
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
-            {/* LADO ESQUERDO: Botões de Comunicação / Envio */}
-            <div className="flex items-center gap-2.5 w-full sm:w-auto flex-wrap">
+            {/* LADO ESQUERDO: Botões de Comunicação & Notificação */}
+            <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
               {/* Enviar no Chat */}
               <button
                 type="button"
@@ -874,59 +874,66 @@ export default function CardDetailModal({
                     setIsChatOpen(true);
                   }
                 }}
-                className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 hover:border-emerald-500/60 transition-all shadow-sm cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/70 hover:border-slate-600 transition-all shadow-sm cursor-pointer"
                 title="Conversar sobre esta solicitação no chat"
               >
-                <MessageSquare size={15} />
-                <span>Enviar no Chat</span>
+                <MessageSquare size={14} className="text-slate-400" />
+                <span>Chat</span>
               </button>
 
-              {/* Notificar Pagamento Realizado para Tassio (Nubank) */}
-              {isMasterOrFinanceiro && card.status !== "RECUSADO" && (card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmailModalType("PAID_NUBANK");
-                    setIsEmailModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-purple-600/15 hover:bg-purple-600/25 text-purple-700 dark:text-purple-300 border border-purple-500/40 hover:border-purple-500/60 transition-all shadow-sm cursor-pointer"
-                  title="Notificar Tássio por e-mail que o pagamento já foi realizado (Nubank)"
-                >
-                  <CheckCircle2 size={15} />
-                  <span>E-mail: Pagamento Realizado (Nubank)</span>
-                </button>
-              )}
+              {/* Ações de E-mail (Segmentado Neutro Moderno) */}
+              {isMasterOrFinanceiro && card.status !== "RECUSADO" && (
+                <div className="inline-flex rounded-xl border border-slate-700/70 bg-slate-800/80 p-0.5 shadow-sm">
+                  {(card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmailModalType("PAID_NUBANK");
+                        setIsEmailModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-700/70 transition-all cursor-pointer"
+                      title="Notificar Tássio por e-mail que o pagamento já foi realizado (Nubank)"
+                    >
+                      <CheckCircle2 size={13} className="text-slate-400" />
+                      <span>E-mail Nubank</span>
+                    </button>
+                  )}
 
-              {/* Solicitar via E-mail para Tassio (Liberado a partir de Pendente / EM_APROVACAO em diante, nunca em NOVA_SOLICITACAO) */}
-              {isPix && isMasterOrFinanceiro && card.status !== "NOVA_SOLICITACAO" && card.status !== "RECUSADO" && card.status !== "FINALIZADO" && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmailModalType("REQUEST");
-                    setIsEmailModalOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-blue-600/15 hover:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-500/40 hover:border-blue-500/60 transition-all shadow-sm cursor-pointer"
-                  title="Enviar solicitação de pagamento por e-mail para Tassio"
-                >
-                  <Mail size={15} />
-                  <span>Solicitar Pgto (Tássio)</span>
-                </button>
+                  {isPix && card.status !== "NOVA_SOLICITACAO" && card.status !== "FINALIZADO" && (
+                    <>
+                      {(card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
+                        <div className="w-px h-4 self-center bg-slate-700/80" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEmailModalType("REQUEST");
+                          setIsEmailModalOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-700/70 transition-all cursor-pointer"
+                        title="Enviar solicitação de pagamento por e-mail para Tássio"
+                      >
+                        <Mail size={13} className="text-slate-400" />
+                        <span>Solicitar Pgto</span>
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
             </div>
 
             {/* LADO DIREITO: Ações de Decisão e Avanço */}
-            <div className="flex items-center justify-end gap-2.5 w-full sm:w-auto flex-wrap">
+            <div className="flex items-center justify-end gap-2 w-full sm:w-auto flex-wrap">
               {/* Mover para Lixeira */}
               {canTrash && (
                 <button
                   type="button"
                   onClick={handleTrash}
                   disabled={loading}
-                  className="p-2.5 rounded-xl border transition-all hover:bg-red-500/10 hover:border-red-500/40 cursor-pointer disabled:opacity-50"
-                  style={{ borderColor: "var(--surface-border)", color: "var(--text-muted)" }}
+                  className="p-2 rounded-xl border border-slate-700/70 hover:border-red-500/30 text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer disabled:opacity-40"
                   title="Mover para Lixeira"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={15} />
                 </button>
               )}
 
@@ -936,15 +943,15 @@ export default function CardDetailModal({
                   type="button"
                   onClick={() => setShowRefuseForm(true)}
                   disabled={loading}
-                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-bold rounded-xl text-red-600 dark:text-red-400 bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 transition-all cursor-pointer disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl text-slate-300 hover:text-red-400 bg-slate-800/80 hover:bg-red-500/10 border border-slate-700/70 hover:border-red-500/30 transition-all cursor-pointer disabled:opacity-40"
                 >
-                  <Ban size={14} />
-                  <span>{userRole === "GESTOR" ? "Solicitar Cancelamento" : "Recusar"}</span>
+                  <Ban size={14} className="text-slate-400" />
+                  <span>{userRole === "GESTOR" ? "Cancelar" : "Recusar"}</span>
                 </button>
               )}
 
               {((canTrash || canRefuse) && !showRefuseForm && canAdvance) && (
-                <div className="hidden sm:block w-px h-6 mx-1" style={{ backgroundColor: "var(--surface-border)" }} />
+                <div className="hidden sm:block w-px h-5 mx-0.5 bg-slate-700/70" />
               )}
 
               {/* Botões quando Em Aprovação ou Correção Pendente */}
@@ -954,7 +961,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("VALIDACAO_GESTOR")}
                     disabled={loading || isTransitionBlocked}
-                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-purple-600/15 text-purple-700 dark:text-purple-300 hover:bg-purple-600/25 border border-purple-500/40 hover:border-purple-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                    className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Validação do Gestor
                   </button>
@@ -962,7 +969,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
                     disabled={loading || isTransitionBlocked}
-                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/15 text-sky-700 dark:text-sky-300 hover:bg-sky-600/25 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                    className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Aguardando Nota
                   </button>
@@ -970,9 +977,10 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("FINALIZADO")}
                     disabled={loading || isTransitionBlocked}
-                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    Finalizar Direto
+                    <span>Finalizar Direto</span>
+                    <ArrowRight size={14} />
                   </button>
                 </div>
               )}
@@ -984,7 +992,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
                     disabled={loading}
-                    className="px-3.5 py-2.5 text-xs font-bold rounded-xl bg-sky-600/15 text-sky-700 dark:text-sky-300 hover:bg-sky-600/25 border border-sky-500/40 hover:border-sky-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                    className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
                   >
                     Aguardando Nota
                   </button>
@@ -992,9 +1000,10 @@ export default function CardDetailModal({
                     type="button"
                     onClick={() => handleAdvance("FINALIZADO")}
                     disabled={loading}
-                    className="px-4 py-2.5 text-xs font-bold rounded-xl bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/30 border border-emerald-500/40 hover:border-emerald-500/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    Finalizar Direto
+                    <span>Finalizar Direto</span>
+                    <ArrowRight size={14} />
                   </button>
                 </div>
               )}
@@ -1005,10 +1014,10 @@ export default function CardDetailModal({
                   type="button"
                   onClick={() => handleAdvance("FINALIZADO")}
                   disabled={loading}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loading ? (
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 size={15} className="animate-spin" />
                   ) : (
                     <>
                       <span>Finalizar Pagamento</span>
@@ -1032,10 +1041,10 @@ export default function CardDetailModal({
                   type="button"
                   onClick={() => handleAdvance()}
                   disabled={loading || isTransitionBlocked}
-                  className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {loading ? (
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 size={15} className="animate-spin" />
                   ) : (
                     <>
                       <span>{isNovaSolicitacao ? "Aprovar Solicitação" : "Avançar Status"}</span>
@@ -1059,21 +1068,15 @@ export default function CardDetailModal({
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/90">
               <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                    emailModalType === "PAID_NUBANK"
-                      ? "bg-purple-600/20 border-purple-500/40 text-purple-400"
-                      : "bg-blue-500/15 border-blue-500/30 text-blue-400"
-                  }`}
-                >
-                  {emailModalType === "PAID_NUBANK" ? <CheckCircle2 size={20} /> : <Mail size={20} />}
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border bg-slate-800/80 border-slate-700/80 text-slate-200">
+                  <Mail size={18} />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">
                     {emailModalType === "PAID_NUBANK" ? "Pagamento Realizado (Nubank)" : "Solicitar Pagamento a Tássio"}
                   </h3>
                   <p className="text-xs text-slate-400">
-                    Destinatário: <span className="text-blue-400 font-semibold">tassiolimacs@gmail.com</span>
+                    Destinatário: <span className="text-slate-300 font-semibold">tassiolimacs@gmail.com</span>
                   </p>
                 </div>
               </div>
@@ -1086,31 +1089,31 @@ export default function CardDetailModal({
               </button>
             </div>
 
-            {/* Alternador de Modelo (Tabs) */}
-            <div className="flex items-center border-b border-slate-800 bg-slate-950/60 px-5 pt-3 gap-2">
+            {/* Alternador de Modelo (Tabs Neutras Modernas) */}
+            <div className="flex items-center border-b border-slate-800 bg-slate-950/40 px-5 pt-3 gap-2">
               <button
                 type="button"
                 onClick={() => setEmailModalType("PAID_NUBANK")}
-                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
                   emailModalType === "PAID_NUBANK"
-                    ? "border-purple-500 text-purple-400"
+                    ? "border-emerald-500 text-white"
                     : "border-transparent text-slate-400 hover:text-slate-200"
                 }`}
               >
-                <CheckCircle2 size={14} />
+                <CheckCircle2 size={14} className={emailModalType === "PAID_NUBANK" ? "text-emerald-400" : "text-slate-500"} />
                 <span>Pagamento Realizado (Nubank)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setEmailModalType("REQUEST")}
-                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
                   emailModalType === "REQUEST"
-                    ? "border-blue-500 text-blue-400"
+                    ? "border-emerald-500 text-white"
                     : "border-transparent text-slate-400 hover:text-slate-200"
                 }`}
               >
-                <Mail size={14} />
+                <Mail size={14} className={emailModalType === "REQUEST" ? "text-emerald-400" : "text-slate-500"} />
                 <span>Solicitar Pgto (Tássio)</span>
               </button>
             </div>
@@ -1141,20 +1144,20 @@ export default function CardDetailModal({
                   <button
                     type="button"
                     onClick={handleOpenGmail}
-                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20 cursor-pointer"
+                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-colors shadow-sm cursor-pointer"
                     title="Abre a tela de envio do Gmail diretamente no navegador com tudo preenchido"
                   >
-                    <ExternalLink size={14} />
+                    <ExternalLink size={14} className="text-slate-400" />
                     <span>Abrir no Gmail Web</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleOpenDefaultMail}
-                    className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
+                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-colors shadow-sm cursor-pointer"
                     title="Abre no Outlook ou aplicativo de e-mail padrão do computador"
                   >
-                    <Mail size={14} />
+                    <Mail size={14} className="text-slate-400" />
                     <span>Abrir no Outlook / App</span>
                   </button>
                 </div>
@@ -1162,13 +1165,13 @@ export default function CardDetailModal({
                 <button
                   type="button"
                   onClick={handleCopyEmailText}
-                  className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
                     emailCopied
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                      : "bg-slate-800/80 hover:bg-slate-800 border-slate-700 text-slate-200"
+                      : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 text-slate-300 hover:text-white"
                   }`}
                 >
-                  {emailCopied ? <CheckCircle2 size={15} /> : <Copy size={15} />}
+                  {emailCopied ? <CheckCircle2 size={14} /> : <Copy size={14} className="text-slate-400" />}
                   <span>{emailCopied ? "Texto copiado para a área de transferência!" : "Copiar Texto da Mensagem"}</span>
                 </button>
               </div>
