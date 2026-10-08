@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import {
   Plus, Trash2, Loader2, Tags, Search, Sparkles, CheckCircle2,
-  XCircle, ArrowRight, RefreshCw, AlertCircle, Wand2, HelpCircle
+  XCircle, ArrowRight, RefreshCw, AlertCircle, Wand2, HelpCircle,
+  Pencil, Check, X
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { Category, CategorySuggestion } from "@/types/database";
@@ -94,6 +95,59 @@ export default function SettingsCategories() {
     await supabase.from("categories").update({ is_deleted: true }).eq("id", id);
     await fetchCategories();
     setCatLoading(false);
+  };
+
+  // Edição inline de categorias
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  const handleStartEdit = (cat: Category) => {
+    setEditingCatId(cat.id);
+    setEditingCatName(cat.name);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCatId(null);
+    setEditingCatName("");
+  };
+
+  const handleSaveEdit = async (cat: Category) => {
+    const trimmed = editingCatName.trim();
+    if (!trimmed) {
+      alert("O nome da categoria não pode ficar vazio.");
+      return;
+    }
+
+    if (trimmed === cat.name) {
+      handleCancelEdit();
+      return;
+    }
+
+    try {
+      setIsSavingEdit(true);
+      // 1. Atualizar na tabela categories
+      const { error: catError } = await supabase
+        .from("categories")
+        .update({ name: trimmed })
+        .eq("id", cat.id);
+
+      if (catError) throw catError;
+
+      // 2. Atualizar em cascata nos cards que usavam o nome anterior
+      await supabase
+        .from("payment_requests")
+        .update({ category: trimmed })
+        .eq("category", cat.name);
+
+      await fetchCategories();
+      handleCancelEdit();
+    } catch (err: any) {
+      console.error(err);
+      alert("Erro ao atualizar categoria: " + err.message);
+    } finally {
+      setIsSavingEdit(false);
+    }
   };
 
   // Ações de aprovação/rejeição de sugestões
@@ -301,27 +355,76 @@ export default function SettingsCategories() {
                       </td>
                     </tr>
                   ) : (
-                    filteredCategories.map((cat) => (
-                      <tr key={cat.id} className="hover:bg-slate-700/30 transition-colors group">
-                        <td className="px-4 py-3 text-sm text-slate-200 font-medium">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded bg-slate-900 flex items-center justify-center text-slate-400">
-                              <Tags size={14} />
+                    filteredCategories.map((cat) => {
+                      const isEditing = editingCatId === cat.id;
+
+                      return (
+                        <tr key={cat.id} className="hover:bg-slate-700/30 transition-colors group">
+                          <td className="px-4 py-3 text-sm text-slate-200 font-medium">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded bg-slate-900 flex items-center justify-center text-slate-400 shrink-0">
+                                <Tags size={14} />
+                              </div>
+
+                              {isEditing ? (
+                                <div className="flex items-center gap-2 flex-1 max-w-md">
+                                  <input
+                                    type="text"
+                                    value={editingCatName}
+                                    onChange={(e) => setEditingCatName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") handleSaveEdit(cat);
+                                      if (e.key === "Escape") handleCancelEdit();
+                                    }}
+                                    autoFocus
+                                    className="flex-1 bg-slate-900 border border-indigo-500 rounded-lg px-3 py-1.5 text-sm text-white outline-none"
+                                  />
+                                  <button
+                                    onClick={() => handleSaveEdit(cat)}
+                                    disabled={isSavingEdit || !editingCatName.trim()}
+                                    className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer disabled:opacity-40"
+                                    title="Salvar alteração"
+                                  >
+                                    {isSavingEdit ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                                  </button>
+                                  <button
+                                    onClick={handleCancelEdit}
+                                    disabled={isSavingEdit}
+                                    className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors cursor-pointer"
+                                    title="Cancelar"
+                                  >
+                                    <X size={15} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-200 font-medium">{cat.name}</span>
+                              )}
                             </div>
-                            {cat.name}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => handleDeleteCategory(cat.id)}
-                            className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
-                            title="Remover"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+
+                          <td className="px-4 py-3 text-right">
+                            {!isEditing && (
+                              <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={() => handleStartEdit(cat)}
+                                  className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors cursor-pointer"
+                                  title="Editar nome da categoria"
+                                >
+                                  <Pencil size={15} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCategory(cat.id)}
+                                  className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors cursor-pointer"
+                                  title="Remover categoria"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
