@@ -1,7 +1,8 @@
 "use client";
 
 import type { KanbanColumnConfig, PaymentRequest } from "@/types/database";
-import { Inbox, User, Check } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2 } from "lucide-react";
+import { getCardSlaMetrics } from "@/utils/sla";
 
 interface KanbanColumnProps {
   config: KanbanColumnConfig;
@@ -172,6 +173,43 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
                     {profilesMap[card.real_requester_id || ""] || profilesMap[card.created_by] || "Desconhecido"}
                   </span>
                 </div>
+
+                {/* SLA: Apenas Pendente e Finalizado conforme solicitado */}
+                {(() => {
+                  const sla = getCardSlaMetrics(card);
+                  if (sla.timeToPendenteSeconds === null && sla.pendenteToFinalizadoSeconds === null) return null;
+                  return (
+                    <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-800/60 flex-wrap text-[10px]">
+                      {sla.timeToPendenteSeconds !== null && (
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium ${
+                            sla.isPendenteOngoing
+                              ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                              : "bg-slate-800/90 text-slate-300 border border-slate-700/60"
+                          }`}
+                          title={sla.isPendenteOngoing ? "Tempo em Nova Solicitação (em andamento)" : "Tempo até entrar em Pendente"}
+                        >
+                          <Clock size={10} className="shrink-0 text-slate-400" />
+                          <span>Pendente: <strong className="font-semibold text-slate-200">{sla.timeToPendenteFormatted}</strong></span>
+                        </span>
+                      )}
+
+                      {sla.pendenteToFinalizadoSeconds !== null && (
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium ${
+                            card.status === "FINALIZADO"
+                              ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/25"
+                              : "bg-slate-800/90 text-slate-300 border border-slate-700/60"
+                          }`}
+                          title={card.status === "FINALIZADO" ? "Tempo de Pendente até Finalizado" : "Tempo decorrido desde Pendente (em andamento)"}
+                        >
+                          <CheckCircle2 size={10} className="shrink-0 text-slate-400" />
+                          <span>Finalizado: <strong className="font-semibold text-slate-200">{sla.pendenteToFinalizadoFormatted}</strong></span>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Valor + Tipo de Pagamento */}
                 <div className="flex items-center justify-between mt-3">

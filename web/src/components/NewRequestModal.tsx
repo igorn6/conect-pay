@@ -166,6 +166,15 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         pix_key: mainSplit.pix_key || null,
         caju_phone: mainSplit.caju_phone || null,
         status: "NOVA_SOLICITACAO",
+        stage_history: [
+          {
+            stage: "NOVA_SOLICITACAO",
+            entered_at: new Date().toISOString(),
+            left_at: null,
+            duration_seconds: null,
+            moved_by: userId,
+          }
+        ],
         created_by: userId,
         real_requester_id: requesterId || userId,
         invoice_url: fileUrl,

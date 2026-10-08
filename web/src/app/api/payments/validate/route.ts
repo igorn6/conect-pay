@@ -1,7 +1,8 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { computeNextStageHistory } from "@/utils/sla";
 
 type ValidateAction = "APPROVE" | "REJECT" | "FORCE_APPROVE";
 
@@ -84,11 +85,20 @@ export async function POST(req: Request) {
         );
       }
 
+      const nextStageHistory = computeNextStageHistory(
+        card.stage_history,
+        card.status,
+        "VALIDADO_GESTOR",
+        user.id,
+        card.created_at
+      );
+
       const { error: updateError } = await supabaseAdmin
         .from("payment_requests")
         .update({
           status: "VALIDADO_GESTOR",
           rejection_reason: null,
+          stage_history: nextStageHistory,
         })
         .eq("id", paymentId);
 
@@ -126,11 +136,20 @@ export async function POST(req: Request) {
         );
       }
 
+      const nextStageHistory = computeNextStageHistory(
+        card.stage_history,
+        card.status,
+        "CORRECAO_PENDENTE",
+        user.id,
+        card.created_at
+      );
+
       const { error: updateError } = await supabaseAdmin
         .from("payment_requests")
         .update({
           status: "CORRECAO_PENDENTE",
           rejection_reason: reason.trim(),
+          stage_history: nextStageHistory,
         })
         .eq("id", paymentId);
 
@@ -158,11 +177,20 @@ export async function POST(req: Request) {
         );
       }
 
+      const nextStageHistory = computeNextStageHistory(
+        card.stage_history,
+        card.status,
+        "VALIDADO_GESTOR",
+        user.id,
+        card.created_at
+      );
+
       const { error: updateError } = await supabaseAdmin
         .from("payment_requests")
         .update({
           status: "VALIDADO_GESTOR",
           rejection_reason: null,
+          stage_history: nextStageHistory,
         })
         .eq("id", paymentId);
 

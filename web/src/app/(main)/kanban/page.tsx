@@ -12,6 +12,7 @@ import type { PaymentRequest, Category } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Plus, Filter, Calendar, Tag, User, X } from "lucide-react";
+import { computeNextStageHistory } from "@/utils/sla";
 
 export default function KanbanPage() {
   const { userRole, userId, userName: simulatedUserName, sectorId } = useAuth();
@@ -204,19 +205,32 @@ export default function KanbanPage() {
       const reason = window.prompt("Motivo da recusa para as " + selectedIds.size + " solicitações:");
       if (!reason || !reason.trim()) return;
       
-      const { error } = await supabase
-        .from("payment_requests")
-        .update({ 
-          status: "RECUSADO",
-          refusal_reason: "Recusado em lote: " + reason.trim()
-        })
-        .in("id", Array.from(selectedIds));
-        
-      if (error) {
-        setToast({ message: "Erro ao recusar", type: "error" });
-        return;
+      const toUpdate = Array.from(selectedIds).map(id => cardsRef.current.find(c => c.id === id)).filter(Boolean);
+      let hasError = false;
+      
+      for (const card of toUpdate) {
+        if (!card) continue;
+        const nextHistory = computeNextStageHistory(
+          card.stage_history,
+          "RECUSADO",
+          simulatedUserName || "Usuário (Lote)"
+        );
+        const { error } = await supabase
+          .from("payment_requests")
+          .update({ 
+            status: "RECUSADO",
+            refusal_reason: "Recusado em lote: " + reason.trim(),
+            stage_history: nextHistory,
+          })
+          .eq("id", card.id);
+        if (error) hasError = true;
       }
-      setToast({ message: selectedIds.size + " solicitações recusadas", type: "success" });
+        
+      if (hasError) {
+        setToast({ message: "Alguns erros ao recusar", type: "error" });
+      } else {
+        setToast({ message: selectedIds.size + " solicitações recusadas", type: "success" });
+      }
       setSelectedIds(new Set());
       fetchCards();
     }
@@ -236,7 +250,19 @@ export default function KanbanPage() {
         const next = NEXT_STATUS[card.status as keyof typeof NEXT_STATUS];
         if (!next) continue;
         
-        const { error } = await supabase.from("payment_requests").update({ status: next }).eq("id", card.id);
+        const nextHistory = computeNextStageHistory(
+          card.stage_history,
+          next,
+          simulatedUserName || "Usuário (Lote)"
+        );
+
+        const { error } = await supabase
+          .from("payment_requests")
+          .update({ 
+            status: next,
+            stage_history: nextHistory,
+          })
+          .eq("id", card.id);
         if (error) hasError = true;
       }
       

@@ -1,7 +1,8 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { parseISO, format, isValid } from "date-fns";
+import { calculateDashboardSlaAverages } from "@/utils/sla";
 
 export async function GET(req: Request) {
   try {
@@ -131,12 +132,16 @@ export async function GET(req: Request) {
       .map(([date, value]) => ({ date, value }));
       // We assume they are naturally ordered by the iteration since they are pulled sorted, but we can sort by parsing back if needed.
 
+    // Métricas de SLA
+    const sla = calculateDashboardSlaAverages(filteredData);
+
     return NextResponse.json({
       kpis: { totalGasto, totalPendente, totalRecusado },
       gastosPorCategoria,
       gastosPorSetor: userRole === "MASTER" ? gastosPorSetor : [],
       topSolicitantes,
-      tendenciaDiaria
+      tendenciaDiaria,
+      sla,
     });
 
   } catch (err: any) {

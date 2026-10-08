@@ -1,4 +1,4 @@
-﻿export type UserRole = "FINANCEIRO" | "GESTOR" | "MASTER";
+export type UserRole = "FINANCEIRO" | "GESTOR" | "MASTER";
 
 export interface UserSector {
   id: string;
@@ -20,6 +20,14 @@ export interface ReceiptHistoryItem {
   url: string;
   uploadedAt: string;
   uploadedBy: string;
+}
+
+export interface StageHistoryItem {
+  stage: string;
+  entered_at: string;
+  left_at?: string | null;
+  duration_seconds?: number | null;
+  moved_by?: string | null;
 }
 
 export interface Profile {
@@ -81,6 +89,7 @@ export interface PaymentRequest {
   refusal_reason?: string | null;
   rejection_reason?: string | null;
   receipts_history?: ReceiptHistoryItem[] | null;
+  stage_history?: StageHistoryItem[] | null;
   
   profiles?: Profile;
   category?: string | null;

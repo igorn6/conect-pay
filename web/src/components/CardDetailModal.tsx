@@ -3,13 +3,14 @@ import { useState, useRef, useEffect } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
-  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2
+  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
-import type { PaymentRequest, ReceiptHistoryItem } from "@/types/database";
+import type { PaymentRequest, ReceiptHistoryItem, StageHistoryItem } from "@/types/database";
 import { getStatusLabel } from "@/constants/kanban";
+import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@/utils/sla";
 
 const NEXT_STATUS: Record<string, string> = {
   NOVA_SOLICITACAO: "EM_APROVACAO",
@@ -67,6 +68,7 @@ export default function CardDetailModal({
   const [emailCopied, setEmailCopied] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [descriptionCopied, setDescriptionCopied] = useState(false);
+  const [stageHistoryOpen, setStageHistoryOpen] = useState(false);
 
   // Status helpers
   const isNovaSolicitacao = card.status === "NOVA_SOLICITACAO";
@@ -111,6 +113,10 @@ export default function CardDetailModal({
   const receiptsHistory: ReceiptHistoryItem[] = (card.receipts_history as ReceiptHistoryItem[] | null) || [];
   const latestReceipt = receiptsHistory.length > 0 ? receiptsHistory[receiptsHistory.length - 1] : null;
 
+  // Stage history & SLA
+  const stageHistory: StageHistoryItem[] = (card.stage_history as StageHistoryItem[] | null) || [];
+  const cardSla = getCardSlaMetrics(card);
+
   // Resolver nome do gestor solicitante real
   useEffect(() => {
     async function loadRequesterInfo() {
@@ -154,9 +160,23 @@ export default function CardDetailModal({
     if (!newStatus) return;
     if (isTransitionBlocked) return;
     setLoading(true);
+
+    const nextStageHistory = computeNextStageHistory(
+      card.stage_history,
+      card.status,
+      newStatus,
+      userId,
+      card.created_at
+    );
+
     const { error } = await supabase
       .from("payment_requests")
-      .update({ status: newStatus, payment_proof_url: paymentProofUrl, invoice_url: invoiceUrl })
+      .update({
+        status: newStatus,
+        payment_proof_url: paymentProofUrl,
+        invoice_url: invoiceUrl,
+        stage_history: nextStageHistory,
+      })
       .eq("id", card.id);
     setLoading(false);
     if (error) { alert("Erro ao avançar solicitação."); return; }
@@ -167,9 +187,24 @@ export default function CardDetailModal({
     if (!refusalReason.trim()) { setErrorMsg("O motivo é obrigatório."); return; }
     setLoading(true);
     const prefix = userRole === "GESTOR" ? "Cancelado pelo Gestor" : "Recusado pelo Financeiro";
+
+    const nextStageHistory = computeNextStageHistory(
+      card.stage_history,
+      card.status,
+      "RECUSADO",
+      userId,
+      card.created_at
+    );
+
     const { error } = await supabase
       .from("payment_requests")
-      .update({ status: "RECUSADO", refusal_reason: `${prefix}: ${refusalReason.trim()}`, payment_proof_url: paymentProofUrl, invoice_url: invoiceUrl })
+      .update({
+        status: "RECUSADO",
+        refusal_reason: `${prefix}: ${refusalReason.trim()}`,
+        payment_proof_url: paymentProofUrl,
+        invoice_url: invoiceUrl,
+        stage_history: nextStageHistory,
+      })
       .eq("id", card.id);
     setLoading(false);
     if (error) { alert("Erro ao recusar solicitação."); return; }
@@ -302,9 +337,18 @@ export default function CardDetailModal({
     const updatedHistory = [...receiptsHistory, newReceipt];
     const combinedProof = paymentProofUrl ? `${paymentProofUrl},${newUrl}` : newUrl;
 
+    const nextStageHistory = computeNextStageHistory(
+      card.stage_history,
+      card.status,
+      "VALIDACAO_GESTOR",
+      userId,
+      card.created_at
+    );
+
     const { error } = await supabase.from("payment_requests").update({
       payment_proof_url: combinedProof,
       receipts_history: updatedHistory,
+      stage_history: nextStageHistory,
       rejection_reason: null,
       status: "VALIDACAO_GESTOR",
     }).eq("id", card.id);
@@ -827,6 +871,127 @@ export default function CardDetailModal({
               )}
             </div>
           )}
+
+          {/* ACCORDION: Histórico de Etapas & SLA (Por Coluna) */}
+          <div className="mt-4 rounded-xl border border-slate-700/60 overflow-hidden bg-slate-900/40">
+            <button
+              type="button"
+              onClick={() => setStageHistoryOpen(!stageHistoryOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/60 hover:bg-slate-800/90 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Clock size={16} className="text-slate-400" />
+                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                  Histórico de Etapas & SLA ({stageHistory.length})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {cardSla.timeToPendenteSeconds !== null && (
+                  <span className="hidden sm:inline-flex text-[10px] font-medium px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+                    Pendente: <strong className="ml-1 text-white">{cardSla.timeToPendenteFormatted}</strong>
+                  </span>
+                )}
+                {cardSla.pendenteToFinalizadoSeconds !== null && (
+                  <span className="hidden sm:inline-flex text-[10px] font-medium px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
+                    Finalizado: <strong className="ml-1 text-white">{cardSla.pendenteToFinalizadoFormatted}</strong>
+                  </span>
+                )}
+                {stageHistoryOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+              </div>
+            </button>
+
+            {stageHistoryOpen && (
+              <div className="p-4 space-y-3 bg-slate-950/40">
+                {/* Resumo de SLAs do Card */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-2">
+                  <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Nova ➔ Pendente</span>
+                    <span className="text-sm font-bold text-white">
+                      {cardSla.timeToPendenteFormatted}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {cardSla.isPendenteOngoing ? "Em andamento" : "Concluído"}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Pendente ➔ Finalizado</span>
+                    <span className="text-sm font-bold text-white">
+                      {cardSla.pendenteToFinalizadoFormatted}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {card.status === "FINALIZADO" ? "Concluído" : (cardSla.pendenteToFinalizadoSeconds ? "Em andamento" : "Aguardando")}
+                    </span>
+                  </div>
+
+                  <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Ciclo Total</span>
+                    <span className="text-sm font-bold text-white">
+                      {cardSla.totalCycleFormatted}
+                    </span>
+                    <span className="text-[10px] text-slate-500 block">
+                      {card.status === "FINALIZADO" ? "Resolvido" : "Tempo decorrido"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Linha do Tempo por Coluna */}
+                <div className="space-y-2">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tempo por Coluna / Etapa:</p>
+                  {stageHistory.map((item, idx) => {
+                    const isLast = idx === stageHistory.length - 1;
+                    return (
+                      <div
+                        key={idx}
+                        className={`flex items-start justify-between p-3 rounded-lg border transition-all ${
+                          isLast
+                            ? "border-emerald-500/40 bg-emerald-500/5"
+                            : "border-slate-800 bg-slate-900/60"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <div className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 ${
+                            isLast ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-400"
+                          }`}>
+                            {idx + 1}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-white">
+                                {getStatusLabel(item.stage)}
+                              </span>
+                              {isLast && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                  Atual
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Entrada: {new Date(item.entered_at).toLocaleString("pt-BR")}
+                              {item.left_at && ` • Saída: ${new Date(item.left_at).toLocaleString("pt-BR")}`}
+                              {item.moved_by && profilesMap[item.moved_by] && ` • Por: ${profilesMap[item.moved_by]}`}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          {item.duration_seconds !== null && item.duration_seconds !== undefined ? (
+                            <span className="inline-block text-xs font-bold px-2 py-0.5 rounded bg-slate-800 border border-slate-700/80 text-emerald-400">
+                              {formatSlaDuration(item.duration_seconds)}
+                            </span>
+                          ) : (
+                            <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded bg-slate-800 border border-slate-700/60 text-slate-300">
+                              {formatSlaDuration(Math.max(0, Math.round((Date.now() - new Date(item.entered_at).getTime()) / 1000)))}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Legacy refuse form */}
           {showRefuseForm && (

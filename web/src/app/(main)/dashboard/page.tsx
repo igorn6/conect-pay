@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import DashboardKPIs from "@/components/dashboard/DashboardKPIs";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
+import DashboardSla from "@/components/dashboard/DashboardSla";
 
 function DashboardContent() {
   const { startDate, endDate, selectedSectorId } = useDashboard();
@@ -65,6 +66,12 @@ function DashboardContent() {
                 <div key={i} className="bg-slate-800/50 h-[140px] rounded-2xl border border-slate-700/50"></div>
               ))}
             </div>
+            {/* Skeletons SLA */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-slate-800/50 h-[140px] rounded-2xl border border-slate-700/50"></div>
+              ))}
+            </div>
             {/* Skeletons Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="bg-slate-800/50 h-[380px] rounded-2xl border border-slate-700/50"></div>
@@ -83,6 +90,7 @@ function DashboardContent() {
         ) : data ? (
           <>
             <DashboardKPIs kpis={data.kpis} />
+            <DashboardSla sla={data.sla} />
             <DashboardCharts data={data} />
           </>
         ) : (
