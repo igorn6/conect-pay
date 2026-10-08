@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent } from "react";
-import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2 } from "lucide-react";
+import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2, FileText, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PAYMENT_TYPES } from "@/constants/requesters";
 import { useProfilesMap } from "@/hooks/useProfilesMap";
@@ -63,9 +63,27 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
+    if (e.target.files && e.target.files.length > 0) {
       setInvoiceFiles(prev => [...prev, ...Array.from(e.target.files as FileList)]);
     }
+    // Reseta o valor do input para permitir selecionar o mesmo arquivo novamente se necessário
+    if (e.target) {
+      e.target.value = "";
+    }
+  };
+
+  const removeInvoiceFile = (indexToRemove: number) => {
+    setInvoiceFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const clearAllInvoiceFiles = () => {
+    setInvoiceFiles([]);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   async function handleSubmit(e: FormEvent) {
@@ -167,7 +185,7 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         body: `${title} - R$ ${totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
         url: "/kanban",
         targetRoles: ["MASTER", "FINANCEIRO"],
-        excludeUserId: userId,
+        excludeUserId: userId || undefined,
       }).catch((e) => console.warn("Falha no envio de push em background:", e));
 
       onSave();
@@ -430,39 +448,99 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
           </div>
 
           <div className="mt-2">
-            <label className={labelClass} style={labelStyle}>
-              Notinha ou Nota Fiscal (Opcional)
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className={labelClass} style={{ ...labelStyle, marginBottom: 0 }}>
+                Notinha ou Nota Fiscal (Opcional)
+              </label>
+              {invoiceFiles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllInvoiceFiles}
+                  className="text-[11px] text-red-400/80 hover:text-red-400 hover:underline transition-colors cursor-pointer"
+                >
+                  Remover todos
+                </button>
+              )}
+            </div>
+
             <input
               type="file"
               ref={fileInputRef}
               className="hidden"
+              multiple
               accept="image/*,.pdf"
               onChange={handleFileChange}
             />
-            <div 
-              className={`p-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors ${
-                invoiceFiles 
-                  ? 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10'
-                  : 'hover:bg-gray-800/10'
-              }`}
-              style={{ borderColor: invoiceFiles.length > 0 ? "" : "var(--surface-border)" }}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {invoiceFiles.length > 0 ? (
-                <div className="flex flex-col items-center gap-1 text-emerald-400">
-                  <CheckCircle2 size={24} />
-                  <span className="text-xs font-bold">{invoiceFiles.length} arquivo(s) selecionado(s)</span>
-                  <span className="text-[10px] text-gray-400 mt-1">Clique para adicionar mais</span>
+
+            {invoiceFiles.length === 0 ? (
+              <div 
+                className="p-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors hover:bg-white/[0.02]"
+                style={{ borderColor: "var(--surface-border)" }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <UploadCloud size={24} className="mb-2" style={{ color: "var(--text-secondary)" }} />
+                <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>Anexar Notinha ou Nota Fiscal</span>
+                <span className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>Imagens ou PDF (Clique para selecionar)</span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+                  {invoiceFiles.map((file, idx) => {
+                    const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+                    return (
+                      <div
+                        key={`${file.name}-${file.size}-${idx}`}
+                        className="flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors group"
+                        style={{
+                          backgroundColor: "var(--bg-card)",
+                          border: "1px solid var(--surface-border)",
+                        }}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                          <div className={`p-1.5 rounded-md shrink-0 ${isPdf ? 'bg-red-500/10 text-red-400' : 'bg-blue-500/10 text-blue-400'}`}>
+                            {isPdf ? <FileText size={15} /> : <ImageIcon size={15} />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p 
+                              className="font-medium truncate leading-tight" 
+                              style={{ color: "var(--text-primary)" }}
+                              title={file.name}
+                            >
+                              {file.name}
+                            </p>
+                            <span className="text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                              {formatFileSize(file.size)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeInvoiceFile(idx);
+                          }}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0 cursor-pointer"
+                          title="Excluir comprovante"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                <>
-                  <UploadCloud size={24} className="mb-2" style={{ color: "var(--text-secondary)" }} />
-                  <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>Anexar Notinha ou Nota Fiscal</span>
-                  <span className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>Imagens ou PDF (Max: 5MB)</span>
-                </>
-              )}
-            </div>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-2 px-3 rounded-lg border border-dashed text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer hover:bg-white/[0.02]"
+                  style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
+                >
+                  <Plus size={14} />
+                  <span>Adicionar outro comprovante</span>
+                </button>
+              </div>
+            )}
           </div>
         </form>
 

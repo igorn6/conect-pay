@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
@@ -63,6 +63,8 @@ export default function CardDetailModal({
   const [copiedKey, setCopiedKey] = useState(false);
   const [localCnpj, setLocalCnpj] = useState(card.cnpj || "");
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailModalType, setEmailModalType] = useState<"PAID_NUBANK" | "REQUEST">("PAID_NUBANK");
+  const [requesterSector, setRequesterSector] = useState<string>("");
   const [emailCopied, setEmailCopied] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [descriptionCopied, setDescriptionCopied] = useState(false);
@@ -100,6 +102,38 @@ export default function CardDetailModal({
   const latestReceipt = receiptsHistory.length > 0 ? receiptsHistory[receiptsHistory.length - 1] : null;
 
   const requesterName = profilesMap[card.real_requester_id || ""] || profilesMap[card.created_by] || "Desconhecido";
+
+  // Buscar setor do solicitante para compor no e-mail (ex: Instalação)
+  useEffect(() => {
+    async function loadRequesterSector() {
+      const targetUserId = card.real_requester_id || card.created_by;
+      if (!targetUserId) return;
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("sector")
+          .eq("id", targetUserId)
+          .maybeSingle();
+
+        if (profile?.sector) {
+          const { data: sectorData } = await supabase
+            .from("sectors")
+            .select("name")
+            .eq("id", profile.sector)
+            .maybeSingle();
+
+          if (sectorData?.name) {
+            setRequesterSector(sectorData.name);
+          } else {
+            setRequesterSector(profile.sector);
+          }
+        }
+      } catch (e) {
+        console.error("Erro ao buscar setor do solicitante:", e);
+      }
+    }
+    loadRequesterSector();
+  }, [card.real_requester_id, card.created_by]);
 
   // ========== HANDLERS ==========
 
@@ -147,11 +181,9 @@ export default function CardDetailModal({
     onUpdate("Solicitação movida para a Lixeira.");
   }
 
-  function getEmailContent() {
+  function getEmailContent(type: "PAID_NUBANK" | "REQUEST" = emailModalType) {
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
-    const cnpjDisplay = localCnpj || card.cnpj || "Sem CNPJ";
-    const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
     const formattedAmount = Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 
     // Obter dados do Pix (dos splits ou direto do card)
@@ -159,8 +191,39 @@ export default function CardDetailModal({
     const pixKey = pixSplit?.pix_key || card.pix_key || "Não informado";
     const pixOwner = pixSplit?.pix_owner || card.pix_owner || card.pix_name || "Não informado";
 
+    const solicitante = requesterSector || (requesterName !== "Desconhecido" ? requesterName : "Solicitante");
     const gestorName = requesterName !== "Desconhecido" ? requesterName : "Solicitante";
 
+    if (type === "PAID_NUBANK") {
+      const rawSubject = `Pagamento Realizado | ${card.title} | Nubank`;
+      const motivo = (card.notes || card.description)?.trim() || card.title;
+
+      let rawBody = `--\n${greeting} Tássio!\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nTitular: ${pixOwner}\nSolicitante: ${solicitante}`;
+
+      const proofs = paymentProofUrl
+        ? paymentProofUrl
+            .split(",")
+            .filter(Boolean)
+            .map((u, i) => `Comprovante ${i + 1}: ${u.trim()}`)
+            .join("\n")
+        : "";
+
+      if (proofs) {
+        rawBody += `\n\n${proofs}`;
+      }
+
+      return {
+        to: "tassiolimacs@gmail.com",
+        subject: rawSubject,
+        body: rawBody,
+        encodedSubject: encodeURIComponent(rawSubject),
+        encodedBody: encodeURIComponent(rawBody),
+      };
+    }
+
+    // Tipo REQUEST (Solicitar pagamento a Tassio)
+    const cnpjDisplay = localCnpj || card.cnpj || "Sem CNPJ";
+    const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
     const rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${card.title}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${pixKey}\nTitular: ${pixOwner}\nSolicitante: ${gestorName}`;
 
     return {
@@ -173,13 +236,13 @@ export default function CardDetailModal({
   }
 
   function handleOpenGmail() {
-    const { to, encodedSubject, encodedBody } = getEmailContent();
+    const { to, encodedSubject, encodedBody } = getEmailContent(emailModalType);
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${encodedSubject}&body=${encodedBody}`;
     window.open(gmailUrl, "_blank");
   }
 
   function handleOpenDefaultMail() {
-    const { to, encodedSubject, encodedBody } = getEmailContent();
+    const { to, encodedSubject, encodedBody } = getEmailContent(emailModalType);
     const mailtoUrl = `mailto:${to}?subject=${encodedSubject}&body=${encodedBody}`;
     const a = document.createElement("a");
     a.href = mailtoUrl;
@@ -190,7 +253,7 @@ export default function CardDetailModal({
   }
 
   function handleCopyEmailText() {
-    const { body } = getEmailContent();
+    const { body } = getEmailContent(emailModalType);
     navigator.clipboard.writeText(body);
     setEmailCopied(true);
     setTimeout(() => setEmailCopied(false), 2500);
@@ -808,16 +871,35 @@ export default function CardDetailModal({
                 <span>Enviar no Chat</span>
               </button>
 
+              {/* Notificar Pagamento Realizado para Tassio (Nubank) */}
+              {isMasterOrFinanceiro && card.status !== "RECUSADO" && (card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmailModalType("PAID_NUBANK");
+                    setIsEmailModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-purple-600/15 hover:bg-purple-600/25 text-purple-700 dark:text-purple-300 border border-purple-500/40 hover:border-purple-500/60 transition-all shadow-sm cursor-pointer"
+                  title="Notificar Tássio por e-mail que o pagamento já foi realizado (Nubank)"
+                >
+                  <CheckCircle2 size={15} />
+                  <span>E-mail: Pagamento Realizado (Nubank)</span>
+                </button>
+              )}
+
               {/* Solicitar via E-mail para Tassio (Liberado a partir de Pendente / EM_APROVACAO em diante, nunca em NOVA_SOLICITACAO) */}
               {isPix && isMasterOrFinanceiro && card.status !== "NOVA_SOLICITACAO" && card.status !== "RECUSADO" && card.status !== "FINALIZADO" && (
                 <button
                   type="button"
-                  onClick={() => setIsEmailModalOpen(true)}
+                  onClick={() => {
+                    setEmailModalType("REQUEST");
+                    setIsEmailModalOpen(true);
+                  }}
                   className="flex items-center gap-2 px-3.5 py-2.5 text-xs font-bold rounded-xl bg-blue-600/15 hover:bg-blue-600/25 text-blue-700 dark:text-blue-300 border border-blue-500/40 hover:border-blue-500/60 transition-all shadow-sm cursor-pointer"
                   title="Enviar solicitação de pagamento por e-mail para Tassio"
                 >
                   <Mail size={15} />
-                  <span>Enviar E-mail p/ Tassio</span>
+                  <span>Solicitar Pgto (Tássio)</span>
                 </button>
               )}
             </div>
@@ -959,7 +1041,7 @@ export default function CardDetailModal({
 
       {/* Modal Enviar E-mail para Tassio */}
       {isEmailModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150">
           <div
             className="w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden flex flex-col bg-slate-900 border-slate-800 text-slate-100"
             onClick={(e) => e.stopPropagation()}
@@ -967,12 +1049,18 @@ export default function CardDetailModal({
             {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/90">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-400 flex items-center justify-center shrink-0">
-                  <Mail size={20} />
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                    emailModalType === "PAID_NUBANK"
+                      ? "bg-purple-600/20 border-purple-500/40 text-purple-400"
+                      : "bg-blue-500/15 border-blue-500/30 text-blue-400"
+                  }`}
+                >
+                  {emailModalType === "PAID_NUBANK" ? <CheckCircle2 size={20} /> : <Mail size={20} />}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">
-                    Enviar E-mail para Tassio
+                    {emailModalType === "PAID_NUBANK" ? "Pagamento Realizado (Nubank)" : "Solicitar Pagamento a Tássio"}
                   </h3>
                   <p className="text-xs text-slate-400">
                     Destinatário: <span className="text-blue-400 font-semibold">tassiolimacs@gmail.com</span>
@@ -988,6 +1076,35 @@ export default function CardDetailModal({
               </button>
             </div>
 
+            {/* Alternador de Modelo (Tabs) */}
+            <div className="flex items-center border-b border-slate-800 bg-slate-950/60 px-5 pt-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setEmailModalType("PAID_NUBANK")}
+                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  emailModalType === "PAID_NUBANK"
+                    ? "border-purple-500 text-purple-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <CheckCircle2 size={14} />
+                <span>Pagamento Realizado (Nubank)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setEmailModalType("REQUEST")}
+                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+                  emailModalType === "REQUEST"
+                    ? "border-blue-500 text-blue-400"
+                    : "border-transparent text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Mail size={14} />
+                <span>Solicitar Pgto (Tássio)</span>
+              </button>
+            </div>
+
             {/* Conteúdo */}
             <div className="p-5 space-y-4">
               <div>
@@ -995,7 +1112,7 @@ export default function CardDetailModal({
                   Assunto:
                 </label>
                 <div className="p-2.5 rounded-xl border border-slate-800 bg-slate-950 text-xs text-slate-200 font-medium break-words">
-                  {getEmailContent().subject}
+                  {getEmailContent(emailModalType).subject}
                 </div>
               </div>
 
@@ -1004,7 +1121,7 @@ export default function CardDetailModal({
                   Mensagem:
                 </label>
                 <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-950 text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto select-all">
-                  {getEmailContent().body}
+                  {getEmailContent(emailModalType).body}
                 </div>
               </div>
 
@@ -1015,7 +1132,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={handleOpenGmail}
                     className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20 cursor-pointer"
-                    title="Abre a tela de envio do Gmail diretamente no navegador"
+                    title="Abre a tela de envio do Gmail diretamente no navegador com tudo preenchido"
                   >
                     <ExternalLink size={14} />
                     <span>Abrir no Gmail Web</span>
@@ -1025,7 +1142,7 @@ export default function CardDetailModal({
                     type="button"
                     onClick={handleOpenDefaultMail}
                     className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 transition-colors shadow-lg shadow-blue-600/20 cursor-pointer"
-                    title="Abre no Outlook ou aplicativo padrão do computador"
+                    title="Abre no Outlook ou aplicativo de e-mail padrão do computador"
                   >
                     <Mail size={14} />
                     <span>Abrir no Outlook / App</span>
