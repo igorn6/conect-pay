@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
-  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer
+  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -69,6 +69,47 @@ export default function CardDetailModal({
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [descriptionCopied, setDescriptionCopied] = useState(false);
   const [stageHistoryOpen, setStageHistoryOpen] = useState(false);
+  const [localCategory, setLocalCategory] = useState<string>(card.category || "Outros");
+  const [isReclassifyingCategory, setIsReclassifyingCategory] = useState(false);
+
+  const handleAiRecategorize = async () => {
+    try {
+      setIsReclassifyingCategory(true);
+      const res = await fetch("/api/ai/categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: card.title,
+          notes: card.notes || card.description,
+          amount: card.amount,
+          saveSuggestion: true,
+          requestId: card.id,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Falha ao consultar IA");
+      const data = await res.json();
+      const chosen = data.is_new_category_suggested
+        ? (data.suggested_category_name || "Outros")
+        : (data.category || "Outros");
+
+      const { error } = await supabase
+        .from("payment_requests")
+        .update({
+          category: chosen,
+          ai_category_suggestion: data,
+        })
+        .eq("id", card.id);
+
+      if (error) throw error;
+      setLocalCategory(chosen);
+      onUpdate(`Categoria atualizada pela IA para "${chosen}"!`);
+    } catch (e: any) {
+      alert("Erro ao reclassificar com IA: " + e.message);
+    } finally {
+      setIsReclassifyingCategory(false);
+    }
+  };
 
   // Status helpers
   const isNovaSolicitacao = card.status === "NOVA_SOLICITACAO";
@@ -480,10 +521,34 @@ export default function CardDetailModal({
                 </p>
               </div>
               <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-3 p-3 rounded-xl border"
+                <div className="flex items-center justify-between p-3 rounded-xl border"
                      style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                  <Tag size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                  <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{card.category}</span>
+                  <div className="flex items-center gap-2.5">
+                    <Tag size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>
+                        Categoria
+                      </span>
+                      <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>
+                        {localCategory}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAiRecategorize}
+                    disabled={isReclassifyingCategory}
+                    className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
+                    title="Analisar título e observações com IA Gemini para sugerir categoria"
+                  >
+                    {isReclassifyingCategory ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={12} />
+                    )}
+                    <span>{isReclassifyingCategory ? "Analisando..." : "Sugerir com IA"}</span>
+                  </button>
                 </div>
                 {isPix && isMasterOrFinanceiro && (
                   <div className="flex items-center gap-3 p-3 rounded-xl border"

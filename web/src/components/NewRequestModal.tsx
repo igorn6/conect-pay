@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent } from "react";
-import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2, FileText, Image as ImageIcon } from "lucide-react";
+import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2, FileText, Image as ImageIcon, Sparkles } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PAYMENT_TYPES } from "@/constants/requesters";
 import { useProfilesMap } from "@/hooks/useProfilesMap";
@@ -9,6 +9,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
 import { sendPushNotification } from "@/lib/pushNotifications";
+import type { AiCategorySuggestion } from "@/types/database";
 
 interface NewRequestModalProps {
   onClose: () => void;
@@ -41,6 +42,53 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
   
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
+
+  // IA Categorization states
+  const [isAiCategorizing, setIsAiCategorizing] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<AiCategorySuggestion | null>(null);
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null);
+
+  const handleAutoCategorize = async (silent = false) => {
+    if (!title.trim() && !notes.trim()) {
+      if (!silent) alert("Preencha o título ou as observações para a IA sugerir a categoria.");
+      return;
+    }
+
+    try {
+      setIsAiCategorizing(true);
+      setAiFeedback(null);
+
+      const parsedAmount = parseFloat(String(amount).replace(/[\R$\s.]/g, "").replace(",", ".")) || null;
+
+      const res = await fetch("/api/ai/categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          notes,
+          amount: parsedAmount,
+          saveSuggestion: false,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Falha na comunicação com a IA");
+      const data: AiCategorySuggestion = await res.json();
+      setAiSuggestion(data);
+
+      if (data.is_new_category_suggested && data.suggested_category_name) {
+        setCategory(data.suggested_category_name);
+        setAiFeedback(`💡 Nova categoria sugerida: "${data.suggested_category_name}". Ficará pendente de validação do Master.`);
+      } else if (data.category) {
+        setCategory(data.category);
+        setAiFeedback(`✨ Categoria selecionada: ${data.category} (${Math.round((data.confidence || 0.9) * 100)}% de precisão)`);
+      }
+    } catch (e) {
+      console.error("Erro na categorização com IA:", e);
+      if (!silent) alert("Não foi possível conectar com a IA no momento.");
+    } finally {
+      setIsAiCategorizing(false);
+    }
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canSelectRequester = userRole === "FINANCEIRO" || userRole === "MASTER";
@@ -178,6 +226,7 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         created_by: userId,
         real_requester_id: requesterId || userId,
         invoice_url: fileUrl,
+        ai_category_suggestion: aiSuggestion,
         due_date: d.toISOString(),
         splits: splits.map(s => ({
           id: s.id,
@@ -193,6 +242,20 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
       }]);
 
       if (error) throw error;
+
+      // Se a IA sugeriu uma nova categoria, registrar para o Master aprovar
+      if (aiSuggestion?.is_new_category_suggested && aiSuggestion.suggested_category_name) {
+        fetch("/api/ai/categorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            notes,
+            amount: totalAmount,
+            saveSuggestion: true,
+          }),
+        }).catch((e) => console.warn("Falha ao salvar sugestão de categoria:", e));
+      }
 
       // Disparar Web Push nativo em segundo plano para MASTER e FINANCEIRO
       sendPushNotification({
@@ -257,6 +320,11 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
                   setTitle(e.target.value);
                   if (errors.title) setErrors((prev) => ({ ...prev, title: undefined }));
                 }}
+                onBlur={() => {
+                  if (title.trim().length >= 4 && !category && !isAiCategorizing) {
+                    handleAutoCategorize(true);
+                  }
+                }}
                 placeholder="Ex: Pagamento de fornecedor"
                 className="w-full px-3.5 py-2.5 rounded-lg text-sm outline-none"
                 style={{ ...inputStyle, borderColor: errors.title ? "#ef4444" : "var(--surface-border)" }}
@@ -282,9 +350,30 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
                 />
               </div>
               <div>
-                <label className={labelClass} style={labelStyle}>
-                  Categoria *
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className={labelClass} style={{ ...labelStyle, marginBottom: 0 }}>
+                    Categoria *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleAutoCategorize(false)}
+                    disabled={isAiCategorizing || (!title.trim() && !notes.trim())}
+                    className="text-[11px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Classificar automaticamente com IA Gemini a partir do título e observações"
+                  >
+                    {isAiCategorizing ? (
+                      <>
+                        <Loader2 size={11} className="animate-spin" />
+                        <span>Analisando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={11} className="text-indigo-400" />
+                        <span>Sugerir com IA</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <select
                   value={category}
                   onChange={(e) => {
@@ -295,10 +384,21 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
                   style={{ ...inputStyle, borderColor: errors.category ? "#ef4444" : "var(--surface-border)" }}
                 >
                   <option value="">Selecione...</option>
+                  {aiSuggestion?.is_new_category_suggested && aiSuggestion.suggested_category_name && !categories.some(c => c.name.toLowerCase() === aiSuggestion.suggested_category_name?.toLowerCase()) && (
+                    <option value={aiSuggestion.suggested_category_name}>
+                      ✨ [Nova Sugerida] {aiSuggestion.suggested_category_name}
+                    </option>
+                  )}
                   {!isLoadingCategories && categories.map((c) => (
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
                 </select>
+
+                {aiFeedback && (
+                  <p className="text-[11px] mt-1.5 text-indigo-300/90 leading-tight">
+                    {aiFeedback}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -454,6 +554,11 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
               onChange={(e) => {
                 setNotes(e.target.value);
                 if (errors.notes) setErrors((prev) => ({ ...prev, notes: undefined }));
+              }}
+              onBlur={() => {
+                if (title.trim().length >= 3 && !category && !isAiCategorizing) {
+                  handleAutoCategorize(true);
+                }
               }}
               rows={3}
               placeholder="Detalhes, justificativas, centro de custo..."

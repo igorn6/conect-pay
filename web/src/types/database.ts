@@ -90,9 +90,30 @@ export interface PaymentRequest {
   rejection_reason?: string | null;
   receipts_history?: ReceiptHistoryItem[] | null;
   stage_history?: StageHistoryItem[] | null;
+  ai_category_suggestion?: AiCategorySuggestion | null;
   
   profiles?: Profile;
   category?: string | null;
+}
+
+export interface AiCategorySuggestion {
+  category?: string | null;
+  is_new_category_suggested: boolean;
+  suggested_category_name?: string | null;
+  confidence: number;
+  reason: string;
+}
+
+export interface CategorySuggestion {
+  id: string;
+  name: string;
+  reason?: string | null;
+  confidence?: number;
+  sample_request_id?: string | null;
+  sample_request_title?: string | null;
+  status: "PENDENTE" | "APROVADO" | "REJEITADO";
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuditLog {
