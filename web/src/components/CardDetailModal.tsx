@@ -64,7 +64,7 @@ export default function CardDetailModal({
   const [localCnpj, setLocalCnpj] = useState(card.cnpj || "");
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailModalType, setEmailModalType] = useState<"PAID_NUBANK" | "REQUEST">("PAID_NUBANK");
-  const [requesterSector, setRequesterSector] = useState<string>("");
+  const [resolvedRequesterName, setResolvedRequesterName] = useState<string>("");
   const [emailCopied, setEmailCopied] = useState(false);
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [descriptionCopied, setDescriptionCopied] = useState(false);
@@ -101,39 +101,33 @@ export default function CardDetailModal({
   const receiptsHistory: ReceiptHistoryItem[] = (card.receipts_history as ReceiptHistoryItem[] | null) || [];
   const latestReceipt = receiptsHistory.length > 0 ? receiptsHistory[receiptsHistory.length - 1] : null;
 
-  const requesterName = profilesMap[card.real_requester_id || ""] || profilesMap[card.created_by] || "Desconhecido";
-
-  // Buscar setor do solicitante para compor no e-mail (ex: Instalação)
+  // Resolver nome do gestor solicitante real
   useEffect(() => {
-    async function loadRequesterSector() {
+    async function loadRequesterInfo() {
       const targetUserId = card.real_requester_id || card.created_by;
       if (!targetUserId) return;
       try {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("sector")
+          .select("name")
           .eq("id", targetUserId)
           .maybeSingle();
 
-        if (profile?.sector) {
-          const { data: sectorData } = await supabase
-            .from("sectors")
-            .select("name")
-            .eq("id", profile.sector)
-            .maybeSingle();
-
-          if (sectorData?.name) {
-            setRequesterSector(sectorData.name);
-          } else {
-            setRequesterSector(profile.sector);
-          }
+        if (profile?.name) {
+          setResolvedRequesterName(profile.name);
         }
       } catch (e) {
-        console.error("Erro ao buscar setor do solicitante:", e);
+        console.error("Erro ao buscar solicitante:", e);
       }
     }
-    loadRequesterSector();
+    loadRequesterInfo();
   }, [card.real_requester_id, card.created_by]);
+
+  const requesterName =
+    resolvedRequesterName ||
+    profilesMap[card.real_requester_id || ""] ||
+    profilesMap[card.created_by] ||
+    "Desconhecido";
 
   // ========== HANDLERS ==========
 
@@ -191,7 +185,7 @@ export default function CardDetailModal({
     const pixKey = pixSplit?.pix_key || card.pix_key || "Não informado";
     const pixOwner = pixSplit?.pix_owner || card.pix_owner || card.pix_name || "Não informado";
 
-    const solicitante = requesterSector || (requesterName !== "Desconhecido" ? requesterName : "Solicitante");
+    const solicitante = requesterName !== "Desconhecido" ? requesterName : "Solicitante";
     const gestorName = requesterName !== "Desconhecido" ? requesterName : "Solicitante";
 
     if (type === "PAID_NUBANK") {
