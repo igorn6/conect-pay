@@ -62,6 +62,12 @@ export default function CardDetailModal({
 
   const [copiedKey, setCopiedKey] = useState(false);
   const [localCnpj, setLocalCnpj] = useState(card.cnpj || "");
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [resolvedRequesterName, setResolvedRequesterName] = useState<string>("");
+  const [emailCopied, setEmailCopied] = useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
+  const [descriptionCopied, setDescriptionCopied] = useState(false);
+
   // Status helpers
   const isNovaSolicitacao = card.status === "NOVA_SOLICITACAO";
   const isEmAprovacao = card.status === "EM_APROVACAO";
