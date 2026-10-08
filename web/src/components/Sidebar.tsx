@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import BrandLogo from "@/components/BrandLogo";
+import { APP_VERSION } from "@/constants/version";
 
 const NAV_ITEMS = [
   { name: "Início", href: "/", icon: Home, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
@@ -136,6 +137,18 @@ export default function Sidebar() {
             );
           })}
         </nav>
+
+        {/* Rodapé com Versão */}
+        <div className="px-5 py-3 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between shrink-0">
+          {!isCollapsed ? (
+            <>
+              <span className="font-medium text-slate-400">Conect Pay</span>
+              <span className="font-mono text-slate-400 font-semibold">v{APP_VERSION}</span>
+            </>
+          ) : (
+            <span className="w-full text-center font-mono text-[10px] text-slate-500">v{APP_VERSION}</span>
+          )}
+        </div>
       </aside>
     </>
   );

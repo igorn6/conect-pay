@@ -1,10 +1,11 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ThemeTransitionOverlay from "@/components/ThemeTransitionOverlay";
 import { AuthProvider } from "@/contexts/AuthContext";
 import NotificationPoller from "@/components/NotificationPoller";
+import UpdateNotifier from "@/components/UpdateNotifier";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -28,6 +29,7 @@ export default function RootLayout({
           <ThemeProvider>
             <ThemeTransitionOverlay />
             <NotificationPoller />
+            <UpdateNotifier />
             {children}
           </ThemeProvider>
         </AuthProvider>
