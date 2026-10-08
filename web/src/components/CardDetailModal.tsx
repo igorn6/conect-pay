@@ -62,13 +62,6 @@ export default function CardDetailModal({
 
   const [copiedKey, setCopiedKey] = useState(false);
   const [localCnpj, setLocalCnpj] = useState(card.cnpj || "");
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [emailModalType, setEmailModalType] = useState<"PAID_NUBANK" | "REQUEST">("PAID_NUBANK");
-  const [resolvedRequesterName, setResolvedRequesterName] = useState<string>("");
-  const [emailCopied, setEmailCopied] = useState(false);
-  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
-  const [descriptionCopied, setDescriptionCopied] = useState(false);
-
   // Status helpers
   const isNovaSolicitacao = card.status === "NOVA_SOLICITACAO";
   const isEmAprovacao = card.status === "EM_APROVACAO";
@@ -88,6 +81,17 @@ export default function CardDetailModal({
     card.payment_type?.toUpperCase() === "PIX" ||
     card.payment_method?.toUpperCase() === "PIX" ||
     Boolean(card.splits && card.splits.some((s: any) => s.payment_type?.toUpperCase() === "PIX"));
+
+  // Solicitar pagamento é exclusivo e prioritário para Pendente (EM_APROVACAO) e Correção Pendente
+  const canRequestPayment = isPix && isMasterOrFinanceiro && (isEmAprovacao || isCorrecaoPendente);
+
+  const [emailModalType, setEmailModalType] = useState<"PAID_NUBANK" | "REQUEST">(
+    canRequestPayment ? "REQUEST" : "PAID_NUBANK"
+  );
+
+  useEffect(() => {
+    setEmailModalType(canRequestPayment ? "REQUEST" : "PAID_NUBANK");
+  }, [card.id, card.status, isPix]);
 
   const canAdvance = isMasterOrFinanceiro && NEXT_STATUS[card.status];
   const canRefuseFinanceiro = isMasterOrFinanceiro && card.status !== "RECUSADO" && card.status !== "FINALIZADO";
@@ -878,6 +882,27 @@ export default function CardDetailModal({
               {/* Ações de E-mail (Segmentado Neutro Moderno) */}
               {isMasterOrFinanceiro && card.status !== "RECUSADO" && (
                 <div className="inline-flex rounded-xl border border-slate-700/70 bg-slate-800/80 p-0.5 shadow-sm">
+                  {/* Solicitar Pgto: Prioridade máxima e exclusivo em Pendente e Correção Pendente */}
+                  {canRequestPayment && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmailModalType("REQUEST");
+                        setIsEmailModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-slate-700/90 hover:bg-slate-700 rounded-lg transition-all cursor-pointer shadow-sm"
+                      title="Solicitar pagamento a Tássio (Prioridade em Pendente)"
+                    >
+                      <Mail size={13} className="text-amber-400" />
+                      <span>Solicitar Pgto</span>
+                    </button>
+                  )}
+
+                  {canRequestPayment && (card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
+                    <div className="w-px h-4 self-center bg-slate-700/80" />
+                  )}
+
+                  {/* E-mail Nubank */}
                   {(card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
                     <button
                       type="button"
@@ -885,32 +910,16 @@ export default function CardDetailModal({
                         setEmailModalType("PAID_NUBANK");
                         setIsEmailModalOpen(true);
                       }}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-700/70 transition-all cursor-pointer"
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
+                        !canRequestPayment
+                          ? "font-semibold text-white bg-slate-700/90 hover:bg-slate-700 shadow-sm"
+                          : "font-medium text-slate-300 hover:text-white hover:bg-slate-700/70"
+                      }`}
                       title="Notificar Tássio por e-mail que o pagamento já foi realizado (Nubank)"
                     >
-                      <CheckCircle2 size={13} className="text-slate-400" />
+                      <CheckCircle2 size={13} className={!canRequestPayment ? "text-emerald-400" : "text-slate-400"} />
                       <span>E-mail Nubank</span>
                     </button>
-                  )}
-
-                  {isPix && card.status !== "NOVA_SOLICITACAO" && card.status !== "FINALIZADO" && (
-                    <>
-                      {(card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
-                        <div className="w-px h-4 self-center bg-slate-700/80" />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEmailModalType("REQUEST");
-                          setIsEmailModalOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white rounded-lg hover:bg-slate-700/70 transition-all cursor-pointer"
-                        title="Enviar solicitação de pagamento por e-mail para Tássio"
-                      >
-                        <Mail size={13} className="text-slate-400" />
-                        <span>Solicitar Pgto</span>
-                      </button>
-                    </>
                   )}
                 </div>
               )}
@@ -1083,34 +1092,36 @@ export default function CardDetailModal({
               </button>
             </div>
 
-            {/* Alternador de Modelo (Tabs Neutras Modernas) */}
-            <div className="flex items-center border-b border-slate-800 bg-slate-950/40 px-5 pt-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setEmailModalType("PAID_NUBANK")}
-                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-                  emailModalType === "PAID_NUBANK"
-                    ? "border-emerald-500 text-white"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <CheckCircle2 size={14} className={emailModalType === "PAID_NUBANK" ? "text-emerald-400" : "text-slate-500"} />
-                <span>Pagamento Realizado (Nubank)</span>
-              </button>
+            {/* Alternador de Modelo (Tabs Neutras Modernas - Apenas se permitido solicitar pagamento) */}
+            {canRequestPayment && (
+              <div className="flex items-center border-b border-slate-800 bg-slate-950/40 px-5 pt-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEmailModalType("REQUEST")}
+                  className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+                    emailModalType === "REQUEST"
+                      ? "border-emerald-500 text-white"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <Mail size={14} className={emailModalType === "REQUEST" ? "text-amber-400" : "text-slate-500"} />
+                  <span>Solicitar Pgto (Tássio)</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setEmailModalType("REQUEST")}
-                className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
-                  emailModalType === "REQUEST"
-                    ? "border-emerald-500 text-white"
-                    : "border-transparent text-slate-400 hover:text-slate-200"
-                }`}
-              >
-                <Mail size={14} className={emailModalType === "REQUEST" ? "text-emerald-400" : "text-slate-500"} />
-                <span>Solicitar Pgto (Tássio)</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setEmailModalType("PAID_NUBANK")}
+                  className={`flex items-center gap-2 pb-2.5 px-3 text-xs font-semibold border-b-2 transition-all cursor-pointer ${
+                    emailModalType === "PAID_NUBANK"
+                      ? "border-emerald-500 text-white"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <CheckCircle2 size={14} className={emailModalType === "PAID_NUBANK" ? "text-emerald-400" : "text-slate-500"} />
+                  <span>Pagamento Realizado (Nubank)</span>
+                </button>
+              </div>
+            )}
 
             {/* Conteúdo */}
             <div className="p-5 space-y-4">
