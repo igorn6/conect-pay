@@ -22,6 +22,14 @@ interface SweepResult {
   reason: string;
 }
 
+interface SweepItemSelection {
+  selectedCategory: string;
+  isCustom: boolean;
+  customInput: string;
+  applied: boolean;
+  loading: boolean;
+}
+
 export default function SettingsCategories() {
   const [activeTab, setActiveTab] = useState<"CATEGORIES" | "AI_SUGGESTIONS">("CATEGORIES");
 
@@ -31,6 +39,11 @@ export default function SettingsCategories() {
   const [catLoading, setCatLoading] = useState(false);
   const [catSearch, setCatSearch] = useState("");
   const [isFetching, setIsFetching] = useState(true);
+
+  // Edição inline de categoria
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editingCatName, setEditingCatName] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Sugestões da IA
   const [suggestions, setSuggestions] = useState<CategorySuggestion[]>([]);
@@ -42,6 +55,8 @@ export default function SettingsCategories() {
   const [isSweepModalOpen, setIsSweepModalOpen] = useState(false);
   const [isSweeping, setIsSweeping] = useState(false);
   const [sweepResults, setSweepResults] = useState<SweepResult[]>([]);
+  const [sweepSelections, setSweepSelections] = useState<Record<string, SweepItemSelection>>({});
+  const [singleApplyingId, setSingleApplyingId] = useState<string | null>(null);
   const [isApplyingSweep, setIsApplyingSweep] = useState(false);
 
   useEffect(() => {
@@ -97,30 +112,24 @@ export default function SettingsCategories() {
     setCatLoading(false);
   };
 
-  // Edição inline de categorias
-  const [editingCatId, setEditingCatId] = useState<string | null>(null);
-  const [editingCatName, setEditingCatName] = useState("");
-  const [isSavingEdit, setIsSavingEdit] = useState(false);
-
-  const handleStartEdit = (cat: Category) => {
+  const startEditCategory = (cat: Category) => {
     setEditingCatId(cat.id);
     setEditingCatName(cat.name);
   };
 
-  const handleCancelEdit = () => {
+  const cancelEditCategory = () => {
     setEditingCatId(null);
     setEditingCatName("");
   };
 
-  const handleSaveEdit = async (cat: Category) => {
+  const handleSaveEditCategory = async (id: string, oldName: string) => {
     const trimmed = editingCatName.trim();
     if (!trimmed) {
       alert("O nome da categoria não pode ficar vazio.");
       return;
     }
-
-    if (trimmed === cat.name) {
-      handleCancelEdit();
+    if (trimmed === oldName) {
+      setEditingCatId(null);
       return;
     }
 
@@ -130,21 +139,21 @@ export default function SettingsCategories() {
       const { error: catError } = await supabase
         .from("categories")
         .update({ name: trimmed })
-        .eq("id", cat.id);
+        .eq("id", id);
 
       if (catError) throw catError;
 
-      // 2. Atualizar em cascata nos cards que usavam o nome anterior
+      // 2. Atualizar em cascata em payment_requests
       await supabase
         .from("payment_requests")
         .update({ category: trimmed })
-        .eq("category", cat.name);
+        .eq("category", oldName);
 
+      setEditingCatId(null);
+      setEditingCatName("");
       await fetchCategories();
-      handleCancelEdit();
-    } catch (err: any) {
-      console.error(err);
-      alert("Erro ao atualizar categoria: " + err.message);
+    } catch (e: any) {
+      alert("Erro ao renomear categoria: " + e.message);
     } finally {
       setIsSavingEdit(false);
     }
@@ -193,6 +202,7 @@ export default function SettingsCategories() {
       setIsSweepModalOpen(true);
       setIsSweeping(true);
       setSweepResults([]);
+      setSweepSelections({});
 
       const res = await fetch("/api/ai/sweep", {
         method: "POST",
@@ -203,7 +213,21 @@ export default function SettingsCategories() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro na varredura");
 
-      setSweepResults(data.results || []);
+      const results: SweepResult[] = data.results || [];
+      setSweepResults(results);
+
+      // Inicializa a seleção padrão de cada despesa com a sugestão do Gemini
+      const initialSel: Record<string, SweepItemSelection> = {};
+      results.forEach((item) => {
+        initialSel[item.id] = {
+          selectedCategory: item.suggestedCategory,
+          isCustom: false,
+          customInput: item.isNewCategory ? item.suggestedCategory : "",
+          applied: false,
+          loading: false,
+        };
+      });
+      setSweepSelections(initialSel);
     } catch (e: any) {
       alert("Falha na varredura: " + e.message);
     } finally {
@@ -211,28 +235,102 @@ export default function SettingsCategories() {
     }
   };
 
-  // Aplicar resultados da varredura
-  const handleApplySweep = async () => {
-    if (!window.confirm(`Deseja aplicar a categorização com IA em todas as ${sweepResults.length} despesas?`)) {
+  const handleUpdateSelection = (itemId: string, updates: Partial<SweepItemSelection>) => {
+    setSweepSelections((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || {
+          selectedCategory: "",
+          isCustom: false,
+          customInput: "",
+          applied: false,
+          loading: false,
+        }),
+        ...updates,
+      },
+    }));
+  };
+
+  // Aplicar categorização individual de um card específico
+  const handleApplySingle = async (item: SweepResult) => {
+    const sel = sweepSelections[item.id];
+    if (!sel) return;
+
+    const chosenName = sel.isCustom ? sel.customInput.trim() : sel.selectedCategory.trim();
+    if (!chosenName) {
+      alert("Por favor, selecione ou digite o nome da categoria.");
+      return;
+    }
+
+    try {
+      handleUpdateSelection(item.id, { loading: true });
+      const res = await fetch("/api/categories/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: item.id,
+          categoryName: chosenName,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao atualizar categoria");
+
+      handleUpdateSelection(item.id, { applied: true, loading: false });
+
+      // Atualiza lista de categorias se uma nova foi criada
+      if (data.createdNewCategory) {
+        await fetchCategories();
+      }
+    } catch (e: any) {
+      alert("Erro ao aplicar categoria: " + e.message);
+      handleUpdateSelection(item.id, { loading: false });
+    }
+  };
+
+  // Aplicar todas as despesas que ainda estão pendentes
+  const handleApplyAllPending = async () => {
+    const pendingItems = sweepResults.filter((item) => !sweepSelections[item.id]?.applied);
+    if (pendingItems.length === 0) return;
+
+    if (!window.confirm(`Deseja aplicar as categorias escolhidas para as ${pendingItems.length} despesas pendentes?`)) {
       return;
     }
 
     try {
       setIsApplyingSweep(true);
-      const res = await fetch("/api/ai/sweep", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apply: true }),
-      });
+      let successCount = 0;
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao aplicar varredura");
+      for (const item of pendingItems) {
+        const sel = sweepSelections[item.id];
+        const chosenName = sel?.isCustom ? sel.customInput.trim() : sel?.selectedCategory?.trim();
+        if (!chosenName) continue;
 
-      alert(`Sucesso! ${data.totalProcessed} solicitações reclassificadas pela IA.`);
-      setIsSweepModalOpen(false);
+        handleUpdateSelection(item.id, { loading: true });
+        try {
+          const res = await fetch("/api/categories/assign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              requestId: item.id,
+              categoryName: chosenName,
+            }),
+          });
+          if (res.ok) {
+            handleUpdateSelection(item.id, { applied: true, loading: false });
+            successCount++;
+          } else {
+            handleUpdateSelection(item.id, { loading: false });
+          }
+        } catch {
+          handleUpdateSelection(item.id, { loading: false });
+        }
+      }
+
       await Promise.all([fetchCategories(), fetchSuggestions()]);
+      alert(`${successCount} despesas foram reclassificadas com sucesso!`);
     } catch (e: any) {
-      alert("Erro ao aplicar: " + e.message);
+      alert("Erro ao aplicar em lote: " + e.message);
     } finally {
       setIsApplyingSweep(false);
     }
@@ -247,8 +345,10 @@ export default function SettingsCategories() {
       {/* Top Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Categorias & Inteligência Artificial</h1>
-          <p className="text-slate-400 text-sm">
+          <h1 className="text-2xl font-bold mb-1 tracking-tight" style={{ color: "var(--text-primary)" }}>
+            Categorias & Inteligência Artificial
+          </h1>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             Gerenciamento de categorias, sugestões automáticas do Gemini e reclassificação de custos.
           </p>
         </div>
@@ -264,14 +364,15 @@ export default function SettingsCategories() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 mb-4 border-b border-slate-800 pb-2">
+      <div className="flex items-center gap-2 mb-4 border-b pb-2" style={{ borderColor: "var(--surface-border)" }}>
         <button
           onClick={() => setActiveTab("CATEGORIES")}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === "CATEGORIES"
-              ? "bg-slate-800 text-white border border-slate-700"
+              ? "bg-slate-800 text-white border border-slate-700 shadow-sm"
               : "text-slate-400 hover:text-slate-200"
           }`}
+          style={activeTab === "CATEGORIES" ? { backgroundColor: "var(--surface-hover)", color: "var(--text-primary)", borderColor: "var(--surface-border)" } : { color: "var(--text-secondary)" }}
         >
           <Tags size={16} />
           <span>Categorias Ativas ({categories.length})</span>
@@ -279,9 +380,9 @@ export default function SettingsCategories() {
 
         <button
           onClick={() => setActiveTab("AI_SUGGESTIONS")}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer ${
             activeTab === "AI_SUGGESTIONS"
-              ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+              ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 shadow-sm"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
@@ -297,17 +398,24 @@ export default function SettingsCategories() {
 
       {/* TAB 1: CATEGORIAS ATIVAS */}
       {activeTab === "CATEGORIES" && (
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden flex flex-col h-[520px]">
+        <div
+          className="border rounded-2xl shadow-sm overflow-hidden flex flex-col h-[520px]"
+          style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)" }}
+        >
           {/* Header Actions */}
-          <div className="p-5 border-b border-slate-700 bg-slate-800/50 flex flex-col sm:flex-row gap-4 items-center justify-between">
+          <div
+            className="p-5 border-b flex flex-col sm:flex-row gap-4 items-center justify-between"
+            style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}
+          >
             <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input
                 type="text"
                 placeholder="Buscar categoria..."
                 value={catSearch}
                 onChange={(e) => setCatSearch(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-9 pr-4 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition-colors"
+                className="w-full border rounded-lg pl-9 pr-4 py-2 text-sm outline-none focus:border-indigo-500 transition-colors"
+                style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
               />
             </div>
             <form onSubmit={handleAddCategory} className="flex gap-2 w-full sm:w-auto">
@@ -316,12 +424,13 @@ export default function SettingsCategories() {
                 placeholder="Nova categoria manual"
                 value={newCatName}
                 onChange={(e) => setNewCatName(e.target.value)}
-                className="flex-1 sm:w-48 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition-colors"
+                className="flex-1 sm:w-48 border rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-500 transition-colors"
+                style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
               />
               <button
                 type="submit"
                 disabled={catLoading || !newCatName.trim()}
-                className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {catLoading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
                 Adicionar
@@ -339,10 +448,16 @@ export default function SettingsCategories() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 border-b border-slate-700 w-full">
+                    <th
+                      className="px-4 py-3 text-xs font-semibold border-b w-full"
+                      style={{ color: "var(--text-secondary)", borderColor: "var(--surface-border)" }}
+                    >
                       Nome da Categoria
                     </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-slate-400 border-b border-slate-700 text-right">
+                    <th
+                      className="px-4 py-3 text-xs font-semibold border-b text-right"
+                      style={{ color: "var(--text-secondary)", borderColor: "var(--surface-border)" }}
+                    >
                       Ações
                     </th>
                   </tr>
@@ -359,62 +474,83 @@ export default function SettingsCategories() {
                       const isEditing = editingCatId === cat.id;
 
                       return (
-                        <tr key={cat.id} className="hover:bg-slate-700/30 transition-colors group">
-                          <td className="px-4 py-3 text-sm text-slate-200 font-medium">
-                            <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded bg-slate-900 flex items-center justify-center text-slate-400 shrink-0">
-                                <Tags size={14} />
-                              </div>
-
-                              {isEditing ? (
-                                <div className="flex items-center gap-2 flex-1 max-w-md">
-                                  <input
-                                    type="text"
-                                    value={editingCatName}
-                                    onChange={(e) => setEditingCatName(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") handleSaveEdit(cat);
-                                      if (e.key === "Escape") handleCancelEdit();
-                                    }}
-                                    autoFocus
-                                    className="flex-1 bg-slate-900 border border-indigo-500 rounded-lg px-3 py-1.5 text-sm text-white outline-none"
-                                  />
-                                  <button
-                                    onClick={() => handleSaveEdit(cat)}
-                                    disabled={isSavingEdit || !editingCatName.trim()}
-                                    className="p-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white transition-colors cursor-pointer disabled:opacity-40"
-                                    title="Salvar alteração"
-                                  >
-                                    {isSavingEdit ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
-                                  </button>
-                                  <button
-                                    onClick={handleCancelEdit}
-                                    disabled={isSavingEdit}
-                                    className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors cursor-pointer"
-                                    title="Cancelar"
-                                  >
-                                    <X size={15} />
-                                  </button>
+                        <tr
+                          key={cat.id}
+                          className="hover:bg-slate-700/10 dark:hover:bg-slate-700/30 transition-colors group border-b border-slate-700/30 last:border-b-0"
+                        >
+                          <td className="px-4 py-2.5 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                            {isEditing ? (
+                              <div className="flex items-center gap-2 max-w-md">
+                                <div className="w-8 h-8 rounded bg-slate-900/30 flex items-center justify-center text-indigo-400 shrink-0">
+                                  <Tags size={14} />
                                 </div>
-                              ) : (
-                                <span className="text-slate-200 font-medium">{cat.name}</span>
-                              )}
-                            </div>
+                                <input
+                                  type="text"
+                                  value={editingCatName}
+                                  autoFocus
+                                  onChange={(e) => setEditingCatName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleSaveEditCategory(cat.id, cat.name);
+                                    }
+                                    if (e.key === "Escape") {
+                                      cancelEditCategory();
+                                    }
+                                  }}
+                                  className="flex-1 bg-slate-900 border border-indigo-500 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:ring-2 focus:ring-indigo-500/40"
+                                  placeholder="Nome da categoria..."
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded bg-slate-900/40 flex items-center justify-center text-slate-400 shrink-0">
+                                  <Tags size={14} />
+                                </div>
+                                <span>{cat.name}</span>
+                              </div>
+                            )}
                           </td>
-
-                          <td className="px-4 py-3 text-right">
-                            {!isEditing && (
+                          <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                            {isEditing ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditCategory(cat.id, cat.name)}
+                                  disabled={isSavingEdit || !editingCatName.trim()}
+                                  className="p-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 transition-colors cursor-pointer disabled:opacity-40"
+                                  title="Salvar alterações (Enter)"
+                                >
+                                  {isSavingEdit ? (
+                                    <Loader2 size={16} className="animate-spin" />
+                                  ) : (
+                                    <Check size={16} />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelEditCategory}
+                                  disabled={isSavingEdit}
+                                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors cursor-pointer"
+                                  title="Cancelar (Esc)"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                            ) : (
                               <div className="flex items-center justify-end gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
                                 <button
-                                  onClick={() => handleStartEdit(cat)}
-                                  className="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-md transition-colors cursor-pointer"
+                                  type="button"
+                                  onClick={() => startEditCategory(cat)}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer"
                                   title="Editar nome da categoria"
                                 >
                                   <Pencil size={15} />
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleDeleteCategory(cat.id)}
-                                  className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors cursor-pointer"
+                                  className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
                                   title="Remover categoria"
                                 >
                                   <Trash2 size={15} />
@@ -435,14 +571,20 @@ export default function SettingsCategories() {
 
       {/* TAB 2: SUGESTÕES DE NOVAS CATEGORIAS DA IA */}
       {activeTab === "AI_SUGGESTIONS" && (
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[520px]">
-          <div className="p-5 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between">
+        <div
+          className="border rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[520px]"
+          style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)" }}
+        >
+          <div
+            className="p-5 border-b flex items-center justify-between"
+            style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}
+          >
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
                 <Sparkles size={16} className="text-indigo-400" />
                 Novas Categorias Propostas pelo Gemini
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
                 Solicitações cuja despesa não pertencia a nenhuma categoria existente e a IA recomendou uma nova categoria.
               </p>
             </div>
@@ -614,82 +756,208 @@ export default function SettingsCategories() {
                   </div>
 
                   <div className="space-y-3">
-                    {sweepResults.map((item) => (
-                      <div
-                        key={item.id}
-                        className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
-                      >
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-white">{item.title}</span>
-                            <span className="text-xs font-semibold text-emerald-400">
-                              R$ {Number(item.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </span>
-                          </div>
+                    {sweepResults.map((item) => {
+                      const sel = sweepSelections[item.id] || {
+                        selectedCategory: item.suggestedCategory,
+                        isCustom: false,
+                        customInput: "",
+                        applied: false,
+                        loading: false,
+                      };
 
-                          {item.notes && (
-                            <p className="text-xs text-slate-400 line-clamp-1 italic">
-                              "{item.notes}"
-                            </p>
-                          )}
+                      return (
+                        <div
+                          key={item.id}
+                          className={`border rounded-xl p-4 transition-all ${
+                            sel.applied
+                              ? "bg-emerald-950/20 border-emerald-500/30"
+                              : "bg-slate-800/80 border-slate-700/80"
+                          } flex flex-col gap-3`}
+                        >
+                          {/* Cabeçalho do Card */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-bold text-white">{item.title}</span>
+                              <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                                R$ {Number(item.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-[11px] text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded border border-slate-600/50">
+                                Atual: <strong className="text-slate-300">{item.currentCategory}</strong>
+                              </span>
+                            </div>
 
-                          <p className="text-[11px] text-slate-300">
-                            <strong className="text-indigo-400">IA:</strong> {item.reason}
-                          </p>
-                        </div>
-
-                        {/* Comparação de Categorias */}
-                        <div className="flex items-center gap-2.5 shrink-0 bg-slate-900/80 px-3.5 py-2 rounded-lg border border-slate-700">
-                          <span className="text-xs text-slate-400 line-through">
-                            {item.currentCategory}
-                          </span>
-                          <ArrowRight size={14} className="text-slate-400" />
-                          <div className="flex flex-col items-end">
-                            <span className="text-xs font-bold text-indigo-300">
-                              {item.suggestedCategory}
-                            </span>
                             {item.isNewCategory && (
-                              <span className="text-[9px] uppercase font-black text-amber-400">
-                                Nova Categoria
+                              <span className="text-[10px] uppercase font-black tracking-wider text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded self-start sm:self-auto">
+                                Sugere Nova Categoria
                               </span>
                             )}
                           </div>
+
+                          {/* Notas e Motivo da IA */}
+                          <div className="space-y-1">
+                            {item.notes && (
+                              <p className="text-xs text-slate-300 line-clamp-2 italic bg-slate-900/40 p-2 rounded border border-slate-700/40">
+                                "{item.notes}"
+                              </p>
+                            )}
+                            <p className="text-[11px] text-slate-300 flex items-start gap-1.5 pt-0.5">
+                              <Sparkles size={13} className="text-indigo-400 shrink-0 mt-0.5" />
+                              <span>
+                                <strong className="text-indigo-300">Análise IA:</strong> {item.reason}
+                              </span>
+                            </p>
+                          </div>
+
+                          {/* Área de Seleção e Aplicação (Um por Um) */}
+                          <div className="pt-2 border-t border-slate-700/60 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            {sel.applied ? (
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
+                                  <CheckCircle2 size={16} />
+                                  <span>
+                                    Definido como:{" "}
+                                    <span className="text-white underline decoration-emerald-500">
+                                      {sel.isCustom ? sel.customInput : sel.selectedCategory}
+                                    </span>
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateSelection(item.id, { applied: false })}
+                                  className="text-[11px] text-slate-400 hover:text-white hover:underline cursor-pointer"
+                                >
+                                  Alterar
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                  {/* Select de Categorias */}
+                                  <select
+                                    value={sel.isCustom ? "__CUSTOM__" : sel.selectedCategory}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "__CUSTOM__") {
+                                        handleUpdateSelection(item.id, {
+                                          isCustom: true,
+                                          customInput:
+                                            sel.customInput || (item.isNewCategory ? item.suggestedCategory : ""),
+                                        });
+                                      } else {
+                                        handleUpdateSelection(item.id, {
+                                          isCustom: false,
+                                          selectedCategory: val,
+                                        });
+                                      }
+                                    }}
+                                    className="bg-slate-900 border border-slate-600 text-slate-200 text-xs rounded-lg px-3 py-2 outline-none focus:border-indigo-400 transition-colors flex-1"
+                                  >
+                                    <option value={item.suggestedCategory}>
+                                      ✨ Sugestão IA: {item.suggestedCategory}
+                                    </option>
+                                    <optgroup label="Categorias Existentes">
+                                      {categories.map((c) => (
+                                        <option key={c.id} value={c.name}>
+                                          {c.name}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                    <option value="__CUSTOM__">
+                                      ✏️ Digitar novo nome personalizado...
+                                    </option>
+                                  </select>
+
+                                  {/* Campo de texto caso queira novo nome */}
+                                  {sel.isCustom && (
+                                    <input
+                                      type="text"
+                                      placeholder="Digite o novo nome..."
+                                      value={sel.customInput}
+                                      onChange={(e) =>
+                                        handleUpdateSelection(item.id, { customInput: e.target.value })
+                                      }
+                                      className="bg-slate-900 border border-indigo-500 text-white text-xs rounded-lg px-3 py-2 outline-none focus:ring-1 focus:ring-indigo-400 flex-1"
+                                      autoFocus
+                                    />
+                                  )}
+                                </div>
+
+                                {/* Botão Aplicar Individual */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleApplySingle(item)}
+                                  disabled={
+                                    sel.loading ||
+                                    (sel.isCustom && !sel.customInput.trim()) ||
+                                    (!sel.isCustom && !sel.selectedCategory.trim())
+                                  }
+                                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-sm shadow-indigo-600/30"
+                                >
+                                  {sel.loading ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                  ) : (
+                                    <Check size={14} />
+                                  )}
+                                  <span>Aplicar nesta despesa</span>
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="p-5 border-t border-slate-800 flex items-center justify-between bg-slate-900/60">
-              <button
-                type="button"
-                onClick={() => setIsSweepModalOpen(false)}
-                className="px-4 py-2 rounded-lg text-slate-400 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-
-              <button
-                type="button"
-                onClick={handleApplySweep}
-                disabled={isApplyingSweep || isSweeping || sweepResults.length === 0}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
-              >
-                {isApplyingSweep ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    <span>Aplicando Categorizações...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 size={16} />
-                    <span>Aplicar Todas as {sweepResults.length} Categorias</span>
-                  </>
+            <div className="p-5 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-900/60">
+              <div className="text-xs text-slate-400">
+                {sweepResults.length > 0 && (
+                  <span>
+                    Progresso:{" "}
+                    <strong className="text-white">
+                      {sweepResults.filter((r) => sweepSelections[r.id]?.applied).length}
+                    </strong>{" "}
+                    de <strong className="text-white">{sweepResults.length}</strong> aplicadas
+                  </span>
                 )}
-              </button>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsSweepModalOpen(false)}
+                  className="px-4 py-2 rounded-lg text-slate-400 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
+
+                {sweepResults.filter((r) => !sweepSelections[r.id]?.applied).length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleApplyAllPending}
+                    disabled={isApplyingSweep || isSweeping}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 transition-all flex items-center gap-2 disabled:opacity-40 cursor-pointer"
+                  >
+                    {isApplyingSweep ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Aplicando Pendentes...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={16} />
+                        <span>
+                          Aplicar Todas as Pendentes (
+                          {sweepResults.filter((r) => !sweepSelections[r.id]?.applied).length})
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
