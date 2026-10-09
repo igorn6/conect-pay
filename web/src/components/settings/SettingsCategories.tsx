@@ -355,11 +355,17 @@ export default function SettingsCategories() {
 
         <button
           onClick={handleStartSweep}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all cursor-pointer shrink-0"
-          title="Analisar e reclassificar todas as solicitações cadastradas em 'Outros'"
+          className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all cursor-pointer shrink-0"
+          title="Analisar e reclassificar todas as solicitações cadastradas em 'Outros' com Super Solzinho"
         >
-          <Sparkles size={16} />
-          <span>Varredura com IA ("Outros")</span>
+          <div className="w-6 h-6 rounded-full overflow-hidden border border-white/60 shrink-0 bg-white/20">
+            <img
+              src="/images/solzinho/solzinho-smart.png"
+              alt="Super Solzinho"
+              className="w-full h-full object-cover object-center scale-110"
+            />
+          </div>
+          <span>Varredura com Super Solzinho ("Outros")</span>
         </button>
       </div>
 
@@ -708,15 +714,19 @@ export default function SettingsCategories() {
             {/* Modal Header */}
             <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/60">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                  <Sparkles size={20} />
+                <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-400 shadow-md shadow-amber-500/20 shrink-0 bg-gradient-to-br from-amber-400/20 to-orange-500/20 ring-2 ring-amber-400/20">
+                  <img
+                    src="/images/solzinho/solzinho-smart.png"
+                    alt="Super Solzinho"
+                    className="w-full h-full object-cover object-center scale-110"
+                  />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white tracking-tight">
-                    Varredura de Despesas com IA ("Outros")
+                  <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                    Varredura de Despesas com Super Solzinho
                   </h3>
                   <p className="text-xs text-slate-400">
-                    O Gemini analisou os títulos e observações de despesas sem categoria para categorizá-las com precisão.
+                    O Super Solzinho analisou títulos, valores e observações de despesas em "Outros" para sugerir a melhor categoria.
                   </p>
                 </div>
               </div>
@@ -731,11 +741,17 @@ export default function SettingsCategories() {
             {/* Modal Body */}
             <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
               {isSweeping ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center text-slate-400 space-y-3">
-                  <Loader2 size={36} className="animate-spin text-indigo-400" />
-                  <p className="text-base font-semibold text-white">Analisando despesas com o Gemini...</p>
+                <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400 space-y-3">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-amber-400 shadow-xl shadow-amber-500/25 mb-1 bg-gradient-to-br from-amber-400/30 to-orange-500/30 ring-4 ring-amber-400/20 animate-pulse">
+                    <img
+                      src="/images/solzinho/solzinho-smart.png"
+                      alt="Super Solzinho Analisando"
+                      className="w-full h-full object-cover object-center scale-110"
+                    />
+                  </div>
+                  <p className="text-base font-semibold text-white">Super Solzinho está analisando as despesas...</p>
                   <p className="text-xs text-slate-400 max-w-sm">
-                    Avaliando título, notas e valores contra o plano de contas corporativo.
+                    Avaliando títulos, notas e valores contra o plano de categorias corporativo da Conectsol.
                   </p>
                 </div>
               ) : sweepResults.length === 0 ? (
@@ -801,9 +817,15 @@ export default function SettingsCategories() {
                               </p>
                             )}
                             <p className="text-[11px] text-slate-300 flex items-start gap-1.5 pt-0.5">
-                              <Sparkles size={13} className="text-indigo-400 shrink-0 mt-0.5" />
+                              <span className="w-4 h-4 rounded-full overflow-hidden border border-amber-400/70 shrink-0 mt-0.5 inline-block">
+                                <img
+                                  src="/images/solzinho/solzinho-thumbs.png"
+                                  alt="Super Solzinho"
+                                  className="w-full h-full object-cover scale-110"
+                                />
+                              </span>
                               <span>
-                                <strong className="text-indigo-300">Análise IA:</strong> {item.reason}
+                                <strong className="text-amber-300">Super Solzinho:</strong> {item.reason}
                               </span>
                             </p>
                           </div>

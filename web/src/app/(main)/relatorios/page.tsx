@@ -9,17 +9,27 @@ export default function RelatoriosPage() {
 
   return (
     <div className="h-full w-full flex flex-col p-4 md:p-6 gap-4 overflow-hidden">
-      <div className="shrink-0">
-        <h1
-          className="text-2xl font-bold tracking-tight flex items-center gap-2"
-          style={{ color: "var(--text-primary)" }}
-        >
-          <BarChart3 size={24} className="text-yellow-500" />
-          Relatórios com IA
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-          Converse com o Super Solzinho para analisar gastos, gargalos e solicitantes em tempo real.
-        </p>
+      <div className="shrink-0 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-amber-400 shadow-md shadow-amber-500/20 shrink-0 bg-gradient-to-br from-amber-400/20 to-orange-500/20 ring-4 ring-amber-400/10">
+            <img
+              src="/images/solzinho/solzinho-smart.png"
+              alt="Super Solzinho - Relatórios Inteligentes"
+              className="w-full h-full object-cover object-center scale-110"
+            />
+          </div>
+          <div>
+            <h1
+              className="text-2xl font-bold tracking-tight flex items-center gap-2"
+              style={{ color: "var(--text-primary)" }}
+            >
+              Relatórios com Super Solzinho
+            </h1>
+            <p className="text-sm mt-0.5" style={{ color: "var(--text-secondary)" }}>
+              Inteligência Artificial da Conectsol para análise de gastos, gargalos e solicitantes em tempo real.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div

@@ -133,7 +133,17 @@ export default function Sidebar() {
                 } ${isCollapsed ? "justify-center" : "justify-start"}`}
                 onClick={() => setIsOpen(false)}
               >
-                <item.icon size={18} className={`shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
+                {item.href === "/relatorios" ? (
+                  <div className="w-5 h-5 rounded-full overflow-hidden border border-amber-400 shrink-0 shadow-sm bg-gradient-to-br from-amber-400/30 to-orange-500/30 ring-1 ring-amber-400/30">
+                    <img
+                      src="/images/solzinho/solzinho-smart.png"
+                      alt="Super Solzinho"
+                      className="w-full h-full object-cover object-center scale-110"
+                    />
+                  </div>
+                ) : (
+                  <item.icon size={18} className={`shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
+                )}
                 {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
               </Link>
             );

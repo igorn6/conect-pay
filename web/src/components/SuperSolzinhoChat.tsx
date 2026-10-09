@@ -135,8 +135,12 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
         style={{ borderColor: "var(--surface-border)" }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center bg-yellow-400/15 border border-yellow-400/40 shrink-0">
-            <Sun size={20} className="text-yellow-500" />
+          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-amber-400/80 shadow-md shadow-amber-500/20 shrink-0 bg-gradient-to-br from-amber-400/20 to-orange-500/20 ring-2 ring-amber-400/10">
+            <img
+              src="/images/solzinho/solzinho-pointing.png"
+              alt="Super Solzinho"
+              className="w-full h-full object-cover object-top scale-110"
+            />
           </div>
           <div className="min-w-0">
             <p className="text-sm font-bold leading-tight truncate" style={{ color: "var(--text-primary)" }}>
@@ -165,8 +169,12 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
         <div className={isPage ? "max-w-4xl mx-auto space-y-4" : "space-y-4"}>
           {messages.length === 0 && (
             <div className="text-center py-6">
-              <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center bg-yellow-400/15 border border-yellow-400/40 mb-3">
-                <Sun size={30} className="text-yellow-500" />
+              <div className="mx-auto w-20 h-20 rounded-full overflow-hidden border-2 border-amber-400 shadow-xl shadow-amber-500/25 mb-3 bg-gradient-to-br from-amber-400/30 to-orange-500/30 ring-4 ring-amber-400/10 hover:scale-105 transition-transform">
+                <img
+                  src="/images/solzinho/solzinho-wave.png"
+                  alt="Super Solzinho Acenando"
+                  className="w-full h-full object-cover object-center scale-110"
+                />
               </div>
               <p className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
                 Olá{firstName ? `, ${firstName}` : ""}! ☀️
@@ -217,8 +225,12 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
 
             return (
               <div key={m.id} className="flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-yellow-400/15 border border-yellow-400/40 shrink-0 mt-0.5">
-                  <Sun size={17} className="text-yellow-500" />
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-amber-400/70 shadow-sm shrink-0 mt-0.5 bg-gradient-to-br from-amber-400/20 to-orange-500/20 ring-1 ring-amber-400/20">
+                  <img
+                    src="/images/solzinho/solzinho-thumbs.png"
+                    alt="Super Solzinho"
+                    className="w-full h-full object-cover object-center scale-110"
+                  />
                 </div>
                 <div
                   className="min-w-0 max-w-[92%] px-3.5 py-2.5 rounded-2xl rounded-tl-md text-sm border"
@@ -242,11 +254,15 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
 
           {status === "submitted" && (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-yellow-400/15 border border-yellow-400/40 shrink-0">
-                <Sun size={17} className="text-yellow-500 animate-spin" style={{ animationDuration: "3s" }} />
+              <div className="w-8 h-8 rounded-full overflow-hidden border border-amber-400/70 shadow-sm shrink-0 bg-gradient-to-br from-amber-400/30 to-orange-500/30 animate-pulse ring-2 ring-amber-400/30">
+                <img
+                  src="/images/solzinho/solzinho-smart.png"
+                  alt="Super Solzinho Pensando"
+                  className="w-full h-full object-cover object-center scale-110"
+                />
               </div>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                Solzinho está pensando...
+                Super Solzinho está iluminando a resposta...
               </span>
             </div>
           )}
