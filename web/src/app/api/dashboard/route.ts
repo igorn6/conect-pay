@@ -49,27 +49,42 @@ export async function GET(req: Request) {
     const { data: requests, error } = await query;
     if (error) throw error;
     
-    // Fetch profiles to map names and sectors manually
-    const { data: profiles } = await supabaseAdmin.from('profiles').select('*');
-    const profilesMap = (profiles || []).reduce((acc, p) => {
+    // Fetch profiles and sectors to map human-readable names
+    const [{ data: profiles }, { data: sectors }] = await Promise.all([
+      supabaseAdmin.from('profiles').select('*'),
+      supabaseAdmin.from('sectors').select('id, name')
+    ]);
+
+    const sectorsMap: Record<string, string> = (sectors || []).reduce((acc: any, s: any) => {
+      acc[s.id] = s.name;
+      return acc;
+    }, {});
+
+    const profilesMap = (profiles || []).reduce((acc: any, p: any) => {
       acc[p.id] = p;
       return acc;
     }, {});
     
     requests.forEach(req => {
-      req.profiles = profilesMap[req.real_requester_id || req.created_by] || { name: 'Desconhecido', sector: 'Sem Setor' };
+      const p = profilesMap[req.real_requester_id || req.created_by];
+      const sectorId = p?.sector;
+      const sectorName = sectorId ? (sectorsMap[sectorId] || sectorId) : "Sem Setor";
+      req.profiles = {
+        name: p?.name || 'Desconhecido',
+        sector: sectorId || 'Sem Setor',
+        sector_name: sectorName,
+      };
     });
-    if (error) throw error;
 
     // Agregações Matemáticas
     const data = requests || [];
 
-    // Se não houver suporte a .eq('sector_id') não PostgREST, filtramos em memória (pois o painel requer isolamento).
+    // Se não houver suporte a .eq('sector_id') no PostgREST, filtramos em memória.
     let filteredData = data;
     if (userRole === "GESTOR" && userSector) {
-      filteredData = data.filter(req => req.profiles?.sector === userSector || req.real_requester_id === userId || req.created_by === userId);
+      filteredData = data.filter(req => req.profiles?.sector === userSector || req.profiles?.sector_name === userSector || req.real_requester_id === userId || req.created_by === userId);
     } else if (userRole === "MASTER" && selectedSectorId) {
-      filteredData = data.filter(req => req.profiles?.sector === selectedSectorId);
+      filteredData = data.filter(req => req.profiles?.sector === selectedSectorId || req.profiles?.sector_name === selectedSectorId);
     }
 
     const finalizados = filteredData.filter(r => r.status === "FINALIZADO");
@@ -99,7 +114,7 @@ export async function GET(req: Request) {
     const sectorMap: Record<string, number> = {};
     if (userRole === "MASTER") {
       finalizados.forEach(req => {
-        const sec = req.profiles?.sector || "Sem Setor";
+        const sec = req.profiles?.sector_name || "Sem Setor";
         sectorMap[sec] = (sectorMap[sec] || 0) + Number(req.amount);
       });
     }
