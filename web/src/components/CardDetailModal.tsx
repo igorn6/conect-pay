@@ -274,9 +274,11 @@ export default function CardDetailModal({
     const solicitante = requesterName !== "Desconhecido" ? requesterName : "Solicitante";
     const gestorName = requesterName !== "Desconhecido" ? requesterName : "Solicitante";
 
+    // O motivo no e-mail deve ser o que está em observações/descrição da solicitação
+    const motivo = (card.notes || card.description)?.trim() || card.title;
+
     if (type === "PAID_NUBANK") {
       const rawSubject = `Pagamento Realizado | ${card.title} | Nubank`;
-      const motivo = (card.notes || card.description)?.trim() || card.title;
 
       let rawBody = `--\n${greeting} Tássio!\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nTitular: ${pixOwner}\nSolicitante: ${solicitante}`;
 
@@ -304,7 +306,7 @@ export default function CardDetailModal({
     // Tipo REQUEST (Solicitar pagamento a Tassio)
     const cnpjDisplay = localCnpj || card.cnpj || "Sem CNPJ";
     const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
-    const rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${card.title}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${pixKey}\nTitular: ${pixOwner}\nSolicitante: ${gestorName}`;
+    const rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${pixKey}\nTitular: ${pixOwner}\nSolicitante: ${gestorName}`;
 
     return {
       to: "tassiolimacs@gmail.com",
