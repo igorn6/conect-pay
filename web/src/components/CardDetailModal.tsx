@@ -541,21 +541,15 @@ export default function CardDetailModal({
                     type="button"
                     onClick={handleAiRecategorize}
                     disabled={isReclassifyingCategory}
-                    className="text-[11px] font-bold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 hover:from-amber-500/30 hover:to-orange-500/30 border border-amber-400/40 transition-all cursor-pointer disabled:opacity-40 shadow-sm"
-                    title="Analisar título e observações com o Super Solzinho para sugerir categoria"
+                    className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
+                    title="Analisar título e observações com IA Gemini para sugerir categoria"
                   >
                     {isReclassifyingCategory ? (
-                      <Loader2 size={13} className="animate-spin text-amber-400" />
+                      <Loader2 size={12} className="animate-spin" />
                     ) : (
-                      <div className="w-4 h-4 rounded-full overflow-hidden border border-amber-400/80 shrink-0 bg-amber-400/20">
-                        <img
-                          src="/images/solzinho/solzinho-smart.png"
-                          alt="Super Solzinho"
-                          className="w-full h-full object-cover scale-110"
-                        />
-                      </div>
+                      <Sparkles size={12} />
                     )}
-                    <span>{isReclassifyingCategory ? "Solzinho analisando..." : "Sugerir com Super Solzinho"}</span>
+                    <span>{isReclassifyingCategory ? "Analisando..." : "Sugerir com IA"}</span>
                   </button>
                 </div>
                 {isPix && isMasterOrFinanceiro && (
