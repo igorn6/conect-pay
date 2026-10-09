@@ -16,7 +16,7 @@ import {
   ChevronRight,
   Home,
   UserCircle,
-  Sun
+  FileText
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   { name: "Solicitações Kanban", href: "/kanban", icon: Columns, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Consultar Solicitações", href: "/consultas", icon: Search, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
-  { name: "Relatórios (IA)", href: "/relatorios", icon: Sun, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
+  { name: "Relatórios", href: "/relatorios", icon: FileText, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Configurações", href: "/configuracoes", icon: Settings, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
 ];
 
@@ -133,17 +133,7 @@ export default function Sidebar() {
                 } ${isCollapsed ? "justify-center" : "justify-start"}`}
                 onClick={() => setIsOpen(false)}
               >
-                {item.href === "/relatorios" ? (
-                  <div className="w-5 h-5 rounded-full overflow-hidden border border-amber-400 shrink-0 shadow-sm bg-gradient-to-br from-amber-400/30 to-orange-500/30 ring-1 ring-amber-400/30">
-                    <img
-                      src="/images/solzinho/solzinho-smart.png"
-                      alt="Super Solzinho"
-                      className="w-full h-full object-cover object-center scale-110"
-                    />
-                  </div>
-                ) : (
-                  <item.icon size={18} className={`shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
-                )}
+                <item.icon size={18} className={`shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
                 {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
               </Link>
             );
