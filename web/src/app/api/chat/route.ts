@@ -5,10 +5,10 @@ import { streamText, convertToModelMessages, isStepCount, type UIMessage } from 
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { buildSystemPrompt, createFinancialReportTool, getSolzinhoUser } from "@/lib/solzinho";
 
-// Gemini 1.5 Pro foi descontinuado e os modelos Pro atuais (2.5/3.1) exigem plano pago nesta chave
-// (testado: 404 / quota excedida). gemini-3.5-flash foi validado com function calling.
-// Para usar um Pro após habilitar faturamento, basta definir SOLZINHO_MODEL (ex.: gemini-3.1-pro-preview).
-const MODEL_ID = process.env.SOLZINHO_MODEL || "gemini-3.5-flash";
+// Gemini 1.5 Pro foi descontinuado e os modelos Pro atuais exigem plano pago nesta chave.
+// gemini-3.5-flash-lite possui cota gratuita de 1.500 req/dia (vs 20 req/dia do 3.5-flash),
+// ultra-baixa latência e suporte nativo a function calling.
+const MODEL_ID = process.env.SOLZINHO_MODEL || "gemini-3.5-flash-lite";
 const MAX_MESSAGES = 30;
 
 export async function POST(req: Request) {

@@ -111,7 +111,8 @@ export function buildSystemPrompt(user: SolzinhoUser): string {
     roleBlock,
     RULES_PROMPT,
     `Contexto: o usuário se chama ${user.name} (perfil ${user.role}). Hoje é ${today} (${todayIso}). ` +
-      "Use essa data para converter expressões como 'este mês' ou 'semana passada' em datas YYYY-MM-DD.",
+      "Use essa data para converter expressões como 'este mês' ou 'semana passada' em datas YYYY-MM-DD. " +
+      "Se o usuário pedir uma análise ou relatório 'geral', 'tudo', 'histórico todo' ou similar, assuma a data inicial como 2025-01-01 e a data final como a data de hoje.",
   ].join("\n\n");
 }
 
@@ -185,7 +186,11 @@ export function createFinancialReportTool(user: SolzinhoUser) {
       if (user.role === "GESTOR") {
         query = query.or(`real_requester_id.eq.${user.id},created_by.eq.${user.id}`);
         filtroSolicitante = `${user.name} (apenas seus próprios dados)`;
-      } else if (requester && requester.trim()) {
+      } else if (
+        requester &&
+        requester.trim() &&
+        !["todos", "geral", "todas", "usuário", "usuario"].includes(requester.trim().toLowerCase())
+      ) {
         const term = requester.trim().replace(/[%,()]/g, " ");
         const { data: matches } = await supabaseAdmin
           .from("profiles")
