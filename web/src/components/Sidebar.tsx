@@ -15,7 +15,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Home,
-  UserCircle
+  UserCircle,
+  Sun
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { name: "Solicitações Kanban", href: "/kanban", icon: Columns, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Consultar Solicitações", href: "/consultas", icon: Search, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
+  { name: "Relatórios (IA)", href: "/relatorios", icon: Sun, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Configurações", href: "/configuracoes", icon: Settings, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
 ];
 

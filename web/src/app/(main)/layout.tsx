@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import GlobalNotification from "@/components/GlobalNotification";
 import GlobalHeader from "@/components/GlobalHeader";
 import ChatPanel from "@/components/ChatPanel";
+import SuperSolzinhoWidget from "@/components/SuperSolzinhoWidget";
 import { ChatProvider } from "@/contexts/ChatContext";
 
 export default function MainLayout({ children }: { children: ReactNode }) {
@@ -20,6 +21,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
           </div>
         </main>
         <ChatPanel />
+        <SuperSolzinhoWidget />
       </div>
     </ChatProvider>
   );

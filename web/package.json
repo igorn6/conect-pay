@@ -1,6 +1,6 @@
 {
   "name": "web",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,18 +9,24 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.93",
+    "@ai-sdk/react": "^4.0.139",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.114.0",
     "@types/pg": "^8.23.1",
+    "ai": "^7.0.136",
     "date-fns": "^4.4.0",
     "lucide-react": "^1.40.0",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.10.1",
+    "remark-gfm": "^4.0.1",
     "uuid": "^14.0.2",
     "web-push": "^3.6.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
