@@ -64,15 +64,10 @@ export async function POST(req: Request) {
       let catId = existingCat?.[0]?.id;
 
       if (!catId) {
-        // Cores harmoniosas modernas para novas categorias
-        const palette = ["#0ea5e9", "#8b5cf6", "#ec4899", "#10b981", "#f59e0b", "#6366f1", "#14b8a6"];
-        const randomColor = palette[Math.floor(Math.random() * palette.length)];
-
         const { data: newCat, error: insertError } = await supabaseAdmin
           .from("categories")
           .insert({
             name: categoryName,
-            color: randomColor,
             is_deleted: false,
           })
           .select("id")
