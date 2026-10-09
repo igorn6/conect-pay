@@ -59,7 +59,7 @@ export default function SearchPage() {
           const { data: sectorUsers } = await supabase.from("profiles").select("id").eq("sector", sectorId);
           const sectorUserIds = new Set(sectorUsers?.map(u => u.id) || []);
           filteredData = filteredData.filter(req => 
-            sectorUserIds.has(req.real_requester_id) || req.real_requester_id === userId || req.created_by === userId
+            sectorUserIds.has(req.real_requester_id) || sectorUserIds.has(req.created_by) || req.real_requester_id === userId || req.created_by === userId
           );
         } else {
           filteredData = filteredData.filter(req => req.real_requester_id === userId || req.created_by === userId);

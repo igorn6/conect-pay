@@ -100,7 +100,7 @@ export default function KanbanPage() {
         const sectorUserIds = new Set(sectorUsers?.map(u => u.id) || []);
         
         filteredData = filteredData.filter((req) => 
-          sectorUserIds.has(req.real_requester_id) || req.real_requester_id === userId || req.created_by === userId
+          sectorUserIds.has(req.real_requester_id) || sectorUserIds.has(req.created_by) || req.real_requester_id === userId || req.created_by === userId
         );
       } else {
         filteredData = filteredData.filter((req) => 
@@ -131,11 +131,10 @@ export default function KanbanPage() {
         (payload) => {
           if (payload.eventType === "INSERT") {
               const newRequest = payload.new as PaymentRequest;
-              if (userRole === "GESTOR" && newRequest.real_requester_id !== userId && newRequest.created_by !== userId) {
-                return;
-              }
               setCards((prev) => {
                   if (prev.some(c => c.id === newRequest.id)) return prev;
+                  // Se for gestor, re-valida na próxima busca ou aceita se for do setor
+                  fetchCards();
                   return [newRequest, ...prev];
               });
             }

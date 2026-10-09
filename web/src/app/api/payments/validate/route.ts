@@ -25,10 +25,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2. Buscar perfil do usuario para saber a role
+    // 2. Buscar perfil do usuario para saber a role e setor
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("id, name, role")
+      .select("id, name, role, sector")
       .eq("id", user.id)
       .single();
 
@@ -64,10 +64,35 @@ export async function POST(req: Request) {
       );
     }
 
-    // ========== REGRAS DE NEGOCIO (RBAC) ==========
+    // Buscar perfil do solicitante original para verificar setor
+    const requesterId = card.real_requester_id || card.created_by;
+    let requesterSector: string | null = null;
+    let requesterName: string = "Solicitante";
+
+    if (requesterId) {
+      const { data: reqProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id, name, sector")
+        .eq("id", requesterId)
+        .maybeSingle();
+
+      if (reqProfile) {
+        requesterSector = reqProfile.sector;
+        requesterName = reqProfile.name || "Solicitante";
+      }
+    }
+
+    const isCreator = user.id === card.created_by || user.id === card.real_requester_id;
+    const isSameSector = !!(
+      profile.sector &&
+      requesterSector &&
+      String(profile.sector) === String(requesterSector)
+    );
+    const isMaster = profile.role === "MASTER";
+
+    // ========== REGRAS DE NEGOCIO (RBAC E AUDITORIA) ==========
 
     if (action === "APPROVE") {
-      // Somente o donão (gestor criador/solicitante real) pode validar
       if (card.status !== "VALIDACAO_GESTOR") {
         return NextResponse.json(
           { error: "Status invalido para validacao. Esperado: VALIDACAO_GESTOR." },
@@ -75,12 +100,9 @@ export async function POST(req: Request) {
         );
       }
 
-      const isOwner =
-        user.id === card.created_by || user.id === card.real_requester_id;
-
-      if (!isOwner) {
+      if (!isCreator && !isSameSector && !isMaster) {
         return NextResponse.json(
-          { error: "Apenas o solicitante original pode validar o pagamento." },
+          { error: "Apenas o solicitante original ou membros do mesmo setor podem validar o pagamento." },
           { status: 403 }
         );
       }
@@ -93,6 +115,13 @@ export async function POST(req: Request) {
         card.created_at
       );
 
+      const last = nextStageHistory[nextStageHistory.length - 1];
+      if (last) {
+        (last as any).validator_name = profile.name || "Gestor";
+        (last as any).is_creator = isCreator;
+        (last as any).validated_at = new Date().toISOString();
+      }
+
       const { error: updateError } = await supabaseAdmin
         .from("payment_requests")
         .update({
@@ -104,9 +133,13 @@ export async function POST(req: Request) {
 
       if (updateError) throw updateError;
 
+      const actionMessage = isCreator
+        ? "Pagamento validado pelo solicitante."
+        : `Pagamento validado por ${profile.name} (mesmo setor de ${requesterName}).`;
+
       return NextResponse.json({
         success: true,
-        message: "Pagamento validado pelo gestor.",
+        message: actionMessage,
         newStatus: "VALIDADO_GESTOR",
       });
     }
@@ -119,12 +152,9 @@ export async function POST(req: Request) {
         );
       }
 
-      const isOwner =
-        user.id === card.created_by || user.id === card.real_requester_id;
-
-      if (!isOwner) {
+      if (!isCreator && !isSameSector && !isMaster) {
         return NextResponse.json(
-          { error: "Apenas o solicitante original pode exigir correcao." },
+          { error: "Apenas o solicitante original ou membros do mesmo setor podem exigir correcao." },
           { status: 403 }
         );
       }
@@ -144,11 +174,23 @@ export async function POST(req: Request) {
         card.created_at
       );
 
+      const last = nextStageHistory[nextStageHistory.length - 1];
+      if (last) {
+        (last as any).rejected_by_name = profile.name || "Gestor";
+        (last as any).is_creator = isCreator;
+        (last as any).rejected_at = new Date().toISOString();
+        (last as any).reason = reason.trim();
+      }
+
+      const formattedReason = isCreator
+        ? reason.trim()
+        : `${reason.trim()} (Exigido por: ${profile.name || "Colega de Setor"})`;
+
       const { error: updateError } = await supabaseAdmin
         .from("payment_requests")
         .update({
           status: "CORRECAO_PENDENTE",
-          rejection_reason: reason.trim(),
+          rejection_reason: formattedReason,
           stage_history: nextStageHistory,
         })
         .eq("id", paymentId);

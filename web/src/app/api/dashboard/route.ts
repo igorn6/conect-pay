@@ -133,19 +133,25 @@ export async function GET(req: Request) {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    // Tendência Diária
-    const trendMap: Record<string, number> = {};
+    // Tendência Diária (Ordenação estritamente cronológica crescente por data)
+    const dailyMap: Record<string, number> = {};
     finalizados.forEach(req => {
       let d = new Date(req.created_at);
       if (!isValid(d)) return;
-      const dateKey = format(d, 'dd/MMM');
-      trendMap[dateKey] = (trendMap[dateKey] || 0) + Number(req.amount);
+      const dayKey = format(d, "yyyy-MM-dd");
+      dailyMap[dayKey] = (dailyMap[dayKey] || 0) + Number(req.amount);
     });
-    
-    // Sort keys based on actual dates
-    const tendenciaDiaria = Object.entries(trendMap)
-      .map(([date, value]) => ({ date, value }));
-      // We assume they are naturally ordered by the iteration since they are pulled sorted, but we can sort by parsing back if needed.
+
+    const sortedDays = Object.keys(dailyMap).sort((a, b) => a.localeCompare(b));
+    const tendenciaDiaria = sortedDays.map(dayKey => {
+      const [year, month, day] = dayKey.split("-");
+      const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
+      return {
+        date: format(dateObj, "dd/MM"),
+        fullDate: format(dateObj, "dd/MM/yyyy"),
+        value: dailyMap[dayKey],
+      };
+    });
 
     // Métricas de SLA
     const sla = calculateDashboardSlaAverages(filteredData);

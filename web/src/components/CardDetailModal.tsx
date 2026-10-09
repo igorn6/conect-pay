@@ -38,7 +38,7 @@ export default function CardDetailModal({
   onUpdate,
   profilesMap = {},
 }: CardDetailModalProps) {
-  const { userId } = useAuth();
+  const { userId, sectorId, userName } = useAuth();
   const { setIsChatOpen, setPendingCard, allProfiles, setActiveChatId, startChat, openChatWithCard } = useChat();
   const [loading, setLoading] = useState(false);
   const [showRefuseForm, setShowRefuseForm] = useState(false);
@@ -147,8 +147,14 @@ export default function CardDetailModal({
   const canCancelGestor = userRole === "GESTOR" && card.status !== "RECUSADO" && card.status !== "FINALIZADO";
   const canRefuse = canRefuseFinanceiro || canCancelGestor;
 
-  // Maker-Checker: is the current user the owner of this card?
-  const isOwner = userId === card.created_by || userId === card.real_requester_id;
+  // Setor e dados do solicitante
+  const [requesterSectorId, setRequesterSectorId] = useState<string | null>(null);
+  const [requesterSectorName, setRequesterSectorName] = useState<string | null>(null);
+
+  // Permissões colaborativas: criador original OU membro do mesmo setor OU Master
+  const isCreator = userId === card.created_by || userId === card.real_requester_id;
+  const isSameSector = Boolean(sectorId && requesterSectorId && String(sectorId) === String(requesterSectorId));
+  const canActAsRequester = isCreator || isSameSector || userRole === "MASTER";
 
   // Receipts history
   const receiptsHistory: ReceiptHistoryItem[] = (card.receipts_history as ReceiptHistoryItem[] | null) || [];
@@ -158,7 +164,7 @@ export default function CardDetailModal({
   const stageHistory: StageHistoryItem[] = (card.stage_history as StageHistoryItem[] | null) || [];
   const cardSla = getCardSlaMetrics(card);
 
-  // Resolver nome do gestor solicitante real
+  // Resolver nome e setor do gestor solicitante real
   useEffect(() => {
     async function loadRequesterInfo() {
       const targetUserId = card.real_requester_id || card.created_by;
@@ -166,12 +172,23 @@ export default function CardDetailModal({
       try {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("name")
+          .select("name, sector")
           .eq("id", targetUserId)
           .maybeSingle();
 
         if (profile?.name) {
           setResolvedRequesterName(profile.name);
+        }
+        if (profile?.sector) {
+          setRequesterSectorId(profile.sector);
+          const { data: sec } = await supabase
+            .from("sectors")
+            .select("name")
+            .eq("id", profile.sector)
+            .maybeSingle();
+          if (sec?.name) {
+            setRequesterSectorName(sec.name);
+          }
         }
       } catch (e) {
         console.error("Erro ao buscar solicitante:", e);
@@ -856,27 +873,56 @@ export default function CardDetailModal({
                 </div>
               )}
 
-              {isOwner && !showRejectForm && (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button onClick={() => handleValidateAction("APPROVE")} disabled={loading} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all disabled:opacity-50">
-                    {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={18} />}
-                    Validar Pagamento
-                  </button>
-                  <button onClick={() => setShowRejectForm(true)} disabled={loading} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 transition-all disabled:opacity-50">
-                    <ShieldAlert size={18} />
-                    Exigir Correção
-                  </button>
+              {canActAsRequester && !showRejectForm && (
+                <div className="space-y-3">
+                  {!isCreator && (
+                    <div className="px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs text-purple-300 flex items-center gap-2">
+                      <span>👥</span>
+                      <span>
+                        Você pode validar como membro do setor <strong>{requesterSectorName || "mesmo setor"}</strong> (solicitado por {requesterName}).
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button 
+                      onClick={() => handleValidateAction("APPROVE")} 
+                      disabled={loading} 
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={18} />}
+                      Validar Pagamento
+                    </button>
+                    <button 
+                      onClick={() => setShowRejectForm(true)} 
+                      disabled={loading} 
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-xl bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/30 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      <ShieldAlert size={18} />
+                      Exigir Correção
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {isOwner && showRejectForm && (
+              {canActAsRequester && showRejectForm && (
                 <div className="flex flex-col gap-3 mt-2 p-4 rounded-xl bg-gray-900 border border-red-500/40">
-                  <label className="text-xs font-bold text-red-400">Motivo da Correção *</label>
-                  <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setErrorMsg(""); }} rows={3} placeholder="Descreva o que está errado no comprovante..." className={`w-full px-3 py-2 text-sm rounded-lg outline-none resize-none bg-gray-800 text-white border ${errorMsg ? "border-red-500" : "border-gray-700"}`} />
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-red-400">Motivo da Correção *</label>
+                    {!isCreator && (
+                      <span className="text-[10px] text-gray-400">Registrado em seu nome ({userName || "Membro do Setor"})</span>
+                    )}
+                  </div>
+                  <textarea 
+                    value={rejectReason} 
+                    onChange={(e) => { setRejectReason(e.target.value); setErrorMsg(""); }} 
+                    rows={3} 
+                    placeholder="Descreva o que está errado no comprovante..." 
+                    className={`w-full px-3 py-2 text-sm rounded-lg outline-none resize-none bg-gray-800 text-white border ${errorMsg ? "border-red-500" : "border-gray-700"}`} 
+                  />
                   {errorMsg && <span className="text-xs text-red-500">{errorMsg}</span>}
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => { setShowRejectForm(false); setRejectReason(""); setErrorMsg(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition-colors">Cancelar</button>
-                    <button onClick={() => handleValidateAction("REJECT")} disabled={loading} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50">
+                    <button onClick={() => { setShowRejectForm(false); setRejectReason(""); setErrorMsg(""); }} className="px-3 py-1.5 text-xs font-medium rounded-lg text-gray-400 hover:text-white transition-colors cursor-pointer">Cancelar</button>
+                    <button onClick={() => handleValidateAction("REJECT")} disabled={loading} className="px-4 py-1.5 text-xs font-bold rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer">
                       {loading && <Loader2 size={14} className="animate-spin" />}
                       Enviar para Correção
                     </button>
@@ -902,6 +948,43 @@ export default function CardDetailModal({
                 {loading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={16} />}
                 Forçar Aprovação (Admin Override)
               </button>
+            </div>
+          )}
+
+          {/* Painel informativo quando VALIDADO PELO GESTOR */}
+          {isValidadoGestor && (
+            <div className="mt-4 p-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 flex items-start gap-3">
+              <ShieldCheck size={22} className="text-emerald-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs uppercase font-bold text-emerald-400 tracking-wider block">Pagamento Validado pelo Gestor</span>
+                {(() => {
+                  const validItem = (card.stage_history as any[])?.find((h: any) => h.stage === "VALIDADO_GESTOR");
+                  const valName = validItem?.validator_name || (validItem?.moved_by ? profilesMap[validItem.moved_by] : null);
+                  const isCreatorVal = validItem?.is_creator !== false;
+                  return (
+                    <p className="text-xs text-slate-200 mt-1">
+                      {valName ? (
+                        <>Validado por <strong className="text-white">{valName}</strong> {isCreatorVal ? "(Solicitante)" : `(Membro do setor de ${requesterName})`}.</>
+                      ) : (
+                        <>Validado pelo gestor do setor.</>
+                      )}
+                    </p>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {/* Painel informativo quando em CORREÇÃO PENDENTE */}
+          {isCorrecaoPendente && (
+            <div className="mt-4 p-4 rounded-2xl border border-red-500/40 bg-red-500/10 flex items-start gap-3">
+              <ShieldAlert size={22} className="text-red-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs uppercase font-bold text-red-400 tracking-wider block">Correção Exigida pelo Gestor</span>
+                <p className="text-xs text-slate-200 mt-1 font-medium whitespace-pre-wrap">
+                  {card.rejection_reason || "O gestor solicitou a correção do comprovante de pagamento."}
+                </p>
+              </div>
             </div>
           )}
 
