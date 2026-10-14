@@ -212,7 +212,14 @@ export default function CardDetailModal({
   const canActAsRequester = isCreator || isSameSector || userRole === "MASTER";
 
   // Receipts history
-  const receiptsHistory: ReceiptHistoryItem[] = (card.receipts_history as ReceiptHistoryItem[] | null) || [];
+  const [receiptsHistory, setReceiptsHistory] = useState<ReceiptHistoryItem[]>(
+    (card.receipts_history as ReceiptHistoryItem[] | null) || []
+  );
+
+  useEffect(() => {
+    setReceiptsHistory((card.receipts_history as ReceiptHistoryItem[] | null) || []);
+  }, [card.receipts_history]);
+
   const latestReceipt = receiptsHistory.length > 0 ? receiptsHistory[receiptsHistory.length - 1] : null;
 
   // Stage history & SLA
@@ -345,6 +352,67 @@ export default function CardDetailModal({
     setLoading(false);
     if (error) { alert("Erro ao excluir solicitação."); return; }
     onUpdate("Solicitação movida para a Lixeira.");
+  }
+
+  async function handleDeleteProof(urlToDelete: string) {
+    if (!window.confirm("Deseja realmente remover este comprovante de pagamento?")) return;
+    try {
+      setLoading(true);
+      const remainingUrls = (paymentProofUrl || "")
+        .split(",")
+        .map((u) => u.trim())
+        .filter((u) => u && u !== urlToDelete);
+
+      const newProofUrl = remainingUrls.length > 0 ? remainingUrls.join(",") : null;
+      const updatedHistory = receiptsHistory.filter((r) => r.url !== urlToDelete);
+
+      const { error } = await supabase
+        .from("payment_requests")
+        .update({
+          payment_proof_url: newProofUrl,
+          receipts_history: updatedHistory,
+        })
+        .eq("id", card.id);
+
+      if (error) throw error;
+
+      setPaymentProofUrl(newProofUrl);
+      setReceiptsHistory(updatedHistory);
+      onUpdate("Comprovante removido com sucesso.");
+    } catch (e: any) {
+      alert("Erro ao remover comprovante: " + (e.message || "Erro desconhecido"));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteInvoice(urlToDelete: string) {
+    if (!window.confirm("Deseja realmente remover esta nota fiscal/notinha?")) return;
+    try {
+      setLoading(true);
+      const remainingUrls = (invoiceUrl || "")
+        .split(",")
+        .map((u) => u.trim())
+        .filter((u) => u && u !== urlToDelete);
+
+      const newInvoiceUrl = remainingUrls.length > 0 ? remainingUrls.join(",") : null;
+
+      const { error } = await supabase
+        .from("payment_requests")
+        .update({
+          invoice_url: newInvoiceUrl,
+        })
+        .eq("id", card.id);
+
+      if (error) throw error;
+
+      setInvoiceUrl(newInvoiceUrl);
+      onUpdate("Nota fiscal removida com sucesso.");
+    } catch (e: any) {
+      alert("Erro ao remover nota fiscal: " + (e.message || "Erro desconhecido"));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function getEmailContent(type: "PAID_NUBANK" | "REQUEST" = emailModalType) {
@@ -929,10 +997,25 @@ export default function CardDetailModal({
                 ) : invoiceUrl ? (
                   <div className="flex flex-col gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--surface-border)" }}>
                     <div className="flex flex-wrap gap-2">
-                      {invoiceUrl.split(',').map((url, i) => (
-                        <a key={i} href={url} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-xs font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/30 rounded-lg transition-colors flex items-center gap-1">
-                          Nota {i + 1}
-                        </a>
+                      {invoiceUrl.split(',').map((u) => u.trim()).filter(Boolean).map((url, i) => (
+                        <div key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg border border-blue-500/30">
+                          <a href={url} target="_blank" rel="noreferrer" className="hover:underline flex items-center gap-1">
+                            Nota {i + 1}
+                          </a>
+                          {(isMasterOrFinanceiro || canActAsRequester) && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteInvoice(url);
+                              }}
+                              title={`Remover Nota ${i + 1}`}
+                              className="p-0.5 rounded text-blue-400 hover:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer ml-1"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
                       ))}
                     </div>
                     <button onClick={() => invoiceInputRef.current?.click()} className="text-[10px] hover:underline self-start cursor-pointer" style={{ color: "var(--text-muted)" }}>+ Adicionar Mais</button>
@@ -989,12 +1072,38 @@ export default function CardDetailModal({
                 <div className="flex flex-col items-center gap-2 text-emerald-600 dark:text-emerald-400 w-full">
                   <CheckCircle2 size={32} />
                   <span className="text-sm font-bold">Comprovante(s) Anexado(s)</span>
-                  <div className="flex flex-wrap justify-center gap-2 mt-1">
-                    {paymentProofUrl.split(',').map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noreferrer" className="text-xs underline font-semibold text-blue-600 dark:text-blue-400 hover:opacity-80">Visualizar {i + 1}</a>
+                  <div className="flex flex-wrap justify-center gap-2 mt-2">
+                    {paymentProofUrl.split(',').map((u) => u.trim()).filter(Boolean).map((url, i) => (
+                      <div
+                        key={i}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs shadow-sm transition-all"
+                      >
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold underline hover:text-white flex items-center gap-1"
+                        >
+                          <FileText size={13} />
+                          <span>Visualizar {i + 1}</span>
+                        </a>
+                        {isMasterOrFinanceiro && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProof(url);
+                            }}
+                            title={`Excluir Comprovante ${i + 1}`}
+                            className="p-1 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer ml-1"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
-                  <button onClick={() => fileInputRef.current?.click()} className="text-xs mt-2 underline cursor-pointer" style={{ color: "var(--text-muted)" }}>+ Adicionar Mais Comprovantes</button>
+                  <button onClick={() => fileInputRef.current?.click()} className="text-xs mt-2 underline cursor-pointer hover:text-slate-200 transition-colors" style={{ color: "var(--text-muted)" }}>+ Adicionar Mais Comprovantes</button>
                 </div>
               ) : (
                 <>
@@ -1193,7 +1302,22 @@ export default function CardDetailModal({
                           </p>
                         </div>
                       </div>
-                      {idx === receiptsHistory.length - 1 && (<span className="px-2 py-0.5 text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 rounded">Atual</span>)}
+                      <div className="flex items-center gap-2">
+                        {idx === receiptsHistory.length - 1 && (<span className="px-2 py-0.5 text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 rounded">Atual</span>)}
+                        {isMasterOrFinanceiro && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProof(receipt.url);
+                            }}
+                            title="Excluir este comprovante"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/15 transition-all cursor-pointer"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
