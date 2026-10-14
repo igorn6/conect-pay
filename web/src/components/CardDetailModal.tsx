@@ -363,6 +363,18 @@ export default function CardDetailModal({
     // O motivo no e-mail deve ser o que está em observações/descrição da solicitação
     const motivo = (card.notes || card.description)?.trim() || card.title;
 
+    // Obter links de notas/notinhas anexadas pelo solicitante
+    const activeInvoices = (invoiceUrl || card.invoice_url || card.receipt_url || "")
+      .split(",")
+      .map((u: string) => u.trim())
+      .filter(Boolean);
+
+    const invoicesText = activeInvoices.length === 1
+      ? `Nota Fiscal / Notinha: ${activeInvoices[0]}`
+      : activeInvoices.length > 1
+      ? activeInvoices.map((u: string, i: number) => `Nota ${i + 1}: ${u}`).join("\n")
+      : "";
+
     if (type === "PAID_NUBANK") {
       const rawSubject = `Pagamento Realizado | ${card.title} | Nubank`;
 
@@ -380,6 +392,10 @@ export default function CardDetailModal({
         rawBody += `\n\n${proofs}`;
       }
 
+      if (invoicesText) {
+        rawBody += `\n\n${invoicesText}`;
+      }
+
       return {
         to: "tassiolimacs@gmail.com",
         subject: rawSubject,
@@ -392,7 +408,16 @@ export default function CardDetailModal({
     // Tipo REQUEST (Solicitar pagamento a Tassio)
     const cnpjDisplay = localCnpj || card.cnpj || "Sem CNPJ";
     const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
-    const rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${pixKey}\nTitular: ${pixOwner}\nSolicitante: ${gestorName}`;
+
+    const boletoSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "BOLETO");
+    const paymentKey = pixKey !== "Não informado" ? pixKey : (boletoSplit?.boleto_barcode || "Não informado");
+    const paymentOwner = pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado");
+
+    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${paymentKey}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
+
+    if (invoicesText) {
+      rawBody += `\n\n${invoicesText}`;
+    }
 
     return {
       to: "tassiolimacs@gmail.com",

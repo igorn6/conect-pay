@@ -183,7 +183,7 @@ export default function GlobalNotification() {
                 showToastAndSound(`Atenção: Solicitação enviada para Correção Pendente!`);
                 lastNotifyRef.current["master_pending"] = Date.now();
               } else if (newStatus === "VALIDADO_GESTOR") {
-                showToastAndSound(`Solicitação validada pelo gestor e pronta para pagamento!`);
+                showToastAndSound(`Solicitação validada pelo gestor com sucesso!`);
               }
             }
             
@@ -202,6 +202,8 @@ export default function GlobalNotification() {
                 showToastAndSound(`Seu pedido foi recusado.`);
               } else if (newStatus === "CORRECAO_PENDENTE") {
                 showToastAndSound(`Atenção: Seu pedido precisa de correção.`);
+              } else if (newStatus === "VALIDADO_GESTOR") {
+                showToastAndSound(`Seu pedido foi validado pelo gestor com sucesso!`);
               } else {
                 showToastAndSound(`Seu pedido avançou para: ${friendlyStatus}`);
               }
