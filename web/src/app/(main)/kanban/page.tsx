@@ -129,36 +129,58 @@ export default function KanbanPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "payment_requests" },
         (payload) => {
-          if (payload.eventType === "INSERT") {
-              const newRequest = payload.new as PaymentRequest;
-              setCards((prev) => {
-                  if (prev.some(c => c.id === newRequest.id)) return prev;
-                  // Se for gestor, re-valida na próxima busca ou aceita se for do setor
-                  fetchCards();
-                  return [newRequest, ...prev];
-              });
-            }
+          // Sempre refaz o fetch para re-aplicar filtros de setor, data e ordenação
+          fetchCards();
 
-            if (payload.eventType === "UPDATE") {
-              const updatedRequest = payload.new as PaymentRequest;
-              setCards((prev) =>
-                prev.map((c) => (c.id === updatedRequest.id ? updatedRequest : c))
-              );
-            }
+          if (payload.eventType === "INSERT") {
+            const newRequest = payload.new as PaymentRequest;
+            setCards((prev) => {
+              if (prev.some((c) => c.id === newRequest.id)) return prev;
+              return [newRequest, ...prev];
+            });
+          }
+
+          if (payload.eventType === "UPDATE") {
+            const updatedRequest = payload.new as PaymentRequest;
+            setCards((prev) =>
+              prev.map((c) => (c.id === updatedRequest.id ? updatedRequest : c))
+            );
+            setSelectedCard((prev) =>
+              prev && prev.id === updatedRequest.id ? updatedRequest : prev
+            );
+          }
 
           if (payload.eventType === "DELETE") {
             const deletedId = payload.old.id;
-            setCards((prev) => prev.filter(c => c.id !== deletedId));
-            setSelectedCard(prev => (prev?.id === deletedId ? null : prev));
+            setCards((prev) => prev.filter((c) => c.id !== deletedId));
+            setSelectedCard((prev) => (prev?.id === deletedId ? null : prev));
           }
         }
       )
       .subscribe();
 
+    // Fallback polling a cada 10s caso WebSocket oscile ou durma
+    const pollInterval = setInterval(() => {
+      fetchCards();
+    }, 10000);
+
+    // Atualiza imediatamente quando a aba volta a ficar visível ou ganha foco
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        fetchCards();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
+      window.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
     };
-  }, [userRole, userId]);
+  }, [userRole, userId, fetchCards]);
 
   const handleToggleSelect = (id: string) => {
     setSelectedIds(prev => {

@@ -110,7 +110,12 @@ export default function GlobalNotification() {
               .or("is_deleted.eq.false,is_deleted.is.null");
               
              const items = data || [];
-             const pendingForMe = items.filter(req => sectorUserIds.includes(req.real_requester_id) || sectorUserIds.includes(req.created_by));
+             const pendingForMe = items.filter(req => 
+               sectorUserIds.includes(req.real_requester_id) || 
+               sectorUserIds.includes(req.created_by) ||
+               req.real_requester_id === userId ||
+               req.created_by === userId
+             );
              
              if (pendingForMe.length > 0) {
                showToastAndSound(`Existem ${pendingForMe.length} solicitação(ões) aguardando sua validação como gestor.`);

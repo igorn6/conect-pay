@@ -1,7 +1,7 @@
 "use client";
 
 import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2, ChevronDown } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2, ChevronDown, ShieldCheck } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
 import { useCategories } from "@/hooks/useCategories";
 
@@ -144,6 +144,13 @@ export default function KanbanColumn({
                   e.currentTarget.style.boxShadow = "none";
                 }}
               >
+                {card.status === "VALIDACAO_GESTOR" && (
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider mb-2 w-fit">
+                    <ShieldCheck size={11} className="text-purple-400" />
+                    <span>Aguardando Validação</span>
+                  </div>
+                )}
+
                 {/* Título */}
                 <div className="flex items-start justify-between gap-2">
                 <h3

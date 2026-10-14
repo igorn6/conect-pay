@@ -225,21 +225,35 @@ export default function CardDetailModal({
       const targetUserId = card.real_requester_id || card.created_by;
       if (!targetUserId) return;
       try {
+        let profileData: { name?: string; sector?: string } | null = null;
+        
         const { data: profile } = await supabase
           .from("profiles")
           .select("name, sector")
           .eq("id", targetUserId)
           .maybeSingle();
 
-        if (profile?.name) {
-          setResolvedRequesterName(profile.name);
+        if (profile) {
+          profileData = profile;
+        } else {
+          // Fallback via API se Supabase client retornar vazio
+          const res = await fetch("/api/admin/users", { cache: "no-store" });
+          if (res.ok) {
+            const allUsers = await res.json();
+            const found = allUsers.find((u: any) => u.id === targetUserId);
+            if (found) profileData = found;
+          }
         }
-        if (profile?.sector) {
-          setRequesterSectorId(profile.sector);
+
+        if (profileData?.name) {
+          setResolvedRequesterName(profileData.name);
+        }
+        if (profileData?.sector) {
+          setRequesterSectorId(profileData.sector);
           const { data: sec } = await supabase
             .from("sectors")
             .select("name")
-            .eq("id", profile.sector)
+            .eq("id", profileData.sector)
             .maybeSingle();
           if (sec?.name) {
             setRequesterSectorName(sec.name);

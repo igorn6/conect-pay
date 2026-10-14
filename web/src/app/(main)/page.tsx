@@ -89,34 +89,35 @@ export default function HubPage() {
       } else {
         // Find users in the same sector for validation count
         const { data: sectorUsers } = await supabase.from("profiles").select("id").eq("sector", sectorId);
-        const sectorUserIds = sectorUsers?.map((u: any) => u.id) || [];
+        const sectorUserIds = new Set(sectorUsers?.map((u: any) => u.id) || []);
+        if (userId) sectorUserIds.add(userId);
         
+        const allUserIds = Array.from(sectorUserIds);
+
         let validacaoQuery = supabase
           .from("payment_requests")
-          .select("id", { count: "exact", head: true })
+          .select("id, real_requester_id, created_by")
           .eq("status", "VALIDACAO_GESTOR")
           .or("is_deleted.eq.false,is_deleted.is.null");
-          
-        if (sectorUserIds.length > 0) {
-          validacaoQuery = validacaoQuery.in("real_requester_id", sectorUserIds);
-        } else {
-          validacaoQuery = validacaoQuery.eq("id", -1);
-        }
 
-        const [aguardando, recusado, validacao] = await Promise.all([
+        const { data: valData } = isGestor ? await validacaoQuery : { data: [] };
+        const validacaoCount = (valData || []).filter((req: any) => 
+          sectorUserIds.has(req.real_requester_id) || sectorUserIds.has(req.created_by)
+        ).length;
+
+        const [aguardando, recusado] = await Promise.all([
           supabase
             .from("payment_requests")
             .select("id", { count: "exact", head: true })
             .eq("status", "AGUARDANDO_PAGAMENTO")
             .or("is_deleted.eq.false,is_deleted.is.null")
-            .or(`real_requester_id.eq."${userId}",created_by.eq."${userId}"`),
+            .or(`real_requester_id.eq.${userId},created_by.eq.${userId}`),
           supabase
             .from("payment_requests")
             .select("id", { count: "exact", head: true })
             .in("status", ["RECUSADO", "CORRECAO_PENDENTE"])
             .or("is_deleted.eq.false,is_deleted.is.null")
-            .or(`real_requester_id.eq."${userId}",created_by.eq."${userId}"`),
-          isGestor ? validacaoQuery : Promise.resolve({ count: 0 })
+            .or(`real_requester_id.eq.${userId},created_by.eq.${userId}`),
         ]);
 
         setCounts({
@@ -124,7 +125,7 @@ export default function HubPage() {
           emAprovacao: 0,
           aguardandoPagamento: aguardando.count ?? 0,
           recusado: recusado.count ?? 0,
-          validacaoGestor: validacao.count ?? 0,
+          validacaoGestor: validacaoCount,
         });
       }
 
