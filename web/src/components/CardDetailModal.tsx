@@ -20,7 +20,7 @@ const NEXT_STATUS: Record<string, string> = {
   AGUARDANDO_PAGAMENTO: "FINALIZADO",
 };
 
-const CNPJ_OPTIONS = ["CNPJ 1", "CNPJ 2", "CNPJ 3", "CNPJ 4", "CNPJ 5", "CNPJ 6"];
+const CNPJ_OPTIONS = ["Nubank", "CNPJ 1", "CNPJ 2", "CNPJ 3", "CNPJ 4", "CNPJ 5", "CNPJ 6"];
 
 interface CardDetailModalProps {
   card: PaymentRequest;
@@ -474,14 +474,14 @@ export default function CardDetailModal({
     }
 
     // Tipo REQUEST (Solicitar pagamento a Tassio)
-    const cnpjDisplay = localCnpj || card.cnpj || "Sem CNPJ";
+    const cnpjDisplay = localCnpj || card.cnpj || "(Selecione o CNPJ)";
     const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
 
     const boletoSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "BOLETO");
     const paymentKey = pixKey !== "Não informado" ? pixKey : (boletoSplit?.boleto_barcode || "Não informado");
     const paymentOwner = pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado");
 
-    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${paymentKey}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
+    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nConta / CNPJ: ${cnpjDisplay}\nChave pix / Linha digitável: ${paymentKey}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
 
     if (invoicesText) {
       rawBody += `\n\n${invoicesText}`;
@@ -497,12 +497,20 @@ export default function CardDetailModal({
   }
 
   function handleOpenGmail() {
+    if (emailModalType === "REQUEST" && !localCnpj) {
+      alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
+      return;
+    }
     const { to, encodedSubject, encodedBody } = getEmailContent(emailModalType);
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${encodedSubject}&body=${encodedBody}`;
     window.open(gmailUrl, "_blank");
   }
 
   function handleOpenDefaultMail() {
+    if (emailModalType === "REQUEST" && !localCnpj) {
+      alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
+      return;
+    }
     const { to, encodedSubject, encodedBody } = getEmailContent(emailModalType);
     const mailtoUrl = `mailto:${to}?subject=${encodedSubject}&body=${encodedBody}`;
     const a = document.createElement("a");
@@ -514,6 +522,10 @@ export default function CardDetailModal({
   }
 
   function handleCopyEmailText() {
+    if (emailModalType === "REQUEST" && !localCnpj) {
+      alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
+      return;
+    }
     const { body } = getEmailContent(emailModalType);
     navigator.clipboard.writeText(body);
     setEmailCopied(true);
@@ -808,19 +820,19 @@ export default function CardDetailModal({
                     </select>
                   )}
                 </div>
-                {isPix && isMasterOrFinanceiro && (
+                {isMasterOrFinanceiro && (
                   <div className="flex items-center gap-3 p-3 rounded-xl border"
                        style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                     <Building2 size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                     <div className="flex flex-col w-full">
-                      <span className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>CNPJ de Faturamento</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Conta Pagadora / CNPJ</span>
                       <select 
                         value={localCnpj} 
                         onChange={(e) => handleCnpjChange(e.target.value)} 
                         className="w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium"
                         style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
                       >
-                        <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>Selecione um CNPJ...</option>
+                        <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>Selecione o Pagador (Nubank / CNPJ)...</option>
                         {CNPJ_OPTIONS.map((opt) => (
                           <option key={opt} value={opt} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>{opt}</option>
                         ))}
@@ -828,12 +840,12 @@ export default function CardDetailModal({
                     </div>
                   </div>
                 )}
-                {isPix && !isMasterOrFinanceiro && localCnpj && (
+                {!isMasterOrFinanceiro && localCnpj && (
                   <div className="flex items-center gap-3 p-3 rounded-xl border"
                        style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                     <Building2 size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                     <div className="flex flex-col">
-                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>CNPJ de Faturamento</span>
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Conta Pagadora / CNPJ</span>
                       <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{localCnpj}</span>
                     </div>
                   </div>
@@ -1749,6 +1761,52 @@ export default function CardDetailModal({
 
             {/* Conteúdo */}
             <div className="p-5 space-y-4">
+              {/* Seleção Obrigatória de CNPJ / Conta Pagadora quando for solicitação de pagamento */}
+              {emailModalType === "REQUEST" && (
+                <div className={`p-3.5 rounded-xl border transition-all ${
+                  !localCnpj 
+                    ? "bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/20" 
+                    : "bg-slate-950/80 border-slate-800"
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                      <Building2 size={15} className="text-amber-400" />
+                      <span>Conta Pagadora / CNPJ</span>
+                      <span className="text-red-400">* (Obrigatório)</span>
+                    </label>
+                    {!localCnpj ? (
+                      <span className="text-[10px] uppercase font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">
+                        Obrigatório
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                        <CheckCircle2 size={11} /> Selecionado
+                      </span>
+                    )}
+                  </div>
+                  <select
+                    value={localCnpj}
+                    onChange={(e) => handleCnpjChange(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-lg px-3 py-2 text-xs text-white font-medium outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 transition-colors cursor-pointer"
+                  >
+                    <option value="" className="bg-slate-900 text-slate-400">
+                      -- Selecione a Conta / CNPJ (Obrigatório) --
+                    </option>
+                    {CNPJ_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt} className="bg-slate-900 text-slate-100 font-medium">
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                  {!localCnpj && (
+                    <p className="text-[11px] text-amber-300 mt-2 flex items-center gap-1.5 font-medium">
+                      <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                      <span>Escolha o pagador (Nubank ou CNPJ) para definir o assunto e liberar o envio.</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
                   Assunto:
@@ -1773,8 +1831,13 @@ export default function CardDetailModal({
                   <button
                     type="button"
                     onClick={handleOpenGmail}
-                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-colors shadow-sm cursor-pointer"
-                    title="Abre a tela de envio do Gmail diretamente no navegador com tudo preenchido"
+                    disabled={emailModalType === "REQUEST" && !localCnpj}
+                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-800"
+                    title={
+                      emailModalType === "REQUEST" && !localCnpj
+                        ? "Selecione o CNPJ / Conta Pagadora acima para liberar"
+                        : "Abre a tela de envio do Gmail diretamente no navegador com tudo preenchido"
+                    }
                   >
                     <ExternalLink size={14} className="text-slate-400" />
                     <span>Abrir no Gmail Web</span>
@@ -1783,8 +1846,13 @@ export default function CardDetailModal({
                   <button
                     type="button"
                     onClick={handleOpenDefaultMail}
-                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-colors shadow-sm cursor-pointer"
-                    title="Abre no Outlook ou aplicativo de e-mail padrão do computador"
+                    disabled={emailModalType === "REQUEST" && !localCnpj}
+                    className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-800"
+                    title={
+                      emailModalType === "REQUEST" && !localCnpj
+                        ? "Selecione o CNPJ / Conta Pagadora acima para liberar"
+                        : "Abre no Outlook ou aplicativo de e-mail padrão do computador"
+                    }
                   >
                     <Mail size={14} className="text-slate-400" />
                     <span>Abrir no Outlook / App</span>
@@ -1794,11 +1862,17 @@ export default function CardDetailModal({
                 <button
                   type="button"
                   onClick={handleCopyEmailText}
-                  className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
+                  disabled={emailModalType === "REQUEST" && !localCnpj}
+                  className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                     emailCopied
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                      : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 text-slate-300 hover:text-white"
+                      : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 text-slate-300 hover:text-white disabled:hover:bg-slate-800/60"
                   }`}
+                  title={
+                    emailModalType === "REQUEST" && !localCnpj
+                      ? "Selecione o CNPJ / Conta Pagadora acima para liberar"
+                      : undefined
+                  }
                 >
                   {emailCopied ? <CheckCircle2 size={14} /> : <Copy size={14} className="text-slate-400" />}
                   <span>{emailCopied ? "Texto copiado para a área de transferência!" : "Copiar Texto da Mensagem"}</span>
