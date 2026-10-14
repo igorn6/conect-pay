@@ -208,8 +208,8 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         notes,
         amount: totalAmount,
         category: category,
-        payment_method: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : "RETIRADA_DE_SALDO",
-        payment_type: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : "RETIRADA_DE_SALDO",
+        payment_method: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : mainSplit.payment_type === "Boleto" ? "BOLETO" : mainSplit.payment_type === "FOPAG" ? "FOPAG" : "RETIRADA_DE_SALDO",
+        payment_type: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : mainSplit.payment_type === "Boleto" ? "BOLETO" : mainSplit.payment_type === "FOPAG" ? "FOPAG" : "RETIRADA_DE_SALDO",
         pix_name: mainSplit.pix_owner || null,
         pix_key: mainSplit.pix_key || null,
         caju_phone: mainSplit.caju_phone || null,
@@ -508,6 +508,22 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
                       type="text"
                       value={split.caju_phone || ""}
                       onChange={(e) => updateSplit(split.id, 'caju_phone', e.target.value)}
+                      className="w-full px-3 py-2 rounded text-xs outline-none"
+                      style={inputStyle}
+                    />
+                  </div>
+                )}
+
+                {split.payment_type === "FOPAG" && (
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: "var(--text-secondary)" }}>
+                      Colaborador / Funcionário (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={split.pix_owner || ""}
+                      onChange={(e) => updateSplit(split.id, 'pix_owner', e.target.value)}
+                      placeholder="Nome do colaborador ou referência..."
                       className="w-full px-3 py-2 rounded text-xs outline-none"
                       style={inputStyle}
                     />

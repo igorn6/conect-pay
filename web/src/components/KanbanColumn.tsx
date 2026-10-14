@@ -1,8 +1,9 @@
 "use client";
 
-import type { KanbanColumnConfig, PaymentRequest } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2 } from "lucide-react";
+import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
+import { Inbox, User, Check, Clock, CheckCircle2, ChevronDown } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
+import { useCategories } from "@/hooks/useCategories";
 
 interface KanbanColumnProps {
   config: KanbanColumnConfig;
@@ -13,6 +14,8 @@ interface KanbanColumnProps {
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
   onSelectAll?: (ids: string[], isAdding: boolean) => void;
+  categories?: Category[];
+  onUpdateCategory?: (cardId: string, newCategory: string) => void;
 }
 
 /**
@@ -20,7 +23,20 @@ interface KanbanColumnProps {
  * Renderiza o cabeçalho com indicador de cor + badge de contagem
  * e a lista de cards (ou um estado vazio).
  */
-export default function KanbanColumn({ config, cards, onCardClick, selectable = false, selectedIds = new Set(), onToggleSelect, onSelectAll, profilesMap = {} }: KanbanColumnProps) {
+export default function KanbanColumn({
+  config,
+  cards,
+  onCardClick,
+  selectable = false,
+  selectedIds = new Set(),
+  onToggleSelect,
+  onSelectAll,
+  profilesMap = {},
+  categories,
+  onUpdateCategory,
+}: KanbanColumnProps) {
+  const { categories: hookCategories } = useCategories();
+  const categoriesList = categories && categories.length > 0 ? categories : hookCategories;
   const hasColor = ["CORRECAO_PENDENTE", "FINALIZADO", "RECUSADO"].includes(config.key);
 
   return (
@@ -156,12 +172,43 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
               </div>
 
                 {/* Categoria */}
-                <p
-                  className="mt-1 text-xs"
-                  style={{ color: "var(--text-secondary)" }}
+                <div 
+                  className="mt-1 flex items-center"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {card.category}
-                </p>
+                  <div className="relative inline-flex items-center max-w-full group">
+                    <select
+                      value={card.category || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && val !== card.category) {
+                          if (onUpdateCategory) {
+                            onUpdateCategory(card.id, val);
+                          }
+                        }
+                      }}
+                      title="Clique para trocar categoria manualmente"
+                      className="text-xs font-medium cursor-pointer rounded px-2 py-0.5 border border-slate-700/60 hover:border-slate-500/80 bg-slate-800/60 hover:bg-slate-700/80 transition-all outline-none truncate max-w-full appearance-none pr-5 text-slate-300 hover:text-white"
+                      style={{
+                        backgroundColor: "var(--surface-hover)",
+                        borderColor: "var(--surface-border)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {card.category && !categoriesList.some(c => c.name.toLowerCase() === card.category?.toLowerCase()) && (
+                        <option value={card.category} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
+                          {card.category}
+                        </option>
+                      )}
+                      {categoriesList.map((c) => (
+                        <option key={c.id} value={c.name} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={11} className="absolute right-1.5 text-slate-400 group-hover:text-slate-200 pointer-events-none transition-colors" />
+                  </div>
+                </div>
 
                 {/* Solicitante Real */}
                 <div className="flex items-center gap-1.5 mt-2">
@@ -229,7 +276,7 @@ export default function KanbanColumn({ config, cards, onCardClick, selectable = 
                       color: config.color,
                     }}
                   >
-                    {card.payment_type}
+                    {card.payment_type === "RETIRADA_DE_SALDO" ? "Retirada de Saldo" : card.payment_type}
                   </span>
                 </div>
               </div>

@@ -51,7 +51,7 @@ export interface Category {
 
 export interface SplitPayment {
   id: string;
-  payment_type: "Pix" | "Caju" | string;
+  payment_type: "Pix" | "Caju" | "Boleto" | "FOPAG" | "Retirada de Saldo" | string;
   amount: number;
   pix_owner?: string | null;
   pix_key?: string | null;

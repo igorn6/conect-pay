@@ -8,6 +8,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
+import { useCategories } from "@/hooks/useCategories";
 import type { PaymentRequest, ReceiptHistoryItem, StageHistoryItem } from "@/types/database";
 import { getStatusLabel } from "@/constants/kanban";
 import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@/utils/sla";
@@ -69,8 +70,57 @@ export default function CardDetailModal({
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [descriptionCopied, setDescriptionCopied] = useState(false);
   const [stageHistoryOpen, setStageHistoryOpen] = useState(false);
+  const { categories } = useCategories();
   const [localCategory, setLocalCategory] = useState<string>(card.category || "Outros");
   const [isReclassifyingCategory, setIsReclassifyingCategory] = useState(false);
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [isCustomCategoryModal, setIsCustomCategoryModal] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState("");
+
+  useEffect(() => {
+    setLocalCategory(card.category || "Outros");
+  }, [card.category]);
+
+  const handleCategoryChange = async (newCategoryName: string) => {
+    if (!newCategoryName) return;
+    if (newCategoryName === "__CUSTOM__") {
+      setIsCustomCategoryModal(true);
+      setCustomCategoryInput("");
+      return;
+    }
+    try {
+      setIsSavingCategory(true);
+      const matchedCat = categories.find(
+        (c) => c.name.toLowerCase() === newCategoryName.trim().toLowerCase()
+      );
+
+      const { error } = await supabase
+        .from("payment_requests")
+        .update({
+          category: newCategoryName,
+          category_id: matchedCat?.id || null,
+        })
+        .eq("id", card.id);
+
+      if (error) throw error;
+      setLocalCategory(newCategoryName);
+      onUpdate(`Categoria alterada para "${newCategoryName}"!`);
+    } catch (e: any) {
+      alert("Erro ao alterar categoria: " + e.message);
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const handleSaveCustomCategory = async () => {
+    const trimmed = customCategoryInput.trim();
+    if (!trimmed) {
+      setIsCustomCategoryModal(false);
+      return;
+    }
+    await handleCategoryChange(trimmed);
+    setIsCustomCategoryModal(false);
+  };
 
   const handleAiRecategorize = async () => {
     try {
@@ -93,10 +143,15 @@ export default function CardDetailModal({
         ? (data.suggested_category_name || "Outros")
         : (data.category || "Outros");
 
+      const matchedCat = categories.find(
+        (c) => c.name.toLowerCase() === chosen.trim().toLowerCase()
+      );
+
       const { error } = await supabase
         .from("payment_requests")
         .update({
           category: chosen,
+          category_id: matchedCat?.id || null,
           ai_category_suggestion: data,
         })
         .eq("id", card.id);
@@ -540,34 +595,111 @@ export default function CardDetailModal({
                 </p>
               </div>
               <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between p-3 rounded-xl border"
-                     style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                  <div className="flex items-center gap-2.5">
-                    <Tag size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                    <div className="flex flex-col">
+                <div
+                  className="flex flex-col gap-2.5 p-3 rounded-xl border"
+                  style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Tag size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                       <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>
                         Categoria
                       </span>
-                      <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>
-                        {localCategory}
-                      </span>
+                      {isSavingCategory && (
+                        <span className="flex items-center gap-1 text-[10px] text-amber-400 font-medium">
+                          <Loader2 size={10} className="animate-spin" /> Salvando...
+                        </span>
+                      )}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAiRecategorize}
+                      disabled={isReclassifyingCategory || isSavingCategory}
+                      className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
+                      title="Analisar título e observações com IA Gemini para sugerir categoria"
+                    >
+                      {isReclassifyingCategory ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={12} />
+                      )}
+                      <span>{isReclassifyingCategory ? "Analisando..." : "Sugerir com IA"}</span>
+                    </button>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAiRecategorize}
-                    disabled={isReclassifyingCategory}
-                    className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
-                    title="Analisar título e observações com IA Gemini para sugerir categoria"
-                  >
-                    {isReclassifyingCategory ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={12} />
-                    )}
-                    <span>{isReclassifyingCategory ? "Analisando..." : "Sugerir com IA"}</span>
-                  </button>
+                  {isCustomCategoryModal ? (
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <input
+                        type="text"
+                        value={customCategoryInput}
+                        onChange={(e) => setCustomCategoryInput(e.target.value)}
+                        placeholder="Digite o nome da categoria..."
+                        className="flex-1 border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium"
+                        style={{
+                          backgroundColor: "var(--surface-hover)",
+                          borderColor: "var(--surface-border)",
+                          color: "var(--text-primary)",
+                        }}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveCustomCategory();
+                          if (e.key === "Escape") setIsCustomCategoryModal(false);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveCustomCategory}
+                        className="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-brand-primary text-white hover:opacity-90 transition-opacity cursor-pointer"
+                      >
+                        Salvar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsCustomCategoryModal(false)}
+                        className="p-1.5 text-xs rounded-lg hover:bg-white/10 text-slate-400 transition-colors cursor-pointer"
+                        title="Cancelar"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={localCategory}
+                      onChange={(e) => handleCategoryChange(e.target.value)}
+                      disabled={isSavingCategory || isReclassifyingCategory}
+                      className="w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium cursor-pointer"
+                      style={{
+                        backgroundColor: "var(--surface-hover)",
+                        borderColor: "var(--surface-border)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      {localCategory && !categories.some((c) => c.name.toLowerCase() === localCategory.toLowerCase()) && (
+                        <option
+                          value={localCategory}
+                          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}
+                        >
+                          {localCategory} (Atual)
+                        </option>
+                      )}
+                      {categories.map((cat) => (
+                        <option
+                          key={cat.id}
+                          value={cat.name}
+                          style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}
+                        >
+                          {cat.name}
+                        </option>
+                      ))}
+                      <option
+                        value="__CUSTOM__"
+                        style={{ backgroundColor: "var(--bg-secondary)", color: "#a855f7", fontWeight: "bold" }}
+                      >
+                        + Digitar outra categoria...
+                      </option>
+                    </select>
+                  )}
                 </div>
                 {isPix && isMasterOrFinanceiro && (
                   <div className="flex items-center gap-3 p-3 rounded-xl border"
@@ -679,7 +811,9 @@ export default function CardDetailModal({
                     const isSplitPix = split.payment_type?.toUpperCase() === "PIX";
                     const isSplitCaju = split.payment_type?.toUpperCase() === "CAJU";
                     const isSplitBoleto = split.payment_type?.toUpperCase() === "BOLETO";
-                    const labelBadge = isSplitPix ? "Pix" : isSplitCaju ? "Caju" : isSplitBoleto ? "Boleto" : (split.payment_type || "Outro");
+                    const isSplitFopag = split.payment_type?.toUpperCase() === "FOPAG";
+                    const isSplitRetirada = split.payment_type?.toUpperCase() === "RETIRADA_DE_SALDO";
+                    const labelBadge = isSplitPix ? "Pix" : isSplitCaju ? "Caju" : isSplitBoleto ? "Boleto" : isSplitFopag ? "FOPAG" : isSplitRetirada ? "Retirada de Saldo" : (split.payment_type || "Outro");
 
                     return (
                     <div key={split.id || idx} className="p-3.5 rounded-xl border relative" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
@@ -708,6 +842,12 @@ export default function CardDetailModal({
                         <div className="mt-2">
                           <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Titular</span>
                           <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.caju_phone}</span>
+                        </div>
+                      )}
+                      {isSplitFopag && split.pix_owner && (
+                        <div className="mt-2">
+                          <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Colaborador / Funcionário</span>
+                          <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.pix_owner}</span>
                         </div>
                       )}
                       {isSplitBoleto && (

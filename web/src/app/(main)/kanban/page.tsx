@@ -280,6 +280,30 @@ export default function KanbanPage() {
     fetchCards(); 
   };
 
+  const handleUpdateCategory = async (cardId: string, newCategory: string) => {
+    // Atualização otimista
+    setCards((prev) =>
+      prev.map((c) => (c.id === cardId ? { ...c, category: newCategory } : c))
+    );
+    const matched = categories.find(
+      (c) => c.name.toLowerCase() === newCategory.trim().toLowerCase()
+    );
+    const { error } = await supabase
+      .from("payment_requests")
+      .update({
+        category: newCategory,
+        category_id: matched?.id || null,
+      })
+      .eq("id", cardId);
+
+    if (error) {
+      fetchCards();
+      setToast({ message: "Erro ao atualizar categoria.", type: "error" });
+    } else {
+      setToast({ message: `Categoria alterada para "${newCategory}".`, type: "success" });
+    }
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0 bg-slate-950">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b border-slate-800 bg-slate-900 shrink-0">
@@ -363,6 +387,8 @@ export default function KanbanPage() {
           onToggleSelect={handleToggleSelect}
           profilesMap={profilesMap}
           onSelectAllInColumn={handleSelectAllInColumn}
+          categories={categories}
+          onUpdateCategory={handleUpdateCategory}
         />
         {userRole === "MASTER" && (
           <MassActionBar
