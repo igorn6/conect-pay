@@ -3,7 +3,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
-  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles
+  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles,
+  AlertCircle, Info
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -721,7 +722,7 @@ export default function CardDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl relative overflow-hidden"
+        className="w-full max-w-4xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl relative overflow-hidden"
         style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--surface-border)" }}
         onClick={(e) => e.stopPropagation()}
         onPaste={handlePaste}
@@ -758,7 +759,7 @@ export default function CardDetailModal({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* LEFT COLUMN */}
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-4">
               <div>
                 <h3 className="text-2xl font-black leading-tight mb-1" style={{ color: "var(--text-primary)" }}>{card.title}</h3>
                 <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
@@ -779,15 +780,16 @@ export default function CardDetailModal({
                   </span>
                 </div>
               </div>
-              <div className="flex flex-col gap-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&>*:only-child]:sm:col-span-2">
+
+              <div className="flex flex-col gap-3.5">
+                {/* CATEGORIA */}
                 <div
-                  className="flex flex-col gap-2.5 p-3 rounded-xl border"
+                  className="flex flex-col gap-2 p-3.5 rounded-xl border shadow-xs"
                   style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}
                 >
-                    <div className="flex items-center justify-between flex-wrap gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Tag size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                      <Tag size={15} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                       <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>
                         Categoria
                       </span>
@@ -802,7 +804,7 @@ export default function CardDetailModal({
                       type="button"
                       onClick={handleAiRecategorize}
                       disabled={isReclassifyingCategory || isSavingCategory}
-                      className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all cursor-pointer disabled:opacity-40"
+                      className="text-[11px] font-semibold flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all cursor-pointer disabled:opacity-40 shadow-xs"
                       title="Analisar título e observações com IA Gemini para sugerir categoria"
                     >
                       {isReclassifyingCategory ? (
@@ -854,7 +856,7 @@ export default function CardDetailModal({
                       value={localCategory}
                       onChange={(e) => handleCategoryChange(e.target.value)}
                       disabled={isSavingCategory || isReclassifyingCategory}
-                      className="w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium cursor-pointer"
+                      className="w-full border rounded-lg px-3 py-2 text-xs outline-none focus:border-brand-primary font-medium cursor-pointer transition-colors"
                       style={{
                         backgroundColor: "var(--surface-hover)",
                         borderColor: "var(--surface-border)",
@@ -887,95 +889,106 @@ export default function CardDetailModal({
                     </select>
                   )}
                 </div>
+
+                {/* CONTA PAGADORA / CNPJ */}
                 {isMasterOrFinanceiro && (
                   <div
-                    className={`flex items-start gap-2 p-3 rounded-xl border transition-all ${
+                    className={`flex flex-col gap-2 p-3.5 rounded-xl border transition-all ${
                       requiresCnpj && !localCnpj && isNovaSolicitacao
                         ? "border-amber-500/50 bg-amber-500/5 ring-1 ring-amber-500/20"
-                        : ""
+                        : "shadow-xs"
                     }`}
                     style={{
                       backgroundColor: "var(--bg-primary)",
                       borderColor: requiresCnpj && !localCnpj && isNovaSolicitacao ? undefined : "var(--surface-border)",
                     }}
                   >
-                    <Building2
-                      size={16}
-                      className={`shrink-0 mt-0.5 ${requiresCnpj && !localCnpj ? "text-amber-400" : ""}`}
-                      style={{ color: requiresCnpj && !localCnpj ? undefined : "var(--text-muted)" }}
-                    />
-                    <div className="flex flex-col w-full">
-                      <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Building2
+                          size={15}
+                          className={`shrink-0 ${requiresCnpj && !localCnpj && isNovaSolicitacao ? "text-amber-400" : ""}`}
+                          style={{ color: requiresCnpj && !localCnpj && isNovaSolicitacao ? undefined : "var(--text-muted)" }}
+                        />
                         <span
                           className="text-[10px] uppercase font-bold tracking-wider"
                           style={{ color: "var(--text-muted)" }}
                         >
                           Conta Pagadora / CNPJ
                         </span>
-                        {isCajuOnly ? (
-                          <span className="text-[10px] text-blue-400 font-semibold bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
-                            Opcional no Caju
-                          </span>
-                        ) : requiresCnpj ? (
-                          localCnpj ? (
-                            <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
-                              <CheckCircle2 size={11} /> Selecionado
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
-                              * Obrigatório para Pendente
-                            </span>
-                          )
-                        ) : null}
                       </div>
-                      <select 
-                        value={localCnpj} 
-                        onChange={(e) => handleCnpjChange(e.target.value)} 
-                        className={`w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium ${
-                          requiresCnpj && !localCnpj && isNovaSolicitacao ? "border-amber-500/60" : ""
-                        }`}
-                        style={{
-                          backgroundColor: "var(--surface-hover)",
-                          borderColor: requiresCnpj && !localCnpj && isNovaSolicitacao ? undefined : "var(--surface-border)",
-                          color: "var(--text-primary)",
-                        }}
-                      >
-                        <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
-                          {isCajuOnly
-                            ? "Não necessário para Caju (ou selecione se desejar)"
-                            : "Selecione o Pagador (Nubank / CNPJ)..."}
-                        </option>
-                        {CNPJ_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>{opt}</option>
-                        ))}
-                      </select>
-                      {requiresCnpj && !localCnpj && isNovaSolicitacao && (
-                        <span className="text-[11px] text-amber-400 mt-1 font-medium">
-                          Selecione o CNPJ (ou Nubank) para liberar o avanço para Pendente.
+                      {isCajuOnly ? (
+                        <span className="text-[10px] text-blue-400 font-semibold bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-500/20 whitespace-nowrap">
+                          Opcional no Caju
                         </span>
-                      )}
-                      {isFopag && (
-                        <span className="text-[11px] text-purple-400 mt-1 font-medium">
-                          FOPAG: CNPJ 2 definido por padrão (você pode alterar se necessário).
-                        </span>
-                      )}
+                      ) : requiresCnpj ? (
+                        localCnpj ? (
+                          <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 whitespace-nowrap flex items-center gap-1">
+                            <CheckCircle2 size={11} /> Selecionado
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/15 px-2.5 py-0.5 rounded-full border border-amber-500/35 whitespace-nowrap flex items-center gap-1 shadow-xs">
+                            <AlertTriangle size={11} className="shrink-0" /> Obrigatório para Pendente
+                          </span>
+                        )
+                      ) : null}
                     </div>
+
+                    <select 
+                      value={localCnpj} 
+                      onChange={(e) => handleCnpjChange(e.target.value)} 
+                      className={`w-full border rounded-lg px-3 py-2 text-xs outline-none focus:border-brand-primary font-medium cursor-pointer transition-colors ${
+                        requiresCnpj && !localCnpj && isNovaSolicitacao ? "border-amber-500/60 focus:ring-1 focus:ring-amber-500/30" : ""
+                      }`}
+                      style={{
+                        backgroundColor: "var(--surface-hover)",
+                        borderColor: requiresCnpj && !localCnpj && isNovaSolicitacao ? undefined : "var(--surface-border)",
+                        color: "var(--text-primary)",
+                      }}
+                    >
+                      <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
+                        {isCajuOnly
+                          ? "Não necessário para Caju (ou selecione se desejar)"
+                          : "Selecione o Pagador (Nubank / CNPJ)..."}
+                      </option>
+                      {CNPJ_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>{opt}</option>
+                      ))}
+                    </select>
+
+                    {requiresCnpj && !localCnpj && isNovaSolicitacao && (
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-amber-400 font-medium">
+                        <AlertCircle size={12} className="shrink-0" />
+                        <span>Selecione o CNPJ (ou Nubank) para liberar o avanço para Pendente.</span>
+                      </div>
+                    )}
+                    {isFopag && (
+                      <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-purple-400 font-medium">
+                        <Info size={12} className="shrink-0" />
+                        <span>FOPAG: CNPJ 2 definido por padrão (você pode alterar se necessário).</span>
+                      </div>
+                    )}
                   </div>
                 )}
+
                 {!isMasterOrFinanceiro && localCnpj && (
-                  <div className="flex items-start gap-2 p-3 rounded-xl border"
+                  <div className="flex items-center justify-between p-3.5 rounded-xl border shadow-xs"
                        style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                    <Building2 size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                    <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <Building2 size={15} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                       <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Conta Pagadora / CNPJ</span>
-                      <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{localCnpj}</span>
                     </div>
+                    <span className="font-semibold text-xs px-2.5 py-1 rounded-lg border"
+                          style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}>
+                      {localCnpj}
+                    </span>
                   </div>
                 )}
-                </div>
+
+                {/* OBSERVAÇÕES / DESCRIÇÃO */}
                 {(card.notes || card.description) && (
                   <div
-                    className="flex flex-col gap-2.5 p-3.5 rounded-xl border transition-all"
+                    className="flex flex-col gap-2 p-3.5 rounded-xl border shadow-xs transition-all"
                     style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}
                   >
                     <div className="flex items-center justify-between">
@@ -1009,7 +1022,7 @@ export default function CardDetailModal({
                         </button>
                       </div>
                     </div>
-                    <div className="p-3 rounded-lg border max-h-64 overflow-y-auto custom-scrollbar" style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)" }}>
+                    <div className="p-3 rounded-lg border max-h-48 overflow-y-auto custom-scrollbar" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
                       <p className="font-medium text-xs whitespace-pre-wrap leading-relaxed select-text" style={{ color: "var(--text-primary)" }}>
                         {card.notes || card.description}
                       </p>
@@ -1022,10 +1035,10 @@ export default function CardDetailModal({
             {/* RIGHT COLUMN */}
             <div className="flex flex-col gap-4">
               {/* Payment Data */}
-              <div className="p-5 rounded-2xl border shadow-sm"
+              <div className="p-4 rounded-xl border shadow-xs"
                    style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                <div className="flex items-center gap-2 mb-4">
-                  <CreditCard size={18} className="text-blue-500" />
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard size={17} className="text-blue-500" />
                   <h4 className="font-bold text-sm uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>Dados de Pagamento</h4>
                 </div>
                 <div className="space-y-4">
@@ -1455,63 +1468,67 @@ export default function CardDetailModal({
           )}
 
           {/* ACCORDION: Histórico de Etapas & SLA (Por Coluna) */}
-          <div className="mt-4 rounded-xl border border-slate-700/60 overflow-hidden bg-slate-900/40">
+          <div className="mt-4 rounded-xl border overflow-hidden shadow-xs"
+               style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
             <button
               type="button"
               onClick={() => setStageHistoryOpen(!stageHistoryOpen)}
-              className="w-full flex items-center justify-between px-4 py-3 bg-slate-800/60 hover:bg-slate-800/90 transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-4 py-3 transition-colors cursor-pointer"
+              style={{ backgroundColor: "var(--surface-hover)" }}
             >
               <div className="flex items-center gap-2">
-                <Clock size={16} className="text-slate-400" />
-                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                <Clock size={16} style={{ color: "var(--text-muted)" }} />
+                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>
                   Histórico de Etapas & SLA ({stageHistory.length})
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 {cardSla.timeToPendenteSeconds !== null && (
-                  <span className="hidden sm:inline-flex text-[10px] font-medium px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
-                    Pendente: <strong className="ml-1 text-white">{cardSla.timeToPendenteFormatted}</strong>
+                  <span className="hidden sm:inline-flex text-[10px] font-medium px-2 py-0.5 rounded border"
+                        style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}>
+                    Pendente: <strong className="ml-1" style={{ color: "var(--text-primary)" }}>{cardSla.timeToPendenteFormatted}</strong>
                   </span>
                 )}
                 {cardSla.pendenteToFinalizadoSeconds !== null && (
-                  <span className="hidden sm:inline-flex text-[10px] font-medium px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-300">
-                    Finalizado: <strong className="ml-1 text-white">{cardSla.pendenteToFinalizadoFormatted}</strong>
+                  <span className="hidden sm:inline-flex text-[10px] font-medium px-2 py-0.5 rounded border"
+                        style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}>
+                    Finalizado: <strong className="ml-1" style={{ color: "var(--text-primary)" }}>{cardSla.pendenteToFinalizadoFormatted}</strong>
                   </span>
                 )}
-                {stageHistoryOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+                {stageHistoryOpen ? <ChevronUp size={16} style={{ color: "var(--text-secondary)" }} /> : <ChevronDown size={16} style={{ color: "var(--text-secondary)" }} />}
               </div>
             </button>
 
             {stageHistoryOpen && (
-              <div className="p-4 space-y-3 bg-slate-950/40">
+              <div className="p-4 space-y-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
                 {/* Resumo de SLAs do Card */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-2">
-                  <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Nova ➔ Pendente</span>
-                    <span className="text-sm font-bold text-white">
+                  <div className="p-2.5 rounded-lg border" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
+                    <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Nova ➔ Pendente</span>
+                    <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                       {cardSla.timeToPendenteFormatted}
                     </span>
-                    <span className="text-[10px] text-slate-500 block">
+                    <span className="text-[10px] block" style={{ color: "var(--text-muted)" }}>
                       {cardSla.isPendenteOngoing ? "Em andamento" : "Concluído"}
                     </span>
                   </div>
 
-                  <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Pendente ➔ Finalizado</span>
-                    <span className="text-sm font-bold text-white">
+                  <div className="p-2.5 rounded-lg border" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
+                    <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Pendente ➔ Finalizado</span>
+                    <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                       {cardSla.pendenteToFinalizadoFormatted}
                     </span>
-                    <span className="text-[10px] text-slate-500 block">
+                    <span className="text-[10px] block" style={{ color: "var(--text-muted)" }}>
                       {card.status === "FINALIZADO" ? "Concluído" : (cardSla.pendenteToFinalizadoSeconds ? "Em andamento" : "Aguardando")}
                     </span>
                   </div>
 
-                  <div className="p-2.5 rounded-lg bg-slate-800/80 border border-slate-700/60">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Ciclo Total</span>
-                    <span className="text-sm font-bold text-white">
+                  <div className="p-2.5 rounded-lg border" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
+                    <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Ciclo Total</span>
+                    <span className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>
                       {cardSla.totalCycleFormatted}
                     </span>
-                    <span className="text-[10px] text-slate-500 block">
+                    <span className="text-[10px] block" style={{ color: "var(--text-muted)" }}>
                       {card.status === "FINALIZADO" ? "Resolvido" : "Tempo decorrido"}
                     </span>
                   </div>
@@ -1795,7 +1812,7 @@ export default function CardDetailModal({
                 !showRefuseForm && (
                 <div className="flex items-center gap-2">
                   {isAdvanceToPendenteBlocked && (
-                    <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 bg-amber-500/10 px-2.5 py-1.5 rounded-xl border border-amber-500/25">
+                    <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-500/25 whitespace-nowrap shadow-xs">
                       <AlertTriangle size={13} className="shrink-0 text-amber-400" />
                       Selecione o CNPJ acima para liberar
                     </span>
@@ -1809,7 +1826,7 @@ export default function CardDetailModal({
                         ? "Selecione a Conta Pagadora / CNPJ (ou Nubank) acima para liberar a aprovação para Pendente"
                         : undefined
                     }
-                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                   >
                     {loading ? (
                       <Loader2 size={15} className="animate-spin" />
