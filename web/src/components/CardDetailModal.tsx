@@ -4,13 +4,13 @@ import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
   ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles,
-  AlertCircle, Info
+  AlertCircle, Info, RefreshCw
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useChat } from "@/contexts/ChatContext";
 import { useCategories } from "@/hooks/useCategories";
-import type { PaymentRequest, ReceiptHistoryItem, StageHistoryItem } from "@/types/database";
+import type { PaymentRequest, ReceiptHistoryItem, StageHistoryItem, PaymentConversionLog } from "@/types/database";
 import { getStatusLabel } from "@/constants/kanban";
 import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@/utils/sla";
 
@@ -117,6 +117,58 @@ export default function CardDetailModal({
   const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState(false);
   const [descriptionCopied, setDescriptionCopied] = useState(false);
   const [stageHistoryOpen, setStageHistoryOpen] = useState(false);
+
+  // Conversão de Caju para Pix Pós-Fechamento
+  const [showCajuToPixForm, setShowCajuToPixForm] = useState(false);
+  const [cajuPixKey, setCajuPixKey] = useState(
+    card.payment_conversion_log?.collaboratorPixKey || card.pix_name || card.pix_owner || card.caju_phone || ""
+  );
+  const [cajuReason, setCajuReason] = useState(
+    card.payment_conversion_log?.reason || "Local não aceita Caju / Falha no cartão"
+  );
+  const [cajuBalanceWithdrawn, setCajuBalanceWithdrawn] = useState(
+    card.payment_conversion_log ? card.payment_conversion_log.cajuBalanceWithdrawn : true
+  );
+  const [cajuPixFile, setCajuPixFile] = useState<File | null>(null);
+  const [isConvertingCajuPix, setIsConvertingCajuPix] = useState(false);
+  const [cajuPixError, setCajuPixError] = useState("");
+  const cajuPixFileInputRef = useRef<HTMLInputElement>(null);
+
+  const isCajuMealRequest = useMemo(() => {
+    if (card.payment_conversion_log) return true;
+    const method = (card.payment_method || "").toUpperCase();
+    const type = (card.payment_type || "").toUpperCase();
+    if (method.includes("CAJU") || type.includes("CAJU")) return true;
+    if (
+      Array.isArray(card.splits) &&
+      card.splits.some((s: any) => String(s.payment_type || "").toUpperCase() === "CAJU")
+    ) {
+      return true;
+    }
+    if (card.caju_phone) return true;
+    const cat = (card.category || "").toUpperCase();
+    if (
+      cat.includes("REFEIÇÃO") ||
+      cat.includes("REFEICAO") ||
+      cat.includes("ALIMENTAÇÃO") ||
+      cat.includes("ALIMENTACAO") ||
+      cat.includes("CAJU")
+    ) {
+      return true;
+    }
+    const title = (card.title || "").toUpperCase();
+    if (title.includes("CAJU")) return true;
+    return false;
+  }, [
+    card.payment_conversion_log,
+    card.payment_method,
+    card.payment_type,
+    card.splits,
+    card.caju_phone,
+    card.category,
+    card.title,
+  ]);
+
   const { categories } = useCategories();
   const [localCategory, setLocalCategory] = useState<string>(card.category || "Outros");
   const [isReclassifyingCategory, setIsReclassifyingCategory] = useState(false);
@@ -468,6 +520,72 @@ export default function CardDetailModal({
     }
   }
 
+  async function handleConfirmCajuToPix() {
+    if (!cajuPixKey.trim()) {
+      setCajuPixError("A Chave Pix ou nome do colaborador recebedor é obrigatória.");
+      return;
+    }
+    if (!cajuPixFile) {
+      setCajuPixError("O comprovante do Pix anexado é obrigatório.");
+      return;
+    }
+
+    try {
+      setIsConvertingCajuPix(true);
+      setCajuPixError("");
+
+      // 1. Upload do comprovante no storage (bucket attachments)
+      const fileExt = cajuPixFile.name.split(".").pop() || "png";
+      const fileName = `cajupix_${card.id}_${Date.now()}.${fileExt}`;
+      const filePath = `receipts/${fileName}`;
+      const { error: uploadError } = await supabase.storage.from("attachments").upload(filePath, cajuPixFile);
+      if (uploadError) {
+        throw new Error("Falha ao fazer upload do comprovante do Pix: " + uploadError.message);
+      }
+      const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(filePath);
+      const receiptUrl = urlData.publicUrl;
+
+      // 2. Chamar a rota de API segura de conversão
+      const res = await fetch("/api/payments/convert-caju-pix", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentId: card.id,
+          collaboratorPixKey: cajuPixKey.trim(),
+          reason: cajuReason.trim() || "Local não aceita Caju / Falha no cartão",
+          cajuBalanceWithdrawn: Boolean(cajuBalanceWithdrawn),
+          newReceiptUrl: receiptUrl,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao processar conversão de Caju para Pix.");
+      }
+
+      // 3. Atualizar estado local
+      setPaymentProofUrl(receiptUrl);
+      if (data.card) {
+        card.payment_conversion_log = data.card.payment_conversion_log;
+        card.payment_method = data.card.payment_method;
+        card.payment_type = data.card.payment_type;
+        card.pix_key = data.card.pix_key;
+        card.pix_owner = data.card.pix_owner;
+        card.receipts_history = data.card.receipts_history;
+        setReceiptsHistory(data.card.receipts_history || []);
+      }
+
+      setShowCajuToPixForm(false);
+      setCajuPixFile(null);
+      onUpdate("Solicitação convertida de Caju para Pix com sucesso!");
+    } catch (err: any) {
+      console.error("Erro na conversão Caju->Pix:", err);
+      setCajuPixError(err.message || "Erro desconhecido ao converter.");
+    } finally {
+      setIsConvertingCajuPix(false);
+    }
+  }
+
   function getEmailContent(type: "PAID_NUBANK" | "REQUEST" = emailModalType) {
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
@@ -730,11 +848,17 @@ export default function CardDetailModal({
         {/* HEADER */}
         <div className="flex items-center justify-between px-6 py-4 shrink-0 border-b"
              style={{ borderColor: "var(--surface-border)", backgroundColor: "var(--surface-hover)" }}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>Detalhes da Solicitação</h2>
             <span className="px-2.5 py-1 text-[11px] font-black uppercase tracking-wider rounded-md bg-brand-primary text-white">
               #{card.id.substring(0, 6)}
             </span>
+            {card.payment_conversion_log && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-xs">
+                <RefreshCw size={11} className="text-purple-400" />
+                Convertido p/ Pix
+              </span>
+            )}
           </div>
           <button onClick={onClose} className="p-2 rounded-xl transition-colors hover:opacity-80" style={{ color: "var(--text-secondary)" }}>
             <X size={20} />
@@ -753,6 +877,186 @@ export default function CardDetailModal({
                   <p className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">Correção Exigida pelo Gestor</p>
                   <p className="text-sm text-red-700 dark:text-red-300 leading-relaxed font-medium">{card.rejection_reason}</p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* AVISO DE CONVERSÃO CAJU -> PIX */}
+          {card.payment_conversion_log && (
+            <div className="mb-4 p-4 rounded-xl border border-purple-500/30 bg-purple-500/10 flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/20 text-purple-400 shrink-0 mt-0.5">
+                <RefreshCw size={16} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
+                  <span className="text-xs font-bold text-purple-300 uppercase tracking-wider">
+                    Conversão Pós-Fechamento Realizada
+                  </span>
+                  <span className="text-[10px] text-purple-400/80">
+                    {new Date(card.payment_conversion_log.convertedAt).toLocaleString("pt-BR")}
+                    {card.payment_conversion_log.convertedBy ? ` por ${card.payment_conversion_log.convertedBy}` : ""}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200">
+                  Modalidade alterada para <strong>Pix</strong> (Chave: {card.payment_conversion_log.collaboratorPixKey}).
+                </p>
+                <p className="text-[11px] text-slate-300 mt-0.5">
+                  <strong>Motivo:</strong> {card.payment_conversion_log.reason}
+                </p>
+                {card.payment_conversion_log.cajuBalanceWithdrawn && (
+                  <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5 mt-2 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 w-fit">
+                    <CheckCircle2 size={13} className="shrink-0" />
+                    Saldo antigo foi retirado do cartão Caju
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* FORMULÁRIO DE CONVERSÃO CAJU -> PIX (Expansível) */}
+          {showCajuToPixForm && (
+            <div className="mb-5 p-4 rounded-xl border-2 border-purple-500/40 bg-purple-500/5 shadow-md flex flex-col gap-3.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between border-b border-purple-500/20 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400">
+                    <RefreshCw size={15} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Converter Caju para Pix (Pós-Fechamento)</h4>
+                    <p className="text-[10px] text-slate-300">
+                      Transfira diretamente para o colaborador e registre a retirada do saldo do Caju.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCajuToPixForm(false);
+                    setCajuPixError("");
+                  }}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title="Fechar formulário"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {cajuPixError && (
+                <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                  <AlertTriangle size={14} className="shrink-0" />
+                  <span>{cajuPixError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                    Chave Pix ou Nome do Colaborador Recebedor *
+                  </label>
+                  <input
+                    type="text"
+                    value={cajuPixKey}
+                    onChange={(e) => {
+                      setCajuPixKey(e.target.value);
+                      setCajuPixError("");
+                    }}
+                    placeholder="Ex: 11999999999 ou email@exemplo.com"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-700 bg-slate-900 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                    Motivo da Conversão *
+                  </label>
+                  <input
+                    type="text"
+                    value={cajuReason}
+                    onChange={(e) => setCajuReason(e.target.value)}
+                    placeholder="Ex: Local não aceita Caju / Falha no cartão"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-700 bg-slate-900 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Checkbox de controle financeiro */}
+              <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-purple-500/20 bg-purple-500/10 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={cajuBalanceWithdrawn}
+                  onChange={(e) => setCajuBalanceWithdrawn(e.target.checked)}
+                  className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 bg-slate-800 border-slate-700 cursor-pointer"
+                />
+                <span className="text-xs font-bold text-purple-200">
+                  ✅ Saldo antigo já foi retirado do cartão Caju
+                </span>
+              </label>
+
+              {/* Campo de Upload do Comprovante do Pix */}
+              <div className="flex flex-col gap-1.5">
+                <label className="block text-[11px] font-bold text-slate-300">
+                  Anexar Comprovante do Pix *
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => cajuPixFileInputRef.current?.click()}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <UploadCloud size={15} />
+                    <span>{cajuPixFile ? "Trocar Comprovante" : "Selecionar Comprovante do Pix"}</span>
+                  </button>
+                  <input
+                    type="file"
+                    ref={cajuPixFileInputRef}
+                    className="hidden"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        if (f.size > 5 * 1024 * 1024) {
+                          setCajuPixError("Tamanho máximo de 5MB.");
+                          return;
+                        }
+                        setCajuPixFile(f);
+                        setCajuPixError("");
+                      }
+                    }}
+                  />
+                  {cajuPixFile && (
+                    <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 truncate">
+                      <CheckCircle2 size={13} className="shrink-0" />
+                      {cajuPixFile.name}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Botões de Ação do formulário */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-purple-500/20">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCajuToPixForm(false);
+                    setCajuPixError("");
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmCajuToPix}
+                  disabled={isConvertingCajuPix}
+                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-lg bg-purple-600 hover:bg-purple-500 shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isConvertingCajuPix ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={14} />
+                  )}
+                  <span>Confirmar Conversão e Salvar Pix</span>
+                </button>
               </div>
             </div>
           )}
@@ -1430,13 +1734,48 @@ export default function CardDetailModal({
               </button>
               {historyOpen && (
                 <div className="p-4 space-y-3 bg-gray-900/30">
-                  {receiptsHistory.map((receipt, idx) => (
-                    <div key={idx} className={`flex items-center justify-between p-3 rounded-lg border transition-all ${idx === receiptsHistory.length - 1 ? "border-blue-500/30 bg-blue-500/5" : "border-gray-700/30 bg-gray-800/20 opacity-60"}`}>
+                  {receiptsHistory.map((receipt, idx) => {
+                    const isLast = idx === receiptsHistory.length - 1;
+                    const isPixConverted = !!card.payment_conversion_log && isLast;
+                    const isOldCajuReceipt = !!card.payment_conversion_log && !isLast;
+
+                    return (
+                    <div
+                      key={idx}
+                      className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                        isPixConverted
+                          ? "border-purple-500/40 bg-purple-500/10"
+                          : isLast
+                          ? "border-blue-500/30 bg-blue-500/5"
+                          : "border-gray-700/30 bg-gray-800/20 opacity-70"
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${idx === receiptsHistory.length - 1 ? "bg-blue-500/20 text-blue-400" : "bg-gray-700/50 text-gray-500"}`}>{idx + 1}</div>
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black ${
+                            isPixConverted
+                              ? "bg-purple-500/20 text-purple-400"
+                              : isLast
+                              ? "bg-blue-500/20 text-blue-400"
+                              : "bg-gray-700/50 text-gray-500"
+                          }`}
+                        >
+                          {idx + 1}
+                        </div>
                         <div>
-                          <a href={receipt.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline">
-                            {idx === receiptsHistory.length - 1 ? "Comprovante Atual" : `Comprovante v${idx + 1}`}
+                          <a
+                            href={receipt.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs font-semibold text-blue-400 hover:text-blue-300 underline"
+                          >
+                            {isPixConverted
+                              ? "Comprovante Pix (Ativo)"
+                              : isOldCajuReceipt
+                              ? `Comprovante Caju Original (v${idx + 1})`
+                              : isLast
+                              ? "Comprovante Atual"
+                              : `Comprovante v${idx + 1}`}
                           </a>
                           <p className="text-[10px] text-gray-400">
                             {new Date(receipt.uploadedAt).toLocaleString("pt-BR")}
@@ -1445,7 +1784,19 @@ export default function CardDetailModal({
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {idx === receiptsHistory.length - 1 && (<span className="px-2 py-0.5 text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 rounded">Atual</span>)}
+                        {isPixConverted ? (
+                          <span className="px-2 py-0.5 text-[9px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded">
+                            Pix Ativo
+                          </span>
+                        ) : isOldCajuReceipt ? (
+                          <span className="px-2 py-0.5 text-[9px] font-bold uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded">
+                            Histórico Caju
+                          </span>
+                        ) : isLast ? (
+                          <span className="px-2 py-0.5 text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 rounded">
+                            Atual
+                          </span>
+                        ) : null}
                         {isMasterOrFinanceiro && (
                           <button
                             type="button"
@@ -1461,7 +1812,7 @@ export default function CardDetailModal({
                         )}
                       </div>
                     </div>
-                  ))}
+                  );})}
                 </div>
               )}
             </div>
@@ -1838,6 +2189,25 @@ export default function CardDetailModal({
                     )}
                   </button>
                 </div>
+              )}
+
+              {/* Botão de Converter Caju em Pix (Status FINALIZADO + Master/Financeiro + Refeição/Caju) */}
+              {isFinalizado && isMasterOrFinanceiro && isCajuMealRequest && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCajuToPixForm((prev) => !prev);
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer whitespace-nowrap shadow-xs ${
+                    showCajuToPixForm
+                      ? "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 shadow-purple-500/20"
+                      : "bg-purple-500/15 text-purple-400 hover:bg-purple-500/25 border-purple-500/30 hover:border-purple-500/50"
+                  }`}
+                  title="Converter modalidade de Caju para Pix pós-fechamento"
+                >
+                  <RefreshCw size={13} className={showCajuToPixForm ? "rotate-180 transition-transform" : ""} />
+                  <span>{card.payment_conversion_log ? "Ver / Editar Conversão Pix" : "🔄 Converter Caju p/ Pix"}</span>
+                </button>
               )}
             </div>
           </div>

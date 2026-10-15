@@ -91,9 +91,20 @@ export interface PaymentRequest {
   receipts_history?: ReceiptHistoryItem[] | null;
   stage_history?: StageHistoryItem[] | null;
   ai_category_suggestion?: AiCategorySuggestion | null;
+  payment_conversion_log?: PaymentConversionLog | null;
   
   profiles?: Profile;
   category?: string | null;
+}
+
+export interface PaymentConversionLog {
+  convertedAt: string;
+  convertedBy: string;
+  originalMethod: string;
+  newMethod: "PIX";
+  collaboratorPixKey: string;
+  cajuBalanceWithdrawn: boolean;
+  reason: string;
 }
 
 export interface AiCategorySuggestion {

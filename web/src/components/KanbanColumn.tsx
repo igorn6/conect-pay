@@ -1,7 +1,7 @@
 "use client";
 
 import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
 
 interface KanbanColumnProps {
@@ -173,6 +173,16 @@ export default function KanbanColumn({
                   <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider mb-2 w-fit">
                     <ShieldCheck size={11} className="text-purple-400" />
                     <span>Aguardando Validação</span>
+                  </div>
+                )}
+
+                {card.payment_conversion_log && (
+                  <div
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider mb-2 w-fit"
+                    title={`Convertido de Caju para Pix em ${new Date(card.payment_conversion_log.convertedAt).toLocaleString("pt-BR")}${card.payment_conversion_log.cajuBalanceWithdrawn ? " • Saldo Caju retirado" : ""}`}
+                  >
+                    <RefreshCw size={10} className="text-purple-400" />
+                    <span>Convertido p/ Pix</span>
                   </div>
                 )}
 
