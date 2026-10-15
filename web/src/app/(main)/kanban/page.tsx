@@ -288,9 +288,9 @@ export default function KanbanPage() {
 
       if (blockedForCnpj.length > 0) {
         alert(
-          `Não é permitido avançar para Pendente sem selecionar a Conta Pagadora / CNPJ (ou Nubank) nas seguintes solicitações:\n\n` +
+          `Não é permitido avançar para Pendente sem selecionar a Conta Pagadora / CNPJ (ou Nubank 02) nas seguintes solicitações:\n\n` +
           blockedForCnpj.map(c => `• ${c?.title || "Sem título"} (R$ ${Number(c?.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`).join("\n") +
-          `\n\nPor favor, abra cada solicitação e defina o CNPJ/Nubank antes de aprovar.`
+          `\n\nPor favor, abra cada solicitação e defina o CNPJ/Nubank 02 antes de aprovar.`
         );
         return;
       }

@@ -21,7 +21,7 @@ const NEXT_STATUS: Record<string, string> = {
   AGUARDANDO_PAGAMENTO: "FINALIZADO",
 };
 
-const CNPJ_OPTIONS = ["Nubank", "CNPJ 1", "CNPJ 2", "CNPJ 3", "CNPJ 4", "CNPJ 5", "CNPJ 6"];
+const CNPJ_OPTIONS = ["Nubank 02", "CNPJ 1", "CNPJ 2", "CNPJ 3", "CNPJ 4"];
 
 interface CardDetailModalProps {
   card: PaymentRequest;
@@ -99,11 +99,13 @@ export default function CardDetailModal({
   }, [card.splits, card.payment_type, card.payment_method]);
 
   const [copiedKey, setCopiedKey] = useState(false);
-  const [localCnpj, setLocalCnpj] = useState<string>(card.cnpj || (isFopag ? "CNPJ 2" : ""));
+  const [localCnpj, setLocalCnpj] = useState<string>(
+    card.cnpj === "Nubank" ? "Nubank 02" : (card.cnpj || (isFopag ? "CNPJ 2" : ""))
+  );
 
   useEffect(() => {
     if (card.cnpj) {
-      setLocalCnpj(card.cnpj);
+      setLocalCnpj(card.cnpj === "Nubank" ? "Nubank 02" : card.cnpj);
     } else if (isFopag) {
       setLocalCnpj("CNPJ 2");
       supabase.from("payment_requests").update({ cnpj: "CNPJ 2" }).eq("id", card.id);
@@ -393,7 +395,7 @@ export default function CardDetailModal({
     // Regra de negócio: Só é permitido avançar para Pendente (EM_APROVACAO) se selecionar o CNPJ ou se é Nubank.
     // (Se for Caju, não é necessário preencher o CNPJ).
     if (newStatus === "EM_APROVACAO" && requiresCnpj && !localCnpj) {
-      alert("Para avançar esta solicitação para Pendente, é obrigatório selecionar a Conta Pagadora / CNPJ (ou Nubank).");
+      alert("Para avançar esta solicitação para Pendente, é obrigatório selecionar a Conta Pagadora / CNPJ (ou Nubank 02).");
       return;
     }
 
@@ -615,7 +617,7 @@ export default function CardDetailModal({
       : "";
 
     if (type === "PAID_NUBANK") {
-      const rawSubject = `Pagamento Realizado | ${card.title} | Nubank`;
+      const rawSubject = `Pagamento Realizado | ${card.title} | ${localCnpj || "Nubank 02"}`;
 
       let rawBody = `--\n${greeting} Tássio!\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nTitular: ${pixOwner}\nSolicitante: ${solicitante}`;
 
@@ -1253,17 +1255,20 @@ export default function CardDetailModal({
                       <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
                         {isCajuOnly
                           ? "Não necessário para Caju (ou selecione se desejar)"
-                          : "Selecione o Pagador (Nubank / CNPJ)..."}
+                          : "Selecione o Pagador (Nubank 02 / CNPJ)..."}
                       </option>
                       {CNPJ_OPTIONS.map((opt) => (
                         <option key={opt} value={opt} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>{opt}</option>
                       ))}
+                      {localCnpj && !CNPJ_OPTIONS.includes(localCnpj) && (
+                        <option value={localCnpj} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>{localCnpj}</option>
+                      )}
                     </select>
 
                     {requiresCnpj && !localCnpj && isNovaSolicitacao && (
                       <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-amber-400 font-medium">
                         <AlertCircle size={12} className="shrink-0" />
-                        <span>Selecione o CNPJ (ou Nubank) para liberar o avanço para Pendente.</span>
+                        <span>Selecione o CNPJ (ou Nubank 02) para liberar o avanço para Pendente.</span>
                       </div>
                     )}
                     {isFopag && (
@@ -2023,7 +2028,7 @@ export default function CardDetailModal({
                     <div className="w-px h-4 self-center bg-slate-700/80" />
                   )}
 
-                  {/* E-mail Nubank */}
+                  {/* E-mail Nubank 02 */}
                   {(card.status !== "NOVA_SOLICITACAO" || hasAttachment) && (
                     <button
                       type="button"
@@ -2036,10 +2041,10 @@ export default function CardDetailModal({
                           ? "font-semibold text-white bg-slate-700/90 hover:bg-slate-700 shadow-sm"
                           : "font-medium text-slate-300 hover:text-white hover:bg-slate-700/70"
                       }`}
-                      title="Notificar Tássio por e-mail que o pagamento já foi realizado (Nubank)"
+                      title="Notificar Tássio por e-mail que o pagamento já foi realizado (Nubank 02)"
                     >
                       <CheckCircle2 size={13} className={!canRequestPayment ? "text-emerald-400" : "text-slate-400"} />
-                      <span>E-mail Nubank</span>
+                      <span>E-mail Nubank 02</span>
                     </button>
                   )}
                 </div>
@@ -2174,7 +2179,7 @@ export default function CardDetailModal({
                     disabled={loading || isTransitionBlocked || isAdvanceToPendenteBlocked}
                     title={
                       isAdvanceToPendenteBlocked
-                        ? "Selecione a Conta Pagadora / CNPJ (ou Nubank) acima para liberar a aprovação para Pendente"
+                        ? "Selecione a Conta Pagadora / CNPJ (ou Nubank 02) acima para liberar a aprovação para Pendente"
                         : undefined
                     }
                     className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
@@ -2229,7 +2234,7 @@ export default function CardDetailModal({
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">
-                    {emailModalType === "PAID_NUBANK" ? "Pagamento Realizado (Nubank)" : "Solicitar Pagamento a Tássio"}
+                    {emailModalType === "PAID_NUBANK" ? "Pagamento Realizado (Nubank 02)" : "Solicitar Pagamento a Tássio"}
                   </h3>
                   <p className="text-xs text-slate-400">
                     Destinatário: <span className="text-slate-300 font-semibold">tassiolimacs@gmail.com</span>
@@ -2271,7 +2276,7 @@ export default function CardDetailModal({
                   }`}
                 >
                   <CheckCircle2 size={14} className={emailModalType === "PAID_NUBANK" ? "text-emerald-400" : "text-slate-500"} />
-                  <span>Pagamento Realizado (Nubank)</span>
+                  <span>Pagamento Realizado (Nubank 02)</span>
                 </button>
               </div>
             )}
@@ -2322,11 +2327,16 @@ export default function CardDetailModal({
                         {opt}
                       </option>
                     ))}
+                    {localCnpj && !CNPJ_OPTIONS.includes(localCnpj) && (
+                      <option value={localCnpj} className="bg-slate-900 text-slate-100 font-medium">
+                        {localCnpj}
+                      </option>
+                    )}
                   </select>
                   {requiresCnpj && !localCnpj && (
                     <p className="text-[11px] text-amber-300 mt-2 flex items-center gap-1.5 font-medium">
                       <AlertTriangle size={13} className="shrink-0 text-amber-400" />
-                      <span>Escolha o pagador (Nubank ou CNPJ) para definir o assunto e liberar o envio.</span>
+                      <span>Escolha o pagador (Nubank 02 ou CNPJ) para definir o assunto e liberar o envio.</span>
                     </p>
                   )}
                 </div>
