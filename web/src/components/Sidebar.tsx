@@ -35,7 +35,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { theme } = useTheme();
-  const { userRole, userName, avatarUrl, sectorName } = useAuth();
+  const { userRole } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -82,30 +82,6 @@ export default function Sidebar() {
             <X size={20} />
           </button>
         </div>
-
-        {/* User Profile Quick Link */}
-        {(userRole === "GESTOR" || userRole === "MASTER" || userRole === "FINANCEIRO") && (
-          <div className="px-4 pt-6 pb-2 border-b border-slate-800/50">
-            <Link target="_self" 
-              href="/configuracoes"
-              onClick={() => setIsOpen(false)}
-              className={`flex items-center gap-3 p-3 rounded-xl bg-slate-800/50 hover:bg-slate-800 border border-slate-700/50 transition-colors ${isCollapsed ? "justify-center" : ""}`}
-              title="Meu Perfil"
-            >
-              <img 
-                src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName || 'G')}&background=10b981&color=fff&size=32`} 
-                alt="Avatar" 
-                className="w-8 h-8 rounded-full shrink-0"
-              />
-              {!isCollapsed && (
-                <div className="overflow-hidden">
-                  <p className="text-sm font-medium text-slate-200 truncate">{userName || "Meu Perfil"}</p>
-                  <p className="text-xs text-slate-500 truncate">{userRole === "GESTOR" ? (sectorName ? `Gestor • ${sectorName}` : "Gestor") : (userRole === "FINANCEIRO" ? "Financeiro" : "Master")}</p>
-                </div>
-              )}
-            </Link>
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-1.5">

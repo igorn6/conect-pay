@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Mail, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import Particles from "@/components/Particles";
 import BrandLogo from "@/components/BrandLogo";
 
 export default function LoginPage() {
@@ -17,61 +16,17 @@ export default function LoginPage() {
   const [bgImage, setBgImage] = useState("/weather/sunny.jpg");
   const [bgReady, setBgReady] = useState(false);
 
+  // Fundo estático escolhido pelo horário local (sem chamadas de rede nem animações contínuas)
   useEffect(() => {
-    async function fetchWeather() {
-      try {
-        const ipRes = await fetch("https://ipapi.co/json/");
-        if (!ipRes.ok) throw new Error("IP fetch failed");
-        const locationData = await ipRes.json();
-        const lat = locationData.latitude;
-        const lon = locationData.longitude;
-
-        const weatherRes = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
-        );
-        if (!weatherRes.ok) throw new Error("Weather fetch failed");
-        const weatherData = await weatherRes.json();
-        
-        const { weathercode, is_day } = weatherData.current_weather;
-        const currentHour = new Date().getHours();
-        const isSunset = is_day === 1 && currentHour >= 17 && currentHour <= 19;
-
-        let image = "/weather/sunny.jpg";
-
-        if (isSunset) {
-          image = "/weather/sunset.jpg";
-        } else if (is_day === 0) {
-          if ([51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weathercode)) {
-            image = "/weather/rainy.jpg";
-          } else {
-            image = "/weather/night.jpg";
-          }
-        } else {
-          if ([0].includes(weathercode)) {
-            image = "/weather/sunny.jpg";
-          } else if ([1, 2, 3, 45, 48].includes(weathercode)) {
-            image = "/weather/cloudy.jpg";
-          } else if ([51, 53, 55, 61, 63, 65, 80, 81, 82, 95, 96, 99].includes(weathercode)) {
-            image = "/weather/rainy.jpg";
-          } else {
-            image = "/weather/cloudy.jpg"; 
-          }
-        }
-
-        const img = new Image();
-        img.src = image;
-        img.onload = () => {
-          setBgImage(image);
-          setBgReady(true);
-        };
-      } catch (e) {
-        console.error("Failed to fetch dynamic weather", e);
-        setBgImage("/weather/sunny.jpg");
-        setBgReady(true);
-      }
-    }
-
-    fetchWeather();
+    const h = new Date().getHours();
+    const image = h >= 19 || h < 6 ? "/weather/night.jpg" : h >= 17 ? "/weather/sunset.jpg" : "/weather/sunny.jpg";
+    const img = new Image();
+    img.src = image;
+    img.onload = () => {
+      setBgImage(image);
+      setBgReady(true);
+    };
+    img.onerror = () => setBgReady(true);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -116,39 +71,10 @@ export default function LoginPage() {
         >
           {/* The Background Image with Handheld Sway */}
           <div 
-            className={`absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-1000 ease-in-out animate-weather-sway ${bgReady ? "opacity-100" : "opacity-0"}`}
+            className={`absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-1000 ease-in-out ${bgReady ? "opacity-100" : "opacity-0"}`}
             style={{ backgroundImage: `url(${bgImage})` }}
           />
           
-          {/* Dynamic Weather Overlays */}
-          <div className={`absolute inset-0 transition-opacity duration-1000 ${bgReady ? "opacity-100" : "opacity-0"}`}>
-            {bgImage.includes("rainy") && (
-              <>
-                <div className="weather-rain-layer-1 z-0" />
-                <div className="weather-rain-layer-2 z-0" />
-              </>
-            )}
-
-            {bgImage.includes("night") && (
-              <>
-                <div className="shooting-star star-1 z-0" />
-                <div className="shooting-star star-2 z-0" />
-                <div className="shooting-star star-3 z-0" />
-                <div className="shooting-star star-4 z-0" />
-              </>
-            )}
-
-            {bgImage.includes("sunny") && (
-              <>
-                <div className="weather-birds z-0" />
-                <div className="weather-airplane z-0" />
-              </>
-            )}
-
-            {bgImage.includes("sunset") && (
-              <div className="weather-rays z-0" />
-            )}
-          </div>
         </div>
 
         {/* Gradient fade to fake black (#0A0A0A) */}
@@ -158,11 +84,6 @@ export default function LoginPage() {
       {/* Right Side: Form Panel (60%) */}
       <div className="w-full lg:w-[60%] relative flex flex-col justify-center items-center p-8 sm:p-12 z-20 bg-[#0A0A0A]">
         
-        {/* Background Particles inside the form panel */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 opacity-50">
-          <Particles />
-        </div>
-
         <div className="w-full max-w-[400px] relative z-10">
           <div className="mb-8 flex flex-col items-center text-center">
             {/* Logo Conect Pay em destaque (maior e com glow) */}

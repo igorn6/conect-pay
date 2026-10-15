@@ -1,9 +1,8 @@
 "use client";
 
 import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2, ChevronDown, ShieldCheck } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
-import { useCategories } from "@/hooks/useCategories";
 
 interface KanbanColumnProps {
   config: KanbanColumnConfig;
@@ -16,6 +15,8 @@ interface KanbanColumnProps {
   onSelectAll?: (ids: string[], isAdding: boolean) => void;
   categories?: Category[];
   onUpdateCategory?: (cardId: string, newCategory: string) => void;
+  /** Quando true (coluna sem cards) renderiza uma tira vertical fina. */
+  compact?: boolean;
 }
 
 /**
@@ -32,12 +33,36 @@ export default function KanbanColumn({
   onToggleSelect,
   onSelectAll,
   profilesMap = {},
-  categories,
-  onUpdateCategory,
+  compact = false,
 }: KanbanColumnProps) {
-  const { categories: hookCategories } = useCategories();
-  const categoriesList = categories && categories.length > 0 ? categories : hookCategories;
   const hasColor = ["CORRECAO_PENDENTE", "FINALIZADO", "RECUSADO"].includes(config.key);
+
+  if (compact && cards.length === 0) {
+    return (
+      <div
+        title={`${config.label}: nenhuma solicitação`}
+        className="flex flex-col items-center w-11 h-full rounded-xl shrink-0 py-3 gap-3 opacity-70 hover:opacity-100 transition-opacity"
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--surface-border)",
+          borderTop: `3px solid ${config.color}`,
+        }}
+      >
+        <span
+          className="flex items-center justify-center min-w-[22px] h-[22px] px-1.5 text-xs font-bold rounded-full"
+          style={{ color: "var(--text-secondary)", border: "1px solid var(--surface-border)" }}
+        >
+          0
+        </span>
+        <span
+          className="text-xs font-semibold whitespace-nowrap"
+          style={{ color: "var(--text-secondary)", writingMode: "vertical-rl" }}
+        >
+          {config.label}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -125,7 +150,7 @@ export default function KanbanColumn({
                 key={card.id}
                 id={`kanban-card-${card.id}`}
                 onClick={() => onCardClick(card)}
-                className="p-3.5 rounded-lg cursor-pointer"
+                className="p-2.5 rounded-lg cursor-pointer"
                 style={{
                   backgroundColor: "var(--bg-card)",
                   border: "1px solid var(--surface-border)",
@@ -154,7 +179,8 @@ export default function KanbanColumn({
                 {/* Título */}
                 <div className="flex items-start justify-between gap-2">
                 <h3
-                  className="text-sm font-semibold truncate flex-1"
+                  className="text-sm font-semibold line-clamp-2 flex-1 leading-snug"
+                  title={card.title}
                   style={{ color: "var(--text-primary)" }}
                 >
                   {card.title}
@@ -178,53 +204,26 @@ export default function KanbanColumn({
                 )}
               </div>
 
-                {/* Categoria */}
-                <div 
-                  className="mt-1 flex items-center"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="relative inline-flex items-center max-w-full group">
-                    <select
-                      value={card.category || ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val && val !== card.category) {
-                          if (onUpdateCategory) {
-                            onUpdateCategory(card.id, val);
-                          }
-                        }
-                      }}
-                      title="Clique para trocar categoria manualmente"
-                      className="text-xs font-medium cursor-pointer rounded px-2 py-0.5 border border-slate-700/60 hover:border-slate-500/80 bg-slate-800/60 hover:bg-slate-700/80 transition-all outline-none truncate max-w-full appearance-none pr-5 text-slate-300 hover:text-white"
+                {/* Categoria (badge) + Solicitante na mesma linha */}
+                <div className="flex items-center justify-between gap-2 mt-1.5">
+                  {card.category ? (
+                    <span
+                      className="inline-flex items-center max-w-[55%] truncate text-[10px] font-medium rounded-full px-2 py-0.5"
+                      title={`Categoria: ${card.category}`}
                       style={{
                         backgroundColor: "var(--surface-hover)",
-                        borderColor: "var(--surface-border)",
+                        border: "1px solid var(--surface-border)",
                         color: "var(--text-secondary)",
                       }}
                     >
-                      {card.category && !categoriesList.some(c => c.name.toLowerCase() === card.category?.toLowerCase()) && (
-                        <option value={card.category} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
-                          {card.category}
-                        </option>
-                      )}
-                      {categoriesList.map((c) => (
-                        <option key={c.id} value={c.name} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={11} className="absolute right-1.5 text-slate-400 group-hover:text-slate-200 pointer-events-none transition-colors" />
-                  </div>
-                </div>
-
-                {/* Solicitante Real */}
-                <div className="flex items-center gap-1.5 mt-2">
-                  <User size={12} style={{ color: "var(--text-muted)" }} />
-                  <span
-                    className="text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    {profilesMap[card.real_requester_id || ""] || profilesMap[card.created_by] || "Desconhecido"}
+                      {card.category}
+                    </span>
+                  ) : <span />}
+                  <span className="flex items-center gap-1 min-w-0" style={{ color: "var(--text-secondary)" }}>
+                    <User size={11} className="shrink-0" />
+                    <span className="text-[11px] truncate">
+                      {profilesMap[card.real_requester_id || ""] || profilesMap[card.created_by] || "Desconhecido"}
+                    </span>
                   </span>
                 </div>
 
@@ -233,7 +232,7 @@ export default function KanbanColumn({
                   const sla = getCardSlaMetrics(card);
                   if (sla.timeToPendenteSeconds === null && sla.pendenteToFinalizadoSeconds === null) return null;
                   return (
-                    <div className="flex items-center gap-1.5 mt-2.5 pt-2 border-t border-slate-800/60 flex-wrap text-[10px]">
+                    <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-slate-800/60 flex-wrap text-[10px]" style={{ color: "var(--text-secondary)" }}>
                       {sla.timeToPendenteSeconds !== null && (
                         <span
                           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium ${
@@ -266,7 +265,7 @@ export default function KanbanColumn({
                 })()}
 
                 {/* Valor + Tipo de Pagamento */}
-                <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center justify-between mt-2">
                   <span
                     className="text-sm font-bold"
                     style={{ color: config.color }}

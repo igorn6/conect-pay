@@ -14,7 +14,7 @@
   /* Text */
   --text-primary: #f0f1f5;
   --text-secondary: #8b8fa3;
-  --text-muted: #5c6078;
+  --text-muted: #8085a0;
 
   /* Brand */
   --brand-primary: #6c5ce7;
@@ -153,7 +153,7 @@ body {
   
   --text-primary: #d1cece;
   --text-secondary: #9d9797;
-  --text-muted: #48556a;
+  --text-muted: #8f8a96;
 
   --color-background: var(--color-void-base);
   --color-foreground: #d1cece;
@@ -163,7 +163,7 @@ body {
   --color-slate-800: var(--color-elevated-surface);
   --color-slate-700: var(--color-deep-panel);
   --color-slate-600: var(--color-border-smoke);
-  --color-slate-500: #48556a;
+  --color-slate-500: #8f8a96;
   --color-slate-400: #9d9797;
   --color-slate-300: #d1cece;
   --color-slate-200: #e5e7eb;
@@ -287,7 +287,7 @@ body {
 
   --text-primary: var(--color-ink-roast);
   --text-secondary: var(--color-ash-grey);
-  --text-muted: #808080;
+  --text-muted: #666666;
 
   --brand-primary: var(--color-signal-orange);
   --brand-primary-hover: var(--color-brand-orange-tint);

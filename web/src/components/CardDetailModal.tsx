@@ -688,12 +688,12 @@ export default function CardDetailModal({
           </button>
         </div>
 
-        {/* BODY */}
-        <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
+        {/* BODY: grid de 1 coluna permite subir o painel de validação (order) sem mover lógica */}
+        <div className="p-5 flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 content-start">
 
           {/* ALERT: CORRECAO PENDENTE */}
           {isCorrecaoPendente && card.rejection_reason && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border-2 border-red-500/40">
+            <div className="mb-5 p-4 rounded-xl bg-red-500/10 border-2 border-red-500/40" style={{ order: -2 }}>
               <div className="flex items-start gap-3">
                 <AlertTriangle size={22} className="text-red-500 dark:text-red-400 mt-0.5 shrink-0" />
                 <div>
@@ -712,13 +712,28 @@ export default function CardDetailModal({
                 <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
                   R$ {Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold"
+                        style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                        title="Solicitante Real">
+                    <User size={12} style={{ color: "var(--text-secondary)" }} />
+                    {requesterName}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold"
+                        style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                        title="Data do Pedido">
+                    <Calendar size={12} style={{ color: "var(--text-secondary)" }} />
+                    {new Date(card.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                  </span>
+                </div>
               </div>
               <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 [&>*:only-child]:sm:col-span-2">
                 <div
                   className="flex flex-col gap-2.5 p-3 rounded-xl border"
                   style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}
                 >
-                  <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-1.5">
                     <div className="flex items-center gap-2">
                       <Tag size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                       <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>
@@ -821,9 +836,9 @@ export default function CardDetailModal({
                   )}
                 </div>
                 {isMasterOrFinanceiro && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl border"
+                  <div className="flex items-start gap-2 p-3 rounded-xl border"
                        style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                    <Building2 size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
+                    <Building2 size={16} className="shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }} />
                     <div className="flex flex-col w-full">
                       <span className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Conta Pagadora / CNPJ</span>
                       <select 
@@ -841,7 +856,7 @@ export default function CardDetailModal({
                   </div>
                 )}
                 {!isMasterOrFinanceiro && localCnpj && (
-                  <div className="flex items-center gap-3 p-3 rounded-xl border"
+                  <div className="flex items-start gap-2 p-3 rounded-xl border"
                        style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                     <Building2 size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
                     <div className="flex flex-col">
@@ -850,21 +865,6 @@ export default function CardDetailModal({
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-3 p-3 rounded-xl border"
-                     style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                  <User size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Solicitante Real</span>
-                    <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{requesterName}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl border"
-                     style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                  <Calendar size={16} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Data do Pedido</span>
-                    <span className="font-semibold text-xs" style={{ color: "var(--text-primary)" }}>{new Date(card.created_at).toLocaleString("pt-BR")}</span>
-                  </div>
                 </div>
                 {(card.notes || card.description) && (
                   <div
@@ -946,8 +946,9 @@ export default function CardDetailModal({
                             <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Chave Pix</span>
                             <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                               <span className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>{split.pix_key}</span>
-                              <button onClick={async () => { if (split.pix_key) { await navigator.clipboard.writeText(split.pix_key); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0 cursor-pointer" style={{ color: "var(--text-secondary)" }} title="Copiar Chave Pix">
-                                {copiedKey ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                              <button onClick={async () => { if (split.pix_key) { await navigator.clipboard.writeText(split.pix_key); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold shrink-0 cursor-pointer bg-blue-500/15 text-blue-500 hover:bg-blue-500/25 border border-blue-500/30 transition-colors" title="Copiar Chave Pix">
+                                {copiedKey ? <CheckCircle2 size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                                {copiedKey ? "Copiado!" : "Copiar"}
                               </button>
                             </div>
                           </div>
@@ -960,7 +961,15 @@ export default function CardDetailModal({
                       {isSplitCaju && (
                         <div className="mt-2">
                           <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Titular</span>
-                          <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.caju_phone}</span>
+                          <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                            <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.caju_phone}</span>
+                            {split.caju_phone && (
+                              <button onClick={async () => { await navigator.clipboard.writeText(String(split.caju_phone)); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); }} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold shrink-0 cursor-pointer bg-blue-500/15 text-blue-500 hover:bg-blue-500/25 border border-blue-500/30 transition-colors" title="Copiar dados Caju">
+                                {copiedKey ? <CheckCircle2 size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                                {copiedKey ? "Copiado!" : "Copiar"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                       {isSplitFopag && split.pix_owner && (
@@ -975,8 +984,9 @@ export default function CardDetailModal({
                             <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Linha Digitável</span>
                             <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                               <span className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>{split.boleto_barcode || "-"}</span>
-                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="p-1 rounded transition-colors shrink-0 cursor-pointer" style={{ color: "var(--text-secondary)" }} title="Copiar Linha Digitável">
-                                {copiedKey ? <CheckCircle2 size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                              <button onClick={async () => { if (split.boleto_barcode) { await navigator.clipboard.writeText(split.boleto_barcode); setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); } }} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold shrink-0 cursor-pointer bg-blue-500/15 text-blue-500 hover:bg-blue-500/25 border border-blue-500/30 transition-colors" title="Copiar Linha Digitável">
+                                {copiedKey ? <CheckCircle2 size={13} className="text-emerald-500" /> : <Copy size={13} />}
+                                {copiedKey ? "Copiado!" : "Copiar"}
                               </button>
                             </div>
                           </div>
@@ -1156,7 +1166,7 @@ export default function CardDetailModal({
 
           {/* VALIDACAO GESTOR: Maker-Checker Panel */}
           {isValidacaoGestor && (
-            <div className="mt-6 p-5 rounded-2xl border border-purple-500/30 bg-purple-500/5">
+            <div className="mb-5 p-4 rounded-2xl border border-purple-500/30 bg-purple-500/5" style={{ order: -1 }}>
               <div className="flex items-center gap-2 mb-4">
                 <ShieldCheck size={20} className="text-purple-400" />
                 <h4 className="font-bold text-white text-sm uppercase tracking-wider">Validação do Pagamento</h4>
