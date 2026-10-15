@@ -196,7 +196,7 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
             </div>
           )}
 
-          {messages.map((m) => {
+          {messages.map((m, idx) => {
             const isUser = m.role === "user";
             const isToolRunning = m.parts.some(
               (p) =>
@@ -242,11 +242,22 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
                       Consultando os dados financeiros...
                     </div>
                   )}
-                  {text && (
+                  {text ? (
                     <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                       {text}
                     </ReactMarkdown>
-                  )}
+                  ) : !isToolRunning ? (
+                    isBusy && idx === messages.length - 1 ? (
+                      <div className="flex items-center gap-2 text-xs py-0.5" style={{ color: "var(--text-muted)" }}>
+                        <Sparkles size={13} className="text-yellow-500 animate-pulse" />
+                        Super Solzinho está formulando a resposta...
+                      </div>
+                    ) : (
+                      <div className="text-xs italic py-0.5" style={{ color: "var(--text-muted)" }}>
+                        Não foi possível gerar o texto da resposta. Por favor, tente enviar sua pergunta novamente.
+                      </div>
+                    )
+                  ) : null}
                 </div>
               </div>
             );
