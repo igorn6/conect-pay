@@ -203,11 +203,14 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         if (d.getDay() !== 0 && d.getDay() !== 6) added++;
       }
 
+      const isFopag = mainSplit.payment_type === "FOPAG" || splits.some((s) => s.payment_type === "FOPAG");
+
       const { error } = await supabase.from("payment_requests").insert([{
         title,
         notes,
         amount: totalAmount,
         category: category,
+        cnpj: isFopag ? "CNPJ 2" : null,
         payment_method: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : mainSplit.payment_type === "Boleto" ? "BOLETO" : mainSplit.payment_type === "FOPAG" ? "FOPAG" : "RETIRADA_DE_SALDO",
         payment_type: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : mainSplit.payment_type === "Boleto" ? "BOLETO" : mainSplit.payment_type === "FOPAG" ? "FOPAG" : "RETIRADA_DE_SALDO",
         pix_name: mainSplit.pix_owner || null,

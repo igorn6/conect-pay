@@ -264,6 +264,36 @@ export default function KanbanPage() {
       };
       
       const toUpdate = Array.from(selectedIds).map(id => cardsRef.current.find(c => c.id === id)).filter(Boolean);
+
+      // Validação: Só é permitido avançar para Pendente (EM_APROVACAO) se selecionar o CNPJ ou se é Nubank.
+      // (Se for Caju, não é necessário preencher o CNPJ).
+      const blockedForCnpj = toUpdate.filter((card) => {
+        if (!card || card.status !== "NOVA_SOLICITACAO") return false;
+        const splits = Array.isArray(card.splits) && card.splits.length > 0
+          ? card.splits
+          : [{ payment_type: card.payment_type || card.payment_method }];
+        const hasPix = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "PIX") ||
+          (card.payment_type || "").toUpperCase() === "PIX" ||
+          (card.payment_method || "").toUpperCase() === "PIX";
+        const hasBoleto = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "BOLETO") ||
+          (card.payment_type || "").toUpperCase() === "BOLETO" ||
+          (card.payment_method || "").toUpperCase() === "BOLETO";
+        const hasCaju = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "CAJU") ||
+          (card.payment_type || "").toUpperCase() === "CAJU" ||
+          (card.payment_method || "").toUpperCase() === "CAJU";
+        const isCajuOnly = hasCaju && !hasPix && !hasBoleto;
+        if (isCajuOnly) return false;
+        return !card.cnpj;
+      });
+
+      if (blockedForCnpj.length > 0) {
+        alert(
+          `Não é permitido avançar para Pendente sem selecionar a Conta Pagadora / CNPJ (ou Nubank) nas seguintes solicitações:\n\n` +
+          blockedForCnpj.map(c => `• ${c?.title || "Sem título"} (R$ ${Number(c?.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})`).join("\n") +
+          `\n\nPor favor, abra cada solicitação e defina o CNPJ/Nubank antes de aprovar.`
+        );
+        return;
+      }
       
       let hasError = false;
       for (const card of toUpdate) {

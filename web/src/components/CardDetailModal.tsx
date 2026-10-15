@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
@@ -62,8 +62,54 @@ export default function CardDetailModal({
   const [isUploadingInvoice, setIsUploadingInvoice] = useState(false);
   const invoiceInputRef = useRef<HTMLInputElement>(null);
 
+  // Identificação de FOPAG (Folha de Pagamento)
+  const isFopag = useMemo(() => {
+    const mainType = (card.payment_type || card.payment_method || "").toUpperCase();
+    if (mainType === "FOPAG") return true;
+    if (Array.isArray(card.splits) && card.splits.some((s: any) => (s.payment_type || "").toUpperCase() === "FOPAG")) return true;
+    const cat = (card.category || "").toUpperCase();
+    if (cat.includes("FOPAG") || cat.includes("FOLHA")) return true;
+    return false;
+  }, [card.payment_type, card.payment_method, card.splits, card.category]);
+
+  // Identificação das formas de pagamento e obrigatoriedade de CNPJ
+  const { isCajuOnly, requiresCnpj, isPix, isBoleto } = useMemo(() => {
+    const splits = Array.isArray(card.splits) && card.splits.length > 0
+      ? card.splits
+      : [{ payment_type: card.payment_type || card.payment_method }];
+
+    const hasPix = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "PIX") ||
+      (card.payment_type || "").toUpperCase() === "PIX" ||
+      (card.payment_method || "").toUpperCase() === "PIX";
+
+    const hasBoleto = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "BOLETO") ||
+      (card.payment_type || "").toUpperCase() === "BOLETO" ||
+      (card.payment_method || "").toUpperCase() === "BOLETO";
+
+    const hasCaju = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "CAJU") ||
+      (card.payment_type || "").toUpperCase() === "CAJU" ||
+      (card.payment_method || "").toUpperCase() === "CAJU";
+
+    // Se for exclusivamente Caju (sem Pix e sem Boleto), NÃO exige CNPJ
+    const isCajuOnly = hasCaju && !hasPix && !hasBoleto;
+    const requiresCnpj = !isCajuOnly;
+
+    return { isCajuOnly, requiresCnpj, isPix: hasPix, isBoleto: hasBoleto };
+  }, [card.splits, card.payment_type, card.payment_method]);
+
   const [copiedKey, setCopiedKey] = useState(false);
-  const [localCnpj, setLocalCnpj] = useState(card.cnpj || "");
+  const [localCnpj, setLocalCnpj] = useState<string>(card.cnpj || (isFopag ? "CNPJ 2" : ""));
+
+  useEffect(() => {
+    if (card.cnpj) {
+      setLocalCnpj(card.cnpj);
+    } else if (isFopag) {
+      setLocalCnpj("CNPJ 2");
+      supabase.from("payment_requests").update({ cnpj: "CNPJ 2" }).eq("id", card.id);
+    } else {
+      setLocalCnpj("");
+    }
+  }, [card.id, card.cnpj, isFopag]);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [resolvedRequesterName, setResolvedRequesterName] = useState<string>("");
   const [emailCopied, setEmailCopied] = useState(false);
@@ -180,11 +226,8 @@ export default function CardDetailModal({
   const hasAttachment = !!paymentProofUrl;
   const isTransitionBlocked = isEmAprovacao && !paymentProofUrl;
 
-  // Forma de pagamento Pix (no card ou nos splits)
-  const isPix =
-    card.payment_type?.toUpperCase() === "PIX" ||
-    card.payment_method?.toUpperCase() === "PIX" ||
-    Boolean(card.splits && card.splits.some((s: any) => s.payment_type?.toUpperCase() === "PIX"));
+  // Bloqueio de avanço para Pendente caso falte CNPJ (não bloqueia se for Caju)
+  const isAdvanceToPendenteBlocked = isNovaSolicitacao && requiresCnpj && !localCnpj;
 
   // Solicitar pagamento é exclusivo e prioritário para Pendente (EM_APROVACAO) e Correção Pendente
   const canRequestPayment = isPix && isMasterOrFinanceiro && (isEmAprovacao || isCorrecaoPendente);
@@ -293,6 +336,14 @@ export default function CardDetailModal({
     }
     if (!newStatus) return;
     if (isTransitionBlocked) return;
+
+    // Regra de negócio: Só é permitido avançar para Pendente (EM_APROVACAO) se selecionar o CNPJ ou se é Nubank.
+    // (Se for Caju, não é necessário preencher o CNPJ).
+    if (newStatus === "EM_APROVACAO" && requiresCnpj && !localCnpj) {
+      alert("Para avançar esta solicitação para Pendente, é obrigatório selecionar a Conta Pagadora / CNPJ (ou Nubank).");
+      return;
+    }
+
     setLoading(true);
 
     const nextStageHistory = computeNextStageHistory(
@@ -307,6 +358,7 @@ export default function CardDetailModal({
       .from("payment_requests")
       .update({
         status: newStatus,
+        cnpj: localCnpj || null,
         payment_proof_url: paymentProofUrl,
         invoice_url: invoiceUrl,
         stage_history: nextStageHistory,
@@ -474,7 +526,7 @@ export default function CardDetailModal({
     }
 
     // Tipo REQUEST (Solicitar pagamento a Tassio)
-    const cnpjDisplay = localCnpj || card.cnpj || "(Selecione o CNPJ)";
+    const cnpjDisplay = localCnpj || card.cnpj || (isCajuOnly ? "Caju" : "(Selecione o CNPJ)");
     const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
 
     const boletoSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "BOLETO");
@@ -497,7 +549,7 @@ export default function CardDetailModal({
   }
 
   function handleOpenGmail() {
-    if (emailModalType === "REQUEST" && !localCnpj) {
+    if (emailModalType === "REQUEST" && requiresCnpj && !localCnpj) {
       alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
       return;
     }
@@ -507,7 +559,7 @@ export default function CardDetailModal({
   }
 
   function handleOpenDefaultMail() {
-    if (emailModalType === "REQUEST" && !localCnpj) {
+    if (emailModalType === "REQUEST" && requiresCnpj && !localCnpj) {
       alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
       return;
     }
@@ -522,7 +574,7 @@ export default function CardDetailModal({
   }
 
   function handleCopyEmailText() {
-    if (emailModalType === "REQUEST" && !localCnpj) {
+    if (emailModalType === "REQUEST" && requiresCnpj && !localCnpj) {
       alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
       return;
     }
@@ -836,22 +888,77 @@ export default function CardDetailModal({
                   )}
                 </div>
                 {isMasterOrFinanceiro && (
-                  <div className="flex items-start gap-2 p-3 rounded-xl border"
-                       style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                    <Building2 size={16} className="shrink-0 mt-0.5" style={{ color: "var(--text-muted)" }} />
+                  <div
+                    className={`flex items-start gap-2 p-3 rounded-xl border transition-all ${
+                      requiresCnpj && !localCnpj && isNovaSolicitacao
+                        ? "border-amber-500/50 bg-amber-500/5 ring-1 ring-amber-500/20"
+                        : ""
+                    }`}
+                    style={{
+                      backgroundColor: "var(--bg-primary)",
+                      borderColor: requiresCnpj && !localCnpj && isNovaSolicitacao ? undefined : "var(--surface-border)",
+                    }}
+                  >
+                    <Building2
+                      size={16}
+                      className={`shrink-0 mt-0.5 ${requiresCnpj && !localCnpj ? "text-amber-400" : ""}`}
+                      style={{ color: requiresCnpj && !localCnpj ? undefined : "var(--text-muted)" }}
+                    />
                     <div className="flex flex-col w-full">
-                      <span className="text-[10px] uppercase font-bold tracking-wider mb-1" style={{ color: "var(--text-muted)" }}>Conta Pagadora / CNPJ</span>
+                      <div className="flex items-center justify-between mb-1">
+                        <span
+                          className="text-[10px] uppercase font-bold tracking-wider"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          Conta Pagadora / CNPJ
+                        </span>
+                        {isCajuOnly ? (
+                          <span className="text-[10px] text-blue-400 font-semibold bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                            Opcional no Caju
+                          </span>
+                        ) : requiresCnpj ? (
+                          localCnpj ? (
+                            <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                              <CheckCircle2 size={11} /> Selecionado
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-400 font-semibold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                              * Obrigatório para Pendente
+                            </span>
+                          )
+                        ) : null}
+                      </div>
                       <select 
                         value={localCnpj} 
                         onChange={(e) => handleCnpjChange(e.target.value)} 
-                        className="w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium"
-                        style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                        className={`w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-brand-primary font-medium ${
+                          requiresCnpj && !localCnpj && isNovaSolicitacao ? "border-amber-500/60" : ""
+                        }`}
+                        style={{
+                          backgroundColor: "var(--surface-hover)",
+                          borderColor: requiresCnpj && !localCnpj && isNovaSolicitacao ? undefined : "var(--surface-border)",
+                          color: "var(--text-primary)",
+                        }}
                       >
-                        <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>Selecione o Pagador (Nubank / CNPJ)...</option>
+                        <option value="" style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>
+                          {isCajuOnly
+                            ? "Não necessário para Caju (ou selecione se desejar)"
+                            : "Selecione o Pagador (Nubank / CNPJ)..."}
+                        </option>
                         {CNPJ_OPTIONS.map((opt) => (
                           <option key={opt} value={opt} style={{ backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)" }}>{opt}</option>
                         ))}
                       </select>
+                      {requiresCnpj && !localCnpj && isNovaSolicitacao && (
+                        <span className="text-[11px] text-amber-400 mt-1 font-medium">
+                          Selecione o CNPJ (ou Nubank) para liberar o avanço para Pendente.
+                        </span>
+                      )}
+                      {isFopag && (
+                        <span className="text-[11px] text-purple-400 mt-1 font-medium">
+                          FOPAG: CNPJ 2 definido por padrão (você pode alterar se necessário).
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1686,21 +1793,34 @@ export default function CardDetailModal({
                 (card.status as string) !== "AGUARDANDO_NOTINHA" &&
                 canAdvance &&
                 !showRefuseForm && (
-                <button
-                  type="button"
-                  onClick={() => handleAdvance()}
-                  disabled={loading || isTransitionBlocked}
-                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <>
-                      <span>{isNovaSolicitacao ? "Aprovar Solicitação" : "Avançar Status"}</span>
-                      <ArrowRight size={15} />
-                    </>
+                <div className="flex items-center gap-2">
+                  {isAdvanceToPendenteBlocked && (
+                    <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1 bg-amber-500/10 px-2.5 py-1.5 rounded-xl border border-amber-500/25">
+                      <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                      Selecione o CNPJ acima para liberar
+                    </span>
                   )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAdvance()}
+                    disabled={loading || isTransitionBlocked || isAdvanceToPendenteBlocked}
+                    title={
+                      isAdvanceToPendenteBlocked
+                        ? "Selecione a Conta Pagadora / CNPJ (ou Nubank) acima para liberar a aprovação para Pendente"
+                        : undefined
+                    }
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : (
+                      <>
+                        <span>{isNovaSolicitacao ? "Aprovar Solicitação" : "Avançar Status"}</span>
+                        <ArrowRight size={15} />
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1771,10 +1891,10 @@ export default function CardDetailModal({
 
             {/* Conteúdo */}
             <div className="p-5 space-y-4">
-              {/* Seleção Obrigatória de CNPJ / Conta Pagadora quando for solicitação de pagamento */}
+              {/* Seleção de CNPJ / Conta Pagadora quando for solicitação de pagamento */}
               {emailModalType === "REQUEST" && (
                 <div className={`p-3.5 rounded-xl border transition-all ${
-                  !localCnpj 
+                  requiresCnpj && !localCnpj 
                     ? "bg-amber-500/10 border-amber-500/40 ring-1 ring-amber-500/20" 
                     : "bg-slate-950/80 border-slate-800"
                 }`}>
@@ -1782,15 +1902,23 @@ export default function CardDetailModal({
                     <label className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
                       <Building2 size={15} className="text-amber-400" />
                       <span>Conta Pagadora / CNPJ</span>
-                      <span className="text-red-400">* (Obrigatório)</span>
+                      {requiresCnpj ? (
+                        <span className="text-red-400">* (Obrigatório)</span>
+                      ) : (
+                        <span className="text-blue-400 font-normal">(Opcional no Caju)</span>
+                      )}
                     </label>
-                    {!localCnpj ? (
+                    {requiresCnpj && !localCnpj ? (
                       <span className="text-[10px] uppercase font-bold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30">
                         Obrigatório
                       </span>
-                    ) : (
+                    ) : localCnpj ? (
                       <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
                         <CheckCircle2 size={11} /> Selecionado
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase font-bold text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                        Caju Liberado
                       </span>
                     )}
                   </div>
@@ -1800,7 +1928,7 @@ export default function CardDetailModal({
                     className="w-full bg-slate-900 border border-slate-700 hover:border-slate-600 rounded-lg px-3 py-2 text-xs text-white font-medium outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 transition-colors cursor-pointer"
                   >
                     <option value="" className="bg-slate-900 text-slate-400">
-                      -- Selecione a Conta / CNPJ (Obrigatório) --
+                      {isCajuOnly ? "-- Não necessário no Caju (ou selecione Conta/CNPJ) --" : "-- Selecione a Conta / CNPJ (Obrigatório) --"}
                     </option>
                     {CNPJ_OPTIONS.map((opt) => (
                       <option key={opt} value={opt} className="bg-slate-900 text-slate-100 font-medium">
@@ -1808,7 +1936,7 @@ export default function CardDetailModal({
                       </option>
                     ))}
                   </select>
-                  {!localCnpj && (
+                  {requiresCnpj && !localCnpj && (
                     <p className="text-[11px] text-amber-300 mt-2 flex items-center gap-1.5 font-medium">
                       <AlertTriangle size={13} className="shrink-0 text-amber-400" />
                       <span>Escolha o pagador (Nubank ou CNPJ) para definir o assunto e liberar o envio.</span>
@@ -1841,10 +1969,10 @@ export default function CardDetailModal({
                   <button
                     type="button"
                     onClick={handleOpenGmail}
-                    disabled={emailModalType === "REQUEST" && !localCnpj}
+                    disabled={emailModalType === "REQUEST" && requiresCnpj && !localCnpj}
                     className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-800"
                     title={
-                      emailModalType === "REQUEST" && !localCnpj
+                      emailModalType === "REQUEST" && requiresCnpj && !localCnpj
                         ? "Selecione o CNPJ / Conta Pagadora acima para liberar"
                         : "Abre a tela de envio do Gmail diretamente no navegador com tudo preenchido"
                     }
@@ -1856,10 +1984,10 @@ export default function CardDetailModal({
                   <button
                     type="button"
                     onClick={handleOpenDefaultMail}
-                    disabled={emailModalType === "REQUEST" && !localCnpj}
+                    disabled={emailModalType === "REQUEST" && requiresCnpj && !localCnpj}
                     className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium text-white bg-slate-800 hover:bg-slate-700 border border-slate-700/80 transition-all shadow-sm cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-800"
                     title={
-                      emailModalType === "REQUEST" && !localCnpj
+                      emailModalType === "REQUEST" && requiresCnpj && !localCnpj
                         ? "Selecione o CNPJ / Conta Pagadora acima para liberar"
                         : "Abre no Outlook ou aplicativo de e-mail padrão do computador"
                     }
@@ -1872,14 +2000,14 @@ export default function CardDetailModal({
                 <button
                   type="button"
                   onClick={handleCopyEmailText}
-                  disabled={emailModalType === "REQUEST" && !localCnpj}
+                  disabled={emailModalType === "REQUEST" && requiresCnpj && !localCnpj}
                   className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-medium border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
                     emailCopied
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                       : "bg-slate-800/60 hover:bg-slate-800 border-slate-700/80 text-slate-300 hover:text-white disabled:hover:bg-slate-800/60"
                   }`}
                   title={
-                    emailModalType === "REQUEST" && !localCnpj
+                    emailModalType === "REQUEST" && requiresCnpj && !localCnpj
                       ? "Selecione o CNPJ / Conta Pagadora acima para liberar"
                       : undefined
                   }
