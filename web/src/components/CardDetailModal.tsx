@@ -654,7 +654,7 @@ export default function CardDetailModal({
     const paymentKey = pixKey !== "Não informado" ? pixKey : (boletoSplit?.boleto_barcode || "Não informado");
     const paymentOwner = pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado");
 
-    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nConta / CNPJ: ${cnpjDisplay}\nChave pix / Linha digitável: ${paymentKey}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
+    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${paymentKey}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
 
     if (invoicesText) {
       rawBody += `\n\n${invoicesText}`;
@@ -1280,20 +1280,6 @@ export default function CardDetailModal({
                   </div>
                 )}
 
-                {!isMasterOrFinanceiro && localCnpj && (
-                  <div className="flex items-center justify-between p-3.5 rounded-xl border shadow-xs"
-                       style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                    <div className="flex items-center gap-2">
-                      <Building2 size={15} className="shrink-0" style={{ color: "var(--text-muted)" }} />
-                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--text-muted)" }}>Conta Pagadora / CNPJ</span>
-                    </div>
-                    <span className="font-semibold text-xs px-2.5 py-1 rounded-lg border"
-                          style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}>
-                      {localCnpj}
-                    </span>
-                  </div>
-                )}
-
                 {/* OBSERVAÇÕES / DESCRIÇÃO */}
                 {(card.notes || card.description) && (
                   <div
@@ -1430,6 +1416,100 @@ export default function CardDetailModal({
                 </div>
               </div>
 
+              {/* Comprovante de Pagamento (Visível para Gestor, Solicitante e Financeiro) */}
+              {paymentProofUrl ? (
+                <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex flex-col gap-2.5 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                        <CheckCircle2 size={18} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">Comprovante de Pagamento</p>
+                        <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                          {card.payment_conversion_log ? "Comprovante Pix Ativo" : "Enviado pelo Financeiro"}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Pago
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {paymentProofUrl.split(',').map((u) => u.trim()).filter(Boolean).map((url, i) => (
+                      <div
+                        key={i}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-xs font-bold shadow-xs hover:bg-emerald-500/20 transition-all"
+                      >
+                        <a
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 hover:underline text-emerald-200"
+                        >
+                          <FileText size={14} className="text-emerald-400" />
+                          <span>
+                            Visualizar Comprovante {paymentProofUrl.split(',').filter(Boolean).length > 1 ? i + 1 : ""}
+                          </span>
+                          <ExternalLink size={12} className="opacity-70" />
+                        </a>
+                        {isMasterOrFinanceiro && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProof(url);
+                            }}
+                            title={`Excluir Comprovante ${i + 1}`}
+                            className="p-1 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer ml-1"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {isMasterOrFinanceiro && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[11px] text-emerald-400/80 hover:text-emerald-300 hover:underline mt-1 self-start cursor-pointer"
+                    >
+                      + Adicionar Mais Comprovantes
+                    </button>
+                  )}
+                </div>
+              ) : (
+                !isNovaSolicitacao && isMasterOrFinanceiro && !isCorrecaoPendente && !isValidacaoGestor && (
+                  <div className="p-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 hover:opacity-90 transition-all"
+                       style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
+                    {isUploading ? (
+                      <div className="flex items-center justify-center gap-2 py-3 text-blue-500">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span className="text-xs font-semibold">Enviando comprovante...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <UploadCloud size={24} style={{ color: "var(--text-muted)" }} />
+                        <div className="text-center">
+                          <p className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>Comprovante(s) de Pagamento</p>
+                          <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Anexe o comprovante de pagamento</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                        >
+                          Selecionar Comprovante
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )
+              )}
+
               {/* Notinha */}
               <div className={`p-4 rounded-xl border ${isValidacaoGestor && !invoiceUrl ? "border-amber-500/50 bg-amber-500/10" : ""} flex flex-col gap-2`}
                    style={!(isValidacaoGestor && !invoiceUrl) ? { backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" } : undefined}>
@@ -1509,65 +1589,6 @@ export default function CardDetailModal({
           </div>
 
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*,.pdf" onChange={handleFileUpload} />
-
-          {/* COMPROVANTE UPLOAD (Financeiro) - Normal flow */}
-          {!isNovaSolicitacao && isMasterOrFinanceiro && !isCorrecaoPendente && !isValidacaoGestor && (
-            <div className={`mt-6 p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center transition-all ${isUploading ? 'border-blue-500/50 bg-blue-500/5' : hasAttachment ? 'border-emerald-500/40 bg-emerald-500/5' : 'hover:opacity-90'}`}
-                 style={!isUploading && !hasAttachment ? { backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" } : undefined}>
-              {isUploading ? (
-                <div className="flex flex-col items-center gap-2" style={{ color: "var(--text-muted)" }}>
-                  <Loader2 className="animate-spin text-blue-500" size={32} />
-                  <span className="text-sm font-medium">Enviando anexo...</span>
-                </div>
-              ) : paymentProofUrl ? (
-                <div className="flex flex-col items-center gap-2 text-emerald-600 dark:text-emerald-400 w-full">
-                  <CheckCircle2 size={32} />
-                  <span className="text-sm font-bold">Comprovante(s) Anexado(s)</span>
-                  <div className="flex flex-wrap justify-center gap-2 mt-2">
-                    {paymentProofUrl.split(',').map((u) => u.trim()).filter(Boolean).map((url, i) => (
-                      <div
-                        key={i}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-xs shadow-sm transition-all"
-                      >
-                        <a
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-semibold underline hover:text-white flex items-center gap-1"
-                        >
-                          <FileText size={13} />
-                          <span>Visualizar {i + 1}</span>
-                        </a>
-                        {isMasterOrFinanceiro && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteProof(url);
-                            }}
-                            title={`Excluir Comprovante ${i + 1}`}
-                            className="p-1 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/20 transition-all cursor-pointer ml-1"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={() => fileInputRef.current?.click()} className="text-xs mt-2 underline cursor-pointer hover:text-slate-200 transition-colors" style={{ color: "var(--text-muted)" }}>+ Adicionar Mais Comprovantes</button>
-                </div>
-              ) : (
-                <>
-                  <UploadCloud size={36} style={{ color: "var(--text-muted)" }} />
-                  <div className="text-center">
-                    <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Comprovante(s) de Pagamento</p>
-                    <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Apenas para Master/Financeiro. Anexe as imagens ou PDFs.<br /><span className="text-amber-600 dark:text-amber-400 font-bold">*Obrigatório para avançar</span></p>
-                  </div>
-                  <button onClick={() => fileInputRef.current?.click()} className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer">Selecionar Arquivos</button>
-                </>
-              )}
-            </div>
-          )}
 
           {/* CORRECAO PENDENTE: Reupload */}
           {isCorrecaoPendente && isMasterOrFinanceiro && (
