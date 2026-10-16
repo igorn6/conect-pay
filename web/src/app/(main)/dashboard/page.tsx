@@ -9,6 +9,7 @@ import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import DashboardKPIs from "@/components/dashboard/DashboardKPIs";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import DashboardSla from "@/components/dashboard/DashboardSla";
+import NubankBalanceWidget from "@/components/dashboard/NubankBalanceWidget";
 
 function DashboardContent() {
   const { startDate, endDate, selectedSectorId } = useDashboard();
@@ -55,6 +56,9 @@ function DashboardContent() {
             Visão geral de saídas, aprovações e categorias.
           </p>
         </div>
+
+        {/* Validador de Saldo Nubank (Exclusivo Master e Financeiro) */}
+        {(userRole === "MASTER" || userRole === "FINANCEIRO") && <NubankBalanceWidget />}
 
         <DashboardFilters />
 

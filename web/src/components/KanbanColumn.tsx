@@ -1,7 +1,7 @@
 "use client";
 
 import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw, Zap } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
 
 interface KanbanColumnProps {
@@ -183,6 +183,26 @@ export default function KanbanColumn({
                   >
                     <RefreshCw size={10} className="text-purple-400" />
                     <span>Convertido p/ Pix</span>
+                  </div>
+                )}
+
+                {card.request_kind === "RECARGA_NUBANK" && (
+                  <div
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#820AD1]/25 border border-[#820AD1]/40 text-[#d8b4fe] text-[10px] font-bold uppercase tracking-wider mb-2 w-fit"
+                    title="Recarga de Saldo Nubank (Entrada de fundos)"
+                  >
+                    <Zap size={10} className="text-[#c084fc]" />
+                    <span>Recarga Nubank</span>
+                  </div>
+                )}
+
+                {card.request_kind === "RECARGA_CAJU" && (
+                  <div
+                    className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#e11d48]/25 border border-[#e11d48]/40 text-[#fda4af] text-[10px] font-bold uppercase tracking-wider mb-2 w-fit"
+                    title="Recarga de Saldo Caju"
+                  >
+                    <Zap size={10} className="text-[#fb7185]" />
+                    <span>Recarga Caju</span>
                   </div>
                 )}
 

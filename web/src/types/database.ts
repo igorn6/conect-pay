@@ -92,6 +92,8 @@ export interface PaymentRequest {
   stage_history?: StageHistoryItem[] | null;
   ai_category_suggestion?: AiCategorySuggestion | null;
   payment_conversion_log?: PaymentConversionLog | null;
+  balance_processed?: boolean | null;
+  request_kind?: "RECARGA_NUBANK" | "RECARGA_CAJU" | null;
   
   profiles?: Profile;
   category?: string | null;

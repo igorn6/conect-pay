@@ -13,6 +13,7 @@ import { useCategories } from "@/hooks/useCategories";
 import type { PaymentRequest, ReceiptHistoryItem, StageHistoryItem, PaymentConversionLog } from "@/types/database";
 import { getStatusLabel } from "@/constants/kanban";
 import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@/utils/sla";
+import { syncNubankBalance } from "@/lib/nubankClient";
 
 const NEXT_STATUS: Record<string, string> = {
   NOVA_SOLICITACAO: "EM_APROVACAO",
@@ -281,8 +282,10 @@ export default function CardDetailModal({
   const hasAttachment = !!paymentProofUrl;
   const isTransitionBlocked = isEmAprovacao && !paymentProofUrl;
 
-  // Bloqueio de avanço para Pendente caso falte CNPJ (não bloqueia se for Caju)
-  const isAdvanceToPendenteBlocked = isNovaSolicitacao && requiresCnpj && !localCnpj;
+  const isRecharge = card.request_kind === "RECARGA_NUBANK" || card.request_kind === "RECARGA_CAJU";
+
+  // Bloqueio de avanço para Pendente caso falte CNPJ (não bloqueia se for Caju ou Recargas)
+  const isAdvanceToPendenteBlocked = !isRecharge && isNovaSolicitacao && requiresCnpj && !localCnpj;
 
   // Solicitar pagamento é exclusivo e prioritário para Pendente (EM_APROVACAO) e Correção Pendente
   const canRequestPayment = isPix && isMasterOrFinanceiro && (isEmAprovacao || isCorrecaoPendente);
@@ -295,7 +298,7 @@ export default function CardDetailModal({
     setEmailModalType(canRequestPayment ? "REQUEST" : "PAID_NUBANK");
   }, [card.id, card.status, isPix]);
 
-  const canAdvance = isMasterOrFinanceiro && NEXT_STATUS[card.status];
+  const canAdvance = isMasterOrFinanceiro && (isRecharge ? card.status !== "FINALIZADO" : Boolean(NEXT_STATUS[card.status]));
   const canRefuseFinanceiro = isMasterOrFinanceiro && card.status !== "RECUSADO" && card.status !== "FINALIZADO";
   const canCancelGestor = userRole === "GESTOR" && card.status !== "RECUSADO" && card.status !== "FINALIZADO";
   const canRefuse = canRefuseFinanceiro || canCancelGestor;
@@ -382,19 +385,29 @@ export default function CardDetailModal({
   async function handleAdvance(targetStatus?: string) {
     if (!isMasterOrFinanceiro) return;
     let newStatus = targetStatus;
+    const isRechargeCard = card.request_kind === "RECARGA_NUBANK" || card.request_kind === "RECARGA_CAJU";
+
     if (!newStatus) {
-      if (card.status === "AGUARDANDO_PAGAMENTO" || (card.status as string) === "AGUARDANDO_NOTINHA") {
+      if (isRechargeCard) {
+        if (card.status === "NOVA_SOLICITACAO" || card.status === "EM_APROVACAO") {
+          newStatus = "AGUARDANDO_PAGAMENTO";
+        } else if (card.status === "AGUARDANDO_PAGAMENTO") {
+          newStatus = "FINALIZADO";
+        } else {
+          newStatus = NEXT_STATUS[card.status] || "FINALIZADO";
+        }
+      } else if (card.status === "AGUARDANDO_PAGAMENTO" || (card.status as string) === "AGUARDANDO_NOTINHA") {
         newStatus = "FINALIZADO";
       } else {
         newStatus = NEXT_STATUS[card.status];
       }
     }
     if (!newStatus) return;
-    if (isTransitionBlocked) return;
+    if (isTransitionBlocked && !isRechargeCard) return;
 
     // Regra de negócio: Só é permitido avançar para Pendente (EM_APROVACAO) se selecionar o CNPJ ou se é Nubank.
-    // (Se for Caju, não é necessário preencher o CNPJ).
-    if (newStatus === "EM_APROVACAO" && requiresCnpj && !localCnpj) {
+    // (Se for Caju ou Recarga, não é necessário travar por CNPJ).
+    if (!isRechargeCard && newStatus === "EM_APROVACAO" && requiresCnpj && !localCnpj) {
       alert("Para avançar esta solicitação para Pendente, é obrigatório selecionar a Conta Pagadora / CNPJ (ou Nubank 02).");
       return;
     }
@@ -409,11 +422,13 @@ export default function CardDetailModal({
       card.created_at
     );
 
+    const effectiveCnpj = localCnpj || (card.request_kind === "RECARGA_NUBANK" ? "Nubank 02" : card.cnpj || null);
+
     const { error } = await supabase
       .from("payment_requests")
       .update({
         status: newStatus,
-        cnpj: localCnpj || null,
+        cnpj: effectiveCnpj,
         payment_proof_url: paymentProofUrl,
         invoice_url: invoiceUrl,
         stage_history: nextStageHistory,
@@ -421,6 +436,10 @@ export default function CardDetailModal({
       .eq("id", card.id);
     setLoading(false);
     if (error) { alert("Erro ao avançar solicitação."); return; }
+
+    // Dispara a sincronização de saldo Nubank em background (com proteção anti-duplicidade)
+    syncNubankBalance(card.id);
+
     onUpdate(`Solicitação avançou para ${getStatusLabel(newStatus)}`);
   }
 
@@ -859,6 +878,18 @@ export default function CardDetailModal({
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 shadow-xs">
                 <RefreshCw size={11} className="text-purple-400" />
                 Convertido p/ Pix
+              </span>
+            )}
+            {card.request_kind === "RECARGA_NUBANK" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#820AD1]/25 text-[#d8b4fe] border border-[#820AD1]/40 shadow-xs">
+                <Zap size={11} className="text-[#c084fc]" />
+                Recarga Nubank
+              </span>
+            )}
+            {card.request_kind === "RECARGA_CAJU" && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold bg-[#e11d48]/25 text-[#fda4af] border border-[#e11d48]/40 shadow-xs">
+                <Zap size={11} className="text-[#fb7185]" />
+                Recarga Caju
               </span>
             )}
           </div>

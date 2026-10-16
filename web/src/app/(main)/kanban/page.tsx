@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Plus, Filter, Calendar, Tag, User, X } from "lucide-react";
 import { computeNextStageHistory } from "@/utils/sla";
+import { syncNubankBalance } from "@/lib/nubankClient";
 
 export default function KanbanPage() {
   const { userRole, userId, userName: simulatedUserName, sectorId } = useAuth();
@@ -314,7 +315,11 @@ export default function KanbanPage() {
             stage_history: nextHistory,
           })
           .eq("id", card.id);
-        if (error) hasError = true;
+        if (error) {
+          hasError = true;
+        } else {
+          syncNubankBalance(card.id);
+        }
       }
       
       if (hasError) setToast({ message: "Alguns erros ao avançar", type: "error" });
