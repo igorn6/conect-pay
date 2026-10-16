@@ -132,8 +132,8 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-transparent text-slate-100">
-      <div className="flex-1 overflow-auto p-4 md:p-8 custom-scrollbar">
+    <div className="flex flex-col h-full w-full min-h-0 bg-transparent text-slate-100">
+      <div className="flex-1 min-h-0 overflow-auto p-4 md:p-8 custom-scrollbar">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
             <div>

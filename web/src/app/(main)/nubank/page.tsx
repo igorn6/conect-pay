@@ -265,7 +265,7 @@ export default function NubankCajuPage() {
   if (!isMaster && !isFinanceiro) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto w-full p-4 md:p-6 custom-scrollbar bg-transparent" style={{ color: "var(--text-primary)" }}>
+    <div className="flex-1 flex flex-col h-full w-full min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-transparent" style={{ color: "var(--text-primary)" }}>
       <div className="max-w-[1360px] mx-auto space-y-6">
         
         {/* Top Header */}

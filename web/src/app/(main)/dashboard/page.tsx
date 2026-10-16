@@ -47,7 +47,7 @@ function DashboardContent() {
   }, [userId, userRole, sectorId, selectedSectorId, startDate, endDate]);
 
   return (
-    <div className="flex-1 overflow-y-auto w-full atelier-scrollbar">
+    <div className="flex-1 flex flex-col h-full w-full min-h-0 overflow-y-auto atelier-scrollbar">
       <div className="max-w-[1440px] mx-auto p-4 md:p-8 w-full space-y-6">
         
         {/* Terminal Header */}

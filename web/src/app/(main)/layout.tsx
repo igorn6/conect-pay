@@ -15,13 +15,13 @@ export default function MainLayout({ children }: { children: ReactNode }) {
     <ChatProvider>
       <div className="flex h-screen w-full overflow-hidden text-white relative" style={{ backgroundColor: "var(--bg-primary)" }}>
         {/* Layered Aurora & Noise Background */}
-        <AuroraBackground className="absolute inset-0 -z-10 pointer-events-none terminal-grid" intensity="subtle" />
+        <AuroraBackground className="absolute inset-0 z-0 pointer-events-none terminal-grid" intensity="subtle" />
         
         <Sidebar />
         <GlobalNotification />
         <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative z-10">
           <GlobalHeader />
-          <div className="flex-1 overflow-hidden relative">
+          <div className="flex-1 flex flex-col h-full min-h-0 w-full overflow-hidden relative">
             {children}
           </div>
         </main>

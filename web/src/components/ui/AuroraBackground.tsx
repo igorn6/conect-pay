@@ -20,7 +20,7 @@ export default function AuroraBackground({
   };
 
   return (
-    <div className={`relative w-full overflow-hidden ${className}`}>
+    <div className={`overflow-hidden pointer-events-none ${className}`}>
       {/* Aurora Ambient Mesh */}
       <div
         className={`pointer-events-none absolute -inset-[100px] ${opacityMap[intensity]} blur-[90px] mix-blend-screen transition-opacity duration-1000 -z-10`}

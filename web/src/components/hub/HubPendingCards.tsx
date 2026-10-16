@@ -75,7 +75,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                   <div className="mt-4">
                     <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-amber-300 transition-colors">
-                      <CountUp value={counts.novaSolicitacao} />
+                      <CountUp value={counts.novaSolicitacao} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                       {counts.novaSolicitacao > 0
@@ -111,7 +111,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                   <div className="mt-4">
                     <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-blue-300 transition-colors">
-                      <CountUp value={counts.emAprovacao} />
+                      <CountUp value={counts.emAprovacao} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                       {counts.emAprovacao > 0
@@ -147,7 +147,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                   <div className="mt-4">
                     <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-emerald-300 transition-colors">
-                      <CountUp value={counts.aguardandoPagamento} />
+                      <CountUp value={counts.aguardandoPagamento} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                       {counts.aguardandoPagamento > 0
@@ -185,7 +185,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                 <div className="mt-4">
                   <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-purple-300 transition-colors">
-                    <CountUp value={counts.validacaoGestor} />
+                    <CountUp value={counts.validacaoGestor} currency={false} decimals={0} />
                   </div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                     {counts.validacaoGestor > 0
@@ -223,7 +223,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                   <div className="mt-4">
                     <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-orange-300 transition-colors">
-                      <CountUp value={counts.aguardandoPagamento} />
+                      <CountUp value={counts.aguardandoPagamento} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                       {counts.aguardandoPagamento > 0
@@ -258,7 +258,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                   <div className="mt-4">
                     <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-red-300 transition-colors">
-                      <CountUp value={counts.recusado} />
+                      <CountUp value={counts.recusado} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                       {counts.recusado > 0

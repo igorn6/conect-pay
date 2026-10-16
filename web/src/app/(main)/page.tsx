@@ -168,19 +168,13 @@ export default function HubPage() {
     fetchHubData(); // Revalida contadores e atividades recentes
   };
 
-  if (!userName) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="w-8 h-8 border-2 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const displayName = userName || "Usuário";
 
   return (
-    <div className="flex-1 overflow-y-auto bg-transparent custom-scrollbar p-6 md:p-10">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="flex-1 flex flex-col h-full w-full min-h-0 overflow-y-auto bg-transparent custom-scrollbar p-6 md:p-10">
+      <div className="max-w-5xl mx-auto space-y-8 w-full">
         <HubGreeting
-          userName={userName}
+          userName={displayName}
           onNewRequest={() => setIsModalOpen(true)}
         />
 

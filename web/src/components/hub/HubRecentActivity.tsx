@@ -35,10 +35,12 @@ function SkeletonRow() {
   );
 }
 
-function formatTimeAgo(dateStr: string): string {
+function formatTimeAgo(dateStr?: string | null): string {
+  if (!dateStr) return "Recente";
   const now = new Date();
   const d = new Date(dateStr);
-  const diffMs = now.getTime() - d.getTime();
+  if (isNaN(d.getTime())) return "Recente";
+  const diffMs = Math.max(0, now.getTime() - d.getTime());
   const diffMin = Math.floor(diffMs / 60000);
   if (diffMin < 1) return "Agora";
   if (diffMin < 60) return diffMin + " min atrás";

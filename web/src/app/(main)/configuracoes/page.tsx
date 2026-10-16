@@ -19,7 +19,7 @@ export default function ConfiguraçõesPage() {
   const [activeTab, setActiveTab] = useState<TabType>("perfil");
 
   return (
-    <div className="flex h-full bg-transparent text-slate-200 w-full overflow-hidden">
+    <div className="flex h-full w-full min-h-0 bg-transparent text-slate-200 overflow-hidden">
       
       {/* Sidebar de Abas */}
       <div className="w-64 flex-shrink-0 border-r border-white/[0.08] bg-slate-950/40 backdrop-blur-xl flex flex-col hidden md:flex">
