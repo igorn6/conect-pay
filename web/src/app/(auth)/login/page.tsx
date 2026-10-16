@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Mail, Eye, EyeOff, Lock, AlertCircle, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import BrandLogo from "@/components/BrandLogo";
+import { APP_VERSION } from "@/constants/version";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -195,7 +196,7 @@ export default function LoginPage() {
 
           {/* Footer note */}
           <div className="mt-6 text-center text-xs text-[#64748b] font-mono">
-            Conect Pay v1.6.0 • Ambiente Seguro e Criptografado
+            Conect Pay v{APP_VERSION} • Ambiente Seguro e Criptografado
           </div>
         </div>
       </div>
