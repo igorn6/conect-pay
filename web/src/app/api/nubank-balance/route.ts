@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const limitParam = Number(new URL(req.url).searchParams.get("limit"));
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : 5;
+    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50;
 
     const snapshot = await getNubankSnapshot(limit);
     return NextResponse.json(snapshot, { headers: { "Cache-Control": "no-store" } });

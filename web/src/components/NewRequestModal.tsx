@@ -315,69 +315,6 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
           
           <div className="space-y-4">
-            {canSelectRequester && (
-              <div className="p-3.5 rounded-xl border border-[var(--surface-border)] bg-[var(--surface-hover)] space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className={labelClass} style={{ ...labelStyle, marginBottom: 0 }}>
-                    Tipo de Solicitação (Exclusivo Master/Financeiro)
-                  </label>
-                  {requestKind && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                      Fluxo Direto Sem Gestor
-                    </span>
-                  )}
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRequestKind("")}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all text-center ${
-                      requestKind === ""
-                        ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-300 font-bold shadow-sm"
-                        : "border-[var(--surface-border)] text-gray-400 hover:text-white"
-                    }`}
-                  >
-                    📄 Padrão
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestKind("RECARGA_NUBANK");
-                      if (!title) setTitle("Recarga de Saldo Nubank");
-                      if (!category) setCategory("Recarga de Saldo");
-                    }}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all text-center flex items-center justify-center gap-1 ${
-                      requestKind === "RECARGA_NUBANK"
-                        ? "border-[#820AD1] bg-[#820AD1]/25 text-[#d8b4fe] font-bold shadow-sm"
-                        : "border-[var(--surface-border)] text-gray-400 hover:text-[#d8b4fe]"
-                    }`}
-                  >
-                    🟣 Recarga Nubank
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRequestKind("RECARGA_CAJU");
-                      if (!title) setTitle("Recarga de Saldo Caju");
-                      if (!category) setCategory("Recarga de Saldo");
-                    }}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all text-center flex items-center justify-center gap-1 ${
-                      requestKind === "RECARGA_CAJU"
-                        ? "border-[#e11d48] bg-[#e11d48]/25 text-[#fda4af] font-bold shadow-sm"
-                        : "border-[var(--surface-border)] text-gray-400 hover:text-[#fda4af]"
-                    }`}
-                  >
-                    🔴 Recarga Caju
-                  </button>
-                </div>
-                {requestKind && (
-                  <p className="text-[11px] text-purple-300/80 leading-tight pt-1">
-                    ⚡ Solicitações de recarga avançam diretamente para Aguardando Pagamento e Finalizado, abastecendo o saldo corporativo.
-                  </p>
-                )}
-              </div>
-            )}
-
             <div>
               <label className={labelClass} style={labelStyle}>
                 Titulo / Descricao Curta *
