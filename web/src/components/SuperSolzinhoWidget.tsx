@@ -32,8 +32,9 @@ export default function SuperSolzinhoWidget() {
           className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[min(75vh,640px)] rounded-2xl border shadow-2xl backdrop-blur-xl overflow-hidden"
           style={{
             display: isOpen ? "block" : "none",
-            backgroundColor: "color-mix(in srgb, var(--bg-secondary) 94%, transparent)",
-            borderColor: "var(--surface-border)",
+            backgroundColor: "#090a0d",
+            borderColor: "rgba(205, 163, 104, 0.25)",
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.85)",
           }}
         >
           <SuperSolzinhoChat key={chatKey} variant="floating" onReset={() => setChatKey((k) => k + 1)} />
