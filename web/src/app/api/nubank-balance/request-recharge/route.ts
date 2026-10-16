@@ -7,7 +7,6 @@ import { cookies } from "next/headers";
 import { v4 as uuidv4 } from "uuid";
 import { sendPushNotification } from "@/lib/pushNotifications";
 
-const RECHARGE_PIX_KEY = "00020126580014BR.GOV.BCB.PIX0136c8e15420-f3fb-4f01-9c9NMy4KNArQUfgvqv66304A48F";
 const RECHARGE_PIX_OWNER = "Lima e Trindade";
 const RECHARGE_CNPJ = "CNPJ 2";
 const RECHARGE_AMOUNT = 1500.00;
@@ -65,7 +64,7 @@ export async function POST() {
       payment_method: "PIX",
       payment_type: "PIX",
       pix_name: RECHARGE_PIX_OWNER,
-      pix_key: RECHARGE_PIX_KEY,
+      pix_key: "",
       status: "NOVA_SOLICITACAO",
       stage_history: [
         {
@@ -87,7 +86,7 @@ export async function POST() {
           payment_type: "PIX",
           amount: RECHARGE_AMOUNT,
           pix_owner: RECHARGE_PIX_OWNER,
-          pix_key: RECHARGE_PIX_KEY,
+          pix_key: "",
           caju_phone: null,
           boleto_barcode: null,
           boleto_due_date: null,
@@ -120,7 +119,7 @@ export async function POST() {
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
     const subject = `Pagamento Ref. Recarga Nubank | ${RECHARGE_CNPJ}`;
-    const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: Recarga saldo Nubank\nValor: R$ 1.500,00\nChave pix / Linha digitável: ${RECHARGE_PIX_KEY}\nTitular: ${RECHARGE_PIX_OWNER}\nSolicitante: ${requesterName}`;
+    const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: Recarga saldo Nubank\nValor: R$ 1.500,00\nChave pix / Linha digitável:\nTitular: ${RECHARGE_PIX_OWNER}\nSolicitante: ${requesterName}`;
 
     return NextResponse.json({
       ok: true,

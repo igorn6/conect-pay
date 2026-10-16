@@ -669,11 +669,15 @@ export default function CardDetailModal({
     const cnpjDisplay = localCnpj || card.cnpj || (isCajuOnly ? "Caju" : "(Selecione o CNPJ)");
     const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
 
+    const isRecargaNubank = card.request_kind === "RECARGA_NUBANK" || card.title === "Recarga Nubank";
     const boletoSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "BOLETO");
-    const paymentKey = pixKey !== "Não informado" ? pixKey : (boletoSplit?.boleto_barcode || "Não informado");
+    const paymentKey = isRecargaNubank
+      ? ""
+      : (pixKey && pixKey !== "Não informado" ? pixKey : (boletoSplit?.boleto_barcode || "Não informado"));
     const paymentOwner = pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado");
+    const paymentKeyDisplay = paymentKey ? ` ${paymentKey}` : "";
 
-    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável: ${paymentKey}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
+    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
 
     if (invoicesText) {
       rawBody += `\n\n${invoicesText}`;
