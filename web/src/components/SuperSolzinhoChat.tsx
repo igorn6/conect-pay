@@ -6,34 +6,34 @@ import { DefaultChatTransport } from "ai";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
-  Compass,
-  ArrowRight,
+  Send,
   Square,
   Loader2,
   Sparkles,
   RotateCcw,
-  BookOpen,
   Plus,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   Copy,
   Check,
-  Terminal,
-  Paperclip,
-  CornerDownLeft,
-  Search,
-  Sliders,
-  ExternalLink,
+  MessageSquare,
+  BarChart3,
+  TrendingUp,
+  Users,
+  Wallet,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+  Clock,
+  ShieldCheck,
+  ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
-interface Caderno {
+interface ChatSession {
   id: string;
   title: string;
   createdAt: string;
-  updatedAt: string;
   messages: any[];
 }
 
@@ -43,10 +43,10 @@ interface SuperSolzinhoChatProps {
   onReset?: () => void;
 }
 
-const STORAGE_KEY = "conectpay_atelier_cadernos_v1";
+const STORAGE_KEY = "conectpay_solzinho_chats_v2";
 
-/* Componente de Bloco de Código Tangível no estilo Atelier */
-function AtelierCodeBlock({ inline, className, children, ...props }: any) {
+/* Componente de Bloco de Código com Sintaxe e Cópia */
+function CodeBlock({ inline, className, children, ...props }: any) {
   const [copied, setCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || "");
   const lang = match ? match[1] : "código";
@@ -55,7 +55,7 @@ function AtelierCodeBlock({ inline, className, children, ...props }: any) {
   if (inline) {
     return (
       <code
-        className="px-1.5 py-0.5 rounded text-[12px] font-mono border border-[rgba(205,163,104,0.25)] bg-[#131418] text-[#e5be85]"
+        className="px-1.5 py-0.5 rounded text-[12px] font-mono border border-white/10 bg-slate-900/80 text-emerald-300"
         {...props}
       >
         {children}
@@ -70,174 +70,173 @@ function AtelierCodeBlock({ inline, className, children, ...props }: any) {
   };
 
   return (
-    <div className="my-5 rounded-xl border border-[rgba(205,163,104,0.2)] bg-[#0d0e12]/95 shadow-[0_8px_30px_rgb(0,0,0,0.6)] backdrop-blur-md overflow-hidden transition-all duration-300 hover:border-[rgba(205,163,104,0.35)] hover:shadow-[0_12px_40px_rgba(205,163,104,0.06)]">
-      <div className="flex items-center justify-between px-3.5 py-2 border-b border-[rgba(205,163,104,0.12)] bg-[#111317]">
+    <div className="my-4 rounded-xl border border-white/10 bg-slate-950/90 shadow-lg overflow-hidden">
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-white/[0.08] bg-slate-900/90">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#cda368]/60 inline-block" />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-[#cda368]/80 font-bold">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
+          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 font-bold">
             {lang}
           </span>
         </div>
         <button
           type="button"
           onClick={handleCopy}
-          className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-mono text-[#a39f97] hover:text-[#f4f1ea] hover:bg-white/5 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-mono text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
           title="Copiar código"
         >
           {copied ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
           <span>{copied ? "COPIADO" : "COPIAR"}</span>
         </button>
       </div>
-      <div className="p-4 overflow-x-auto text-[13px] font-mono leading-relaxed text-[#eae6df]">
+      <div className="p-4 overflow-x-auto text-[13px] font-mono leading-relaxed text-slate-200">
         <pre>{children}</pre>
       </div>
     </div>
   );
 }
 
-/* Tipografia Editorial e Livro-Razão do Markdown */
-const atelierMarkdownComponents: Components = {
+/* Tipografia e Formatação Moderna do Markdown */
+const modernMarkdownComponents: Components = {
   p: ({ children }) => (
-    <p className="mb-4 last:mb-0 leading-[1.85] font-editorial text-[15px] sm:text-[16px] text-[#f4f1ea] tracking-[0.01em]">
+    <p className="mb-3 last:mb-0 leading-relaxed text-[13.5px] sm:text-[14px] text-slate-200">
       {children}
     </p>
   ),
   strong: ({ children }) => (
-    <strong className="font-semibold text-[#ffffff] font-editorial tracking-[0.01em]">
+    <strong className="font-semibold text-white">
       {children}
     </strong>
   ),
   em: ({ children }) => (
-    <em className="italic text-[#e5be85] font-editorial">
+    <em className="italic text-emerald-300">
       {children}
     </em>
   ),
   ul: ({ children }) => (
-    <ul className="my-4 pl-1 space-y-2 font-editorial text-[#f4f1ea]">
+    <ul className="my-2.5 pl-2 space-y-1.5 text-[13.5px] text-slate-200">
       {children}
     </ul>
   ),
   ol: ({ children }) => (
-    <ol className="my-4 pl-5 list-decimal space-y-2 font-editorial text-[#f4f1ea]">
+    <ol className="my-2.5 pl-5 list-decimal space-y-1.5 text-[13.5px] text-slate-200">
       {children}
     </ol>
   ),
   li: ({ children }) => (
-    <li className="leading-[1.8] flex items-start gap-2.5">
-      <span className="text-[#cda368] text-xs mt-1.5 shrink-0 opacity-70">◆</span>
+    <li className="flex items-start gap-2">
+      <span className="text-emerald-400 text-xs mt-1 shrink-0">•</span>
       <span className="flex-1">{children}</span>
     </li>
   ),
   h1: ({ children }) => (
-    <h2 className="text-xl font-editorial font-bold text-[#fdfcf9] mt-8 mb-3.5 tracking-wide border-b border-[rgba(205,163,104,0.18)] pb-2 flex items-center gap-2">
-      <span className="text-[#cda368] text-sm">✦</span>
+    <h3 className="text-base sm:text-lg font-bold text-white mt-5 mb-2.5 border-b border-white/10 pb-1.5 flex items-center gap-2">
+      <Sparkles size={16} className="text-emerald-400" />
       <span>{children}</span>
-    </h2>
-  ),
-  h2: ({ children }) => (
-    <h3 className="text-lg font-editorial font-bold text-[#fbf9f5] mt-6 mb-2.5 tracking-wide">
-      {children}
     </h3>
   ),
-  h3: ({ children }) => (
-    <h4 className="text-base font-editorial font-semibold text-[#f5f3ef] mt-5 mb-2">
-      {children}
+  h2: ({ children }) => (
+    <h4 className="text-sm sm:text-base font-bold text-white mt-4 mb-2 flex items-center gap-1.5">
+      <span className="text-emerald-400 text-xs">◆</span>
+      <span>{children}</span>
     </h4>
   ),
+  h3: ({ children }) => (
+    <h5 className="text-xs sm:text-sm font-semibold text-slate-200 mt-3 mb-1.5">
+      {children}
+    </h5>
+  ),
   blockquote: ({ children }) => (
-    <blockquote className="my-5 pl-4 py-2 border-l-2 border-[#cda368]/60 italic font-editorial text-[#ded9ce] bg-[#121418]/60 rounded-r-xl">
+    <blockquote className="my-3 pl-3.5 py-1.5 border-l-2 border-emerald-500 bg-emerald-950/20 text-slate-300 rounded-r-lg text-xs italic">
       {children}
     </blockquote>
   ),
+  table: ({ children }) => (
+    <div className="my-3 overflow-x-auto rounded-xl border border-white/10 bg-slate-900/60 shadow-md">
+      <table className="w-full text-xs text-left border-collapse">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="bg-slate-900/90 border-b border-white/10 text-slate-400 uppercase text-[10px] font-mono tracking-wider">
+      {children}
+    </thead>
+  ),
+  th: ({ children }) => (
+    <th className="px-3.5 py-2.5 font-bold whitespace-nowrap">{children}</th>
+  ),
+  td: ({ children }) => (
+    <td className="px-3.5 py-2.5 border-b border-white/[0.04] text-slate-200">{children}</td>
+  ),
+  code: CodeBlock,
   a: ({ children, href }) => (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="underline decoration-[#cda368]/50 underline-offset-4 text-[#e5be85] hover:text-[#fff] transition-colors"
+      className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2 transition-colors inline-flex items-center gap-1"
     >
-      {children}
+      <span>{children}</span>
     </a>
-  ),
-  code: AtelierCodeBlock,
-  table: ({ children }) => (
-    <div className="my-6 overflow-x-auto rounded-xl border border-[rgba(205,163,104,0.18)] bg-[#0d0f13]/90 shadow-xl backdrop-blur-md">
-      <table className="w-full text-xs border-collapse">{children}</table>
-    </div>
-  ),
-  thead: ({ children }) => (
-    <thead className="bg-[#14161c] border-b border-[rgba(205,163,104,0.18)]">{children}</thead>
-  ),
-  th: ({ children }) => (
-    <th className="px-4 py-3 text-left font-editorial text-[11px] font-bold uppercase tracking-wider text-[#cda368]">
-      {children}
-    </th>
-  ),
-  td: ({ children }) => (
-    <td className="px-4 py-2.5 border-b border-[rgba(205,163,104,0.08)] align-top font-mono tabular-nums text-[#e8e4dc] leading-relaxed">
-      {children}
-    </td>
   ),
 };
 
-const SUGGESTED_PAUTAS = [
-  { label: "Balanço Consolidado", prompt: "Qual é o balanço consolidado de gastos deste mês e as maiores despesas?" },
-  { label: "Gargalos de Pagamento", prompt: "Quais categorias ou solicitantes mais concentram solicitações pendentes?" },
-  { label: "Auditoria por Titular", prompt: "Apresente um resumo agrupado dos maiores titulares e fornecedores pagos." },
-  { label: "Liquidações e CNPJs", prompt: "Como estão distribuídos os pagamentos entre CNPJ 1, CNPJ 2 e demais contas?" },
+const SUGGESTION_CARDS = [
+  {
+    icon: BarChart3,
+    title: "Balanço Mensal",
+    subtitle: "Despesas e liquidações",
+    prompt: "Qual é o balanço consolidado de gastos deste mês e quais foram as maiores despesas liquidadas?",
+    color: "emerald",
+  },
+  {
+    icon: TrendingUp,
+    title: "Gargalos no Kanban",
+    subtitle: "Triagem e aprovações",
+    prompt: "Quais categorias ou solicitantes possuem o maior volume de solicitações pendentes no Kanban?",
+    color: "amber",
+  },
+  {
+    icon: Users,
+    title: "Maiores Fornecedores",
+    subtitle: "Auditoria por titularidade",
+    prompt: "Apresente um resumo agrupado dos maiores fornecedores e titulares pagos recentemente.",
+    color: "sky",
+  },
+  {
+    icon: Wallet,
+    title: "Fluxo do Nubank",
+    subtitle: "Saldo e movimentações",
+    prompt: "Qual o saldo disponível no Nubank 02 e como estão as últimas movimentações de entrada e saída?",
+    color: "purple",
+  },
 ];
 
 export default function SuperSolzinhoChat({ variant = "floating", onReset }: SuperSolzinhoChatProps) {
   const { userRole, userName } = useAuth();
   const isPage = variant === "page";
   const [input, setInput] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string>("default");
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Cadernos (Histórico persistido em LocalStorage)
-  const [cadernos, setCadernos] = useState<Caderno[]>([]);
-  const [activeCadernoId, setActiveCadernoId] = useState<string>("");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(isPage);
-
-  // Carregar Cadernos salvos
+  // Carrega histórico de sessões do localStorage
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed: ChatSession[] = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setCadernos(parsed);
-          setActiveCadernoId(parsed[0].id);
-          return;
+          setSessions(parsed);
+          setActiveSessionId(parsed[0].id);
         }
       }
-    } catch (e) {
-      console.warn("Falha ao recuperar cadernos do Atelier:", e);
+    } catch (err) {
+      console.warn("Erro ao ler sessões do chat:", err);
     }
-
-    // Caderno inicial padrão
-    const initialCaderno: Caderno = {
-      id: "estudo-primeiro",
-      title: "Estudo I • Diálogo Inicial",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      messages: [],
-    };
-    setCadernos([initialCaderno]);
-    setActiveCadernoId(initialCaderno.id);
   }, []);
 
-  // Salvar cadernos no localStorage ao sofrer alteração
-  const saveCadernos = (updated: Caderno[]) => {
-    setCadernos(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.warn("Erro ao persistir cadernos:", e);
-    }
-  };
-
-  // Configuração de transporte da IA
+  // Transport configurado para /api/chat com token Supabase
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -250,78 +249,84 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
     []
   );
 
-  const { messages, sendMessage, status, stop, error, setMessages } = useChat({ transport });
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
+    transport,
+  });
+
   const isBusy = status === "submitted" || status === "streaming";
 
-  // Quando o caderno ativo muda, carrega suas mensagens
-  useEffect(() => {
-    if (!activeCadernoId) return;
-    const current = cadernos.find((c) => c.id === activeCadernoId);
-    if (current && current.messages) {
-      setMessages(current.messages);
-    }
-  }, [activeCadernoId]);
-
-  // Sincroniza mensagens do chat no caderno ativo
-  useEffect(() => {
-    if (!activeCadernoId || messages.length === 0) return;
-    setCadernos((prev) => {
-      const updated = prev.map((c) => {
-        if (c.id === activeCadernoId) {
-          let title = c.title;
-          // Se for título genérico e tiver mensagem de usuário, gera um título inteligente
-          if (title.startsWith("Estudo") && messages.length > 0) {
-            const firstUserMsg = messages.find((m) => m.role === "user");
-            if (firstUserMsg) {
-              const text = firstUserMsg.parts
-                .filter((p) => p.type === "text")
-                .map((p) => (p as { text: string }).text)
-                .join("")
-                .trim();
-              if (text) {
-                title = text.length > 38 ? `${text.slice(0, 38)}…` : text;
-              }
-            }
-          }
-          return {
-            ...c,
-            title,
-            updatedAt: new Date().toISOString(),
-            messages,
-          };
-        }
-        return c;
-      });
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        // ignore
-      }
-      return updated;
-    });
-  }, [messages, activeCadernoId]);
-
-  // Rolagem suave
+  // Auto-scroll para a última mensagem
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, status]);
 
-  // Ajuste automático de altura do textarea
+  // Salva no localStorage quando mensagens forem atualizadas
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 180)}px`;
+    if (messages.length === 0) return;
+    try {
+      setSessions((prev) => {
+        const existingIdx = prev.findIndex((s) => s.id === activeSessionId);
+        const firstUserMsg = messages.find((m) => m.role === "user");
+        const title = firstUserMsg
+          ? (firstUserMsg.parts?.find((p) => p.type === "text") as any)?.text?.slice(0, 36) || "Consulta Financeira"
+          : "Consulta Financeira";
+
+        let updated: ChatSession[];
+        if (existingIdx >= 0) {
+          updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            title: prev[existingIdx].title || title,
+            messages,
+          };
+        } else {
+          updated = [
+            {
+              id: activeSessionId,
+              title,
+              createdAt: new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }),
+              messages,
+            },
+            ...prev,
+          ];
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated.slice(0, 15)));
+        return updated;
+      });
+    } catch (err) {
+      console.warn("Erro ao salvar chat:", err);
     }
-  }, [input]);
+  }, [messages, activeSessionId]);
+
+  const handleStartNewChat = () => {
+    const newId = "chat_" + Date.now();
+    setActiveSessionId(newId);
+    setMessages([]);
+    onReset?.();
+  };
+
+  const handleSelectSession = (session: ChatSession) => {
+    setActiveSessionId(session.id);
+    setMessages(session.messages || []);
+  };
+
+  const handleDeleteSession = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSessions((prev) => {
+      const filtered = prev.filter((s) => s.id !== id);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
+      return filtered;
+    });
+    if (activeSessionId === id) {
+      handleStartNewChat();
+    }
+  };
 
   const submit = (text: string) => {
     const value = text.trim();
     if (!value || isBusy) return;
     sendMessage({ text: value });
     setInput("");
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -336,387 +341,375 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
     }
   };
 
-  const handleCreateNewCaderno = () => {
-    const romanNumeral = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"][cadernos.length % 10] || `${cadernos.length + 1}`;
-    const newCaderno: Caderno = {
-      id: `estudo-${Date.now()}`,
-      title: `Estudo ${romanNumeral} • Em aberto`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      messages: [],
-    };
-    const updated = [newCaderno, ...cadernos];
-    saveCadernos(updated);
-    setActiveCadernoId(newCaderno.id);
-    setMessages([]);
-    setInput("");
-    if (onReset) onReset();
+  const copyMessageText = (text: string, idx: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(idx);
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const handleDeleteCaderno = (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (cadernos.length <= 1) {
-      // Se for o último, apenas limpa
-      handleCreateNewCaderno();
-      return;
-    }
-    const filtered = cadernos.filter((c) => c.id !== id);
-    saveCadernos(filtered);
-    if (activeCadernoId === id) {
-      setActiveCadernoId(filtered[0].id);
-      setMessages(filtered[0].messages || []);
-    }
-  };
-
-  const activeCaderno = cadernos.find((c) => c.id === activeCadernoId);
+  const firstName = (userName || "Usuário").split(" ")[0];
 
   return (
-    <div className="flex h-full w-full min-h-0 bg-[#090a0d] text-[#e8e4dc] atelier-noise relative overflow-hidden select-text">
+    <div className="flex h-full w-full min-h-0 bg-transparent text-slate-100 overflow-hidden font-sans">
       
-      {/* ========================================================
-          SIDEBAR: CADERNOS DE ESTUDO (RETRACTABLE ATELIER PANEL)
-          ======================================================== */}
+      {/* ─── SIDEBAR DE HISTÓRICO (APENAS NA PÁGINA CHEIA) ─── */}
       {isPage && (
         <aside
-          className={`shrink-0 border-r border-[rgba(205,163,104,0.12)] bg-[#0d0e12]/95 backdrop-blur-xl transition-all duration-300 ease-out z-20 flex flex-col ${
-            isSidebarOpen ? "w-72" : "w-0 overflow-hidden border-none"
+          className={`shrink-0 border-r border-white/[0.08] bg-slate-950/60 backdrop-blur-2xl flex flex-col transition-all duration-300 ease-in-out ${
+            isSidebarOpen ? "w-64 sm:w-72" : "w-0 overflow-hidden border-none"
           }`}
         >
-          {/* Masthead do Atelier */}
-          <div className="p-5 border-b border-[rgba(205,163,104,0.12)] flex items-center justify-between">
-            <div>
-              <span className="font-editorial text-xs tracking-[0.25em] text-[#cda368] font-bold block uppercase">
-                A T E L I E R
-              </span>
-              <span className="text-[10px] tracking-widest text-[#8a867f] uppercase font-mono block mt-0.5">
-                Cadernos & Diálogos
+          {/* Header da Sidebar */}
+          <div className="p-4 border-b border-white/[0.08] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare size={16} className="text-emerald-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                Consultas Salvas
               </span>
             </div>
             <button
-              type="button"
-              onClick={handleCreateNewCaderno}
-              title="Novo Estudo"
-              className="p-1.5 rounded-lg border border-[rgba(205,163,104,0.25)] text-[#cda368] hover:bg-[#cda368]/10 hover:border-[#cda368]/40 transition-colors cursor-pointer"
+              onClick={handleStartNewChat}
+              className="p-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer"
+              title="Nova Consulta"
             >
               <Plus size={14} />
             </button>
           </div>
 
-          {/* Lista de Cadernos */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-1.5 atelier-scrollbar">
-            <div className="px-2 py-1 text-[9px] uppercase tracking-widest font-mono text-[#78756e]">
-              Histórico de Estudos
-            </div>
-            {cadernos.map((cad) => {
-              const isActive = cad.id === activeCadernoId;
-              const dateStr = new Date(cad.createdAt).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "short",
-              });
-              const count = cad.messages?.length || 0;
+          {/* Botão de Nova Consulta */}
+          <div className="p-3">
+            <button
+              onClick={handleStartNewChat}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-transparent hover:from-emerald-500/25 hover:to-teal-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold tracking-wide transition-all cursor-pointer shadow-sm"
+            >
+              <Plus size={14} />
+              <span>Nova Conversa</span>
+            </button>
+          </div>
 
-              return (
-                <div
-                  key={cad.id}
-                  onClick={() => setActiveCadernoId(cad.id)}
-                  className={`group relative flex items-start justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-                    isActive
-                      ? "border-[rgba(205,163,104,0.35)] bg-[#17181f] text-[#ffffff] shadow-md shadow-black/40"
-                      : "border-transparent text-[#a8a49c] hover:bg-[#121318] hover:text-[#e4dfd7]"
-                  }`}
-                >
-                  {/* Linha de destaque lateral ativa */}
-                  {isActive && (
-                    <span className="absolute left-0 top-2 bottom-2 w-0.5 bg-[#cda368] rounded-r" />
-                  )}
-
-                  <div className="min-w-0 flex-1 pr-2">
-                    <p className="text-xs font-editorial font-medium truncate leading-tight">
-                      {cad.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] font-mono text-[#7a7770]">
-                      <span>{dateStr}</span>
-                      <span>•</span>
-                      <span>{count} {count === 1 ? "registro" : "registros"}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteCaderno(e, cad.id)}
-                    title="Excluir caderno"
-                    className="opacity-0 group-hover:opacity-100 p-1 text-[#78756e] hover:text-rose-400 transition-opacity cursor-pointer shrink-0"
+          {/* Lista de Sessões */}
+          <div className="flex-1 overflow-y-auto px-3 py-1 space-y-1 custom-scrollbar">
+            {sessions.length === 0 ? (
+              <div className="text-center py-8 text-xs text-slate-500">
+                <Clock size={20} className="mx-auto mb-2 opacity-40" />
+                <p>Nenhuma conversa gravada.</p>
+              </div>
+            ) : (
+              sessions.map((s) => {
+                const isActive = s.id === activeSessionId;
+                return (
+                  <div
+                    key={s.id}
+                    onClick={() => handleSelectSession(s)}
+                    className={`group relative flex items-center justify-between p-2.5 rounded-xl text-xs cursor-pointer transition-all border ${
+                      isActive
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-white font-medium shadow-sm"
+                        : "bg-white/[0.02] hover:bg-white/[0.05] border-transparent text-slate-400 hover:text-slate-200"
+                    }`}
                   >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              );
-            })}
+                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                      <Sparkles size={12} className={isActive ? "text-emerald-400 shrink-0" : "text-slate-600 shrink-0"} />
+                      <span className="truncate">{s.title || "Consulta Financeira"}</span>
+                    </div>
+                    <button
+                      onClick={(e) => handleDeleteSession(s.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-400 transition-opacity cursor-pointer shrink-0"
+                      title="Excluir"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Rodapé da Sidebar */}
-          <div className="p-4 border-t border-[rgba(205,163,104,0.12)] bg-[#0b0c10] text-[11px] font-mono text-[#706c64] flex items-center justify-between">
-            <span>Conect Pay Atelier</span>
-            <span className="text-[#cda368]/70">v1.8.1</span>
+          <div className="p-3 border-t border-white/[0.06] text-[11px] font-mono text-slate-500 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck size={12} className="text-emerald-400" />
+              <span>Conectsol AI</span>
+            </span>
+            <span className="text-[10px] text-slate-600">v2.0</span>
           </div>
         </aside>
       )}
 
-      {/* ========================================================
-          FEED EDITORIAL PRINCIPAL (ORGANIC SCRIPT & JOURNAL)
-          ======================================================== */}
-      <main className="flex-1 min-w-0 flex flex-col h-full relative overflow-hidden">
+      {/* ─── ÁREA PRINCIPAL DO CHAT ─── */}
+      <div className="flex-1 flex flex-col h-full min-h-0 min-w-0 relative">
         
-        {/* Top Control Bar */}
-        <header className="h-14 border-b border-[rgba(205,163,104,0.12)] bg-[#0d0e12]/80 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
-          <div className="flex items-center gap-3">
+        {/* Cabeçalho do Chat */}
+        <header className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-white/[0.08] bg-slate-950/40 backdrop-blur-xl shrink-0 z-10">
+          <div className="flex items-center gap-3 min-w-0">
             {isPage && (
               <button
-                type="button"
-                onClick={() => setIsSidebarOpen((v) => !v)}
-                title={isSidebarOpen ? "Recolher Cadernos" : "Expandir Cadernos"}
-                className="p-2 rounded-lg border border-[rgba(205,163,104,0.18)] text-[#cda368] hover:bg-[#cda368]/10 transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-mono"
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-400 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                title={isSidebarOpen ? "Recolher histórico" : "Ver histórico"}
               >
-                <BookOpen size={13} />
-                <span className="hidden sm:inline">{isSidebarOpen ? "Recolher" : "Cadernos"}</span>
+                {isSidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
               </button>
             )}
 
-            <div className="flex items-baseline gap-2.5">
-              <span className="text-xs font-editorial font-bold tracking-[0.2em] text-[#cda368] uppercase">
-                {isPage ? (activeCaderno?.title || "Estudo Ativo") : "Atelier Intelligence"}
-              </span>
-              <span className="hidden md:inline-block text-[10px] font-mono text-[#78756e]">
-                — Análise Financeira Literária
-              </span>
+            <div className="relative">
+              <div className="w-10 h-10 rounded-xl overflow-hidden border border-emerald-500/40 shadow-md shadow-emerald-950/40 shrink-0 bg-slate-900/90 flex items-center justify-center p-0.5">
+                <img
+                  src="/images/solzinho/solzinho-smart.png"
+                  alt="Super Solzinho"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950 ring-2 ring-emerald-500/30 animate-pulse" />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm font-bold text-white tracking-tight">Super Solzinho</h1>
+                <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                  IA Financeira
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 truncate font-mono">
+                Consultas contábeis, auditoria e conciliação em tempo real
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              type="button"
-              onClick={handleCreateNewCaderno}
-              title="Iniciar novo estudo em branco"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[rgba(205,163,104,0.18)] text-[11px] font-mono text-[#cda368] hover:bg-[#cda368]/10 hover:border-[#cda368]/40 transition-colors cursor-pointer"
+              onClick={handleStartNewChat}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-white/10 text-xs font-medium transition-all cursor-pointer"
+              title="Iniciar nova conversa"
             >
-              <RotateCcw size={12} />
-              <span className="hidden sm:inline">Novo Diálogo</span>
+              <RotateCcw size={13} />
+              <span className="hidden sm:inline">Nova Consulta</span>
             </button>
           </div>
         </header>
 
-        {/* Área de Leitura Editorial */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-8 atelier-scrollbar">
-          <div className="max-w-3xl mx-auto space-y-10">
+        {/* Feed de Mensagens */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 space-y-4 custom-scrollbar">
+          <div className="max-w-3xl mx-auto space-y-5">
             
-            {/* Estado Inicial (Masthead Literário de Abertura) */}
+            {/* Estado Inicial / Vazio: Hero com Solzinho e Cards Interativos */}
             {messages.length === 0 && (
-              <div className="py-12 px-4 sm:px-8 border border-[rgba(205,163,104,0.15)] rounded-2xl bg-[#0e1014]/70 backdrop-blur-sm text-center relative overflow-hidden">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-px bg-gradient-to-r from-transparent via-[#cda368]/50 to-transparent" />
+              <div className="py-6 sm:py-10 text-center space-y-6">
                 
-                <span className="text-[10px] font-mono uppercase tracking-[0.3em] text-[#cda368] font-bold block mb-2">
-                  Atelier de Inteligência Financeira
-                </span>
-                
-                <h1 className="text-2xl sm:text-3xl font-editorial font-bold text-[#fbf9f5] tracking-wide mb-3">
-                  Diálogos Contábeis & Análise Operacional
-                </h1>
-                
-                <p className="text-xs sm:text-sm font-editorial italic text-[#a39f97] max-w-xl mx-auto leading-relaxed mb-8">
-                  Consulte os registros financeiros da Conectsol, audite despesas por titularidade, examine o fluxo do Nubank e explore métricas com rigor analítico e clareza literária.
-                </p>
+                {/* Avatar Destaque */}
+                <div className="inline-block relative">
+                  <div className="w-20 h-20 rounded-2xl p-1 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-amber-500/20 border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)] mx-auto">
+                    <img
+                      src="/images/solzinho/solzinho-wave.png"
+                      alt="Super Solzinho"
+                      className="w-full h-full object-contain hover:scale-105 transition-transform"
+                    />
+                  </div>
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-2xl mx-auto text-left">
-                  {SUGGESTED_PAUTAS.map((p) => (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => submit(p.prompt)}
-                      className="p-3.5 rounded-xl border border-[rgba(205,163,104,0.12)] bg-[#121318]/90 hover:border-[rgba(205,163,104,0.3)] hover:bg-[#161820] transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[#cda368]">
-                        <span>§</span>
-                        <span>{p.label}</span>
+                {/* Saudação */}
+                <div className="space-y-1.5">
+                  <h2 className="text-2xl font-bold tracking-tight text-white">
+                    Olá, {firstName}! ☀️
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto leading-relaxed">
+                    Sou o <strong className="text-emerald-400 font-semibold">Super Solzinho</strong>, seu copiloto financeiro na Conectsol. Pergunte sobre despesas, gargalos de aprovação, auditoria de titulares ou saldo Nubank.
+                  </p>
+                </div>
+
+                {/* Grid de Sugestões Modernas */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto pt-2 text-left">
+                  {SUGGESTION_CARDS.map((card, idx) => {
+                    const Icon = card.icon;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => submit(card.prompt)}
+                        className="group p-4 rounded-2xl bg-slate-950/50 hover:bg-slate-900/80 border border-white/[0.08] hover:border-emerald-500/40 shadow-sm hover:shadow-[0_4px_20px_rgba(16,185,129,0.15)] transition-all duration-300 flex flex-col justify-between cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
+                            <Icon size={16} />
+                          </div>
+                          <ChevronRight size={14} className="text-slate-600 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-white group-hover:text-emerald-300 transition-colors">
+                            {card.title}
+                          </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
+                            {card.subtitle}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+              </div>
+            )}
+
+            {/* Mensagens do Chat */}
+            {messages.map((m, idx) => {
+              const isUser = m.role === "user";
+              const text = m.parts
+                ? m.parts
+                    .filter((p) => p.type === "text")
+                    .map((p) => (p as { text: string }).text)
+                    .join("")
+                : (m as any).content || "";
+
+              if (isUser) {
+                return (
+                  <div key={m.id || idx} className="flex justify-end">
+                    <div className="max-w-[85%] sm:max-w-[75%] px-4 py-3 rounded-2xl rounded-tr-sm bg-gradient-to-r from-emerald-600 to-teal-700 text-slate-950 font-medium text-sm shadow-[0_4px_20px_rgba(16,185,129,0.25)] border border-emerald-400/30 whitespace-pre-wrap leading-relaxed select-text">
+                      {text}
+                    </div>
+                  </div>
+                );
+              }
+
+              // Resposta do Super Solzinho
+              return (
+                <div key={m.id || idx} className="flex items-start gap-3 group">
+                  <div className="w-8 h-8 rounded-xl overflow-hidden border border-emerald-500/30 shadow-sm shrink-0 bg-slate-900/80 p-0.5 mt-0.5">
+                    <img
+                      src="/images/solzinho/solzinho-thumbs.png"
+                      alt="Super Solzinho"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-xs font-bold text-white tracking-tight">Super Solzinho</span>
+                      <span className="text-[10px] font-mono text-emerald-400">✦ Copilot</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl rounded-tl-sm bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.37)] text-slate-200">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={modernMarkdownComponents}
+                      >
+                        {text}
+                      </ReactMarkdown>
+
+                      {/* Botão de Cópia da Mensagem */}
+                      <div className="mt-3 pt-2.5 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-slate-500">
+                        <span className="font-mono text-[10px]">Conectsol AI Core</span>
+                        <button
+                          type="button"
+                          onClick={() => copyMessageText(text, idx)}
+                          className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-white/5 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          title="Copiar resposta"
+                        >
+                          {copiedIndex === idx ? (
+                            <>
+                              <Check size={12} className="text-emerald-400" />
+                              <span className="text-emerald-400">Copiado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={12} />
+                              <span>Copiar</span>
+                            </>
+                          )}
+                        </button>
                       </div>
-                      <p className="text-xs font-editorial text-[#d4cfc7] mt-1 line-clamp-2 group-hover:text-[#fff] transition-colors leading-relaxed">
-                        {p.prompt}
-                      </p>
-                    </button>
-                  ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Indicador de Resposta / Pensando */}
+            {isBusy && (
+              <div className="flex items-center gap-3 animate-pulse">
+                <div className="w-8 h-8 rounded-xl overflow-hidden border border-amber-500/40 bg-slate-900/80 p-0.5 shrink-0">
+                  <img
+                    src="/images/solzinho/solzinho-smart.png"
+                    alt="Pensando..."
+                    className="w-full h-full object-contain animate-spin"
+                    style={{ animationDuration: "3s" }}
+                  />
+                </div>
+                <div className="p-3 rounded-2xl bg-slate-950/60 border border-white/10 flex items-center gap-2.5 text-xs font-mono text-emerald-400">
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Consultando dados e formulando análise...</span>
+                  <button
+                    type="button"
+                    onClick={() => stop()}
+                    className="ml-3 px-2 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 text-[10px] cursor-pointer"
+                  >
+                    Parar
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Fita Contínua da Conversa (Sem Bolhas) */}
-            {messages.map((m, idx) => {
-              const isUser = m.role === "user";
-              const isToolRunning = m.parts.some(
-                (p) =>
-                  p.type.startsWith("tool-") &&
-                  "state" in p &&
-                  p.state !== "output-available" &&
-                  p.state !== "output-error"
-              );
-              const text = m.parts
-                .filter((p) => p.type === "text")
-                .map((p) => (p as { text: string }).text)
-                .join("");
-
-              if (isUser) {
-                return (
-                  <article
-                    key={m.id}
-                    className="pt-6 pb-4 border-b border-[rgba(205,163,104,0.1)] relative"
-                  >
-                    <div className="flex items-center gap-2 mb-2 text-[10px] font-mono uppercase tracking-widest text-[#cda368]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#cda368]" />
-                      <span>Inquirição • {userName || "Usuário"}</span>
-                    </div>
-                    <div className="font-sans text-[15px] text-[#e0ded8] leading-relaxed font-normal whitespace-pre-wrap pl-3.5 border-l border-[rgba(205,163,104,0.3)]">
-                      {text}
-                    </div>
-                  </article>
-                );
-              }
-
-              return (
-                <article
-                  key={m.id}
-                  className="pt-2 pb-6 relative transition-all duration-300"
-                >
-                  <div className="flex items-center gap-2 mb-3 text-[10px] font-mono uppercase tracking-widest text-[#cda368]/90">
-                    <span className="text-[#cda368]">✦</span>
-                    <span>Parecer Atelier</span>
-                    <span className="text-[#6d6a63] font-normal">— Conect Pay Intelligence</span>
-                  </div>
-
-                  {isToolRunning && (
-                    <div className="my-3 py-2 px-3 rounded-lg border border-[rgba(205,163,104,0.2)] bg-[#121419] flex items-center gap-2.5 text-xs font-editorial italic text-[#cda368] animate-pulse">
-                      <Sparkles size={13} className="text-[#cda368]" />
-                      <span>Auditor em execução: consultando base de pagamentos e registros contábeis...</span>
-                    </div>
-                  )}
-
-                  <div className="pl-0 sm:pl-1">
-                    {text ? (
-                      <div className="relative">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={atelierMarkdownComponents}
-                        >
-                          {text}
-                        </ReactMarkdown>
-                        {isBusy && idx === messages.length - 1 && (
-                          <span className="atelier-caret" />
-                        )}
-                      </div>
-                    ) : !isToolRunning ? (
-                      isBusy && idx === messages.length - 1 ? (
-                        <div className="flex items-center gap-2 text-xs font-editorial italic py-2 text-[#a8a49c]">
-                          <span className="atelier-caret" />
-                          <span>Formulando análise documental...</span>
-                        </div>
-                      ) : (
-                        <div className="text-xs italic py-1 text-[#8c8880] font-editorial">
-                          Não foi possível extrair os dados desta consulta. Formule nova pergunta.
-                        </div>
-                      )
-                    ) : null}
-                  </div>
-                </article>
-              );
-            })}
-
-            {status === "submitted" && (
-              <div className="py-4 flex items-center gap-3 text-xs font-editorial italic text-[#cda368]">
-                <span className="atelier-caret" />
-                <span>Examinando registros financeiros e gerando parecer...</span>
-              </div>
-            )}
-
-            {error && (
-              <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-950/20 text-rose-200 text-xs font-mono">
-                ✦ Erro no processamento da consulta. Por favor, tente reformular a pergunta.
-              </div>
-            )}
-
-            {/* Espaço extra para a barra flutuante */}
-            <div className="h-28" />
             <div ref={endRef} />
           </div>
         </div>
 
-        {/* ========================================================
-            BARRA DE COMANDO FLUTUANTE (SLEEK HARDWARE CONSOLE)
-            ======================================================== */}
-        <div className="absolute bottom-6 inset-x-0 px-4 sm:px-8 z-30 pointer-events-none">
+        {/* ─── BARRA DE ENTRADA FLUTUANTE ─── */}
+        <div className="p-4 sm:p-5 shrink-0 bg-transparent">
           <form
             onSubmit={onSubmit}
-            className="max-w-3xl mx-auto pointer-events-auto rounded-2xl border border-[rgba(205,163,104,0.22)] bg-[#0d0e12]/92 backdrop-blur-2xl shadow-[0_16px_50px_rgba(0,0,0,0.85)] p-2 transition-all duration-300 focus-within:border-[rgba(205,163,104,0.5)] focus-within:shadow-[0_20px_60px_rgba(205,163,104,0.08)]"
+            className="max-w-3xl mx-auto relative rounded-2xl bg-slate-950/80 backdrop-blur-2xl border border-white/10 focus-within:border-emerald-500/50 shadow-[0_12px_40px_rgba(0,0,0,0.65)] transition-all"
           >
-            <div className="flex items-end gap-2 px-2 pt-1 pb-1">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKeyDown}
-                rows={1}
-                placeholder="Formule sua consulta sobre pagamentos, titulares ou despesas..."
-                className="flex-1 resize-none bg-transparent text-sm font-sans text-[#f4f1ea] placeholder-[#6e6b63] outline-none max-h-44 leading-relaxed py-1.5 px-1"
-              />
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Pergunte sobre pagamentos, titulares, despesas ou saldo Nubank..."
+              rows={1}
+              className="w-full resize-none bg-transparent px-4 py-3.5 pr-24 text-sm text-white placeholder-slate-500 focus:outline-none custom-scrollbar"
+              style={{ maxHeight: "120px" }}
+            />
+
+            <div className="absolute right-2.5 bottom-2.5 flex items-center gap-1.5">
+              {input && (
+                <button
+                  type="button"
+                  onClick={() => setInput("")}
+                  className="p-2 rounded-xl text-slate-500 hover:text-slate-300 hover:bg-white/5 transition-colors cursor-pointer"
+                  title="Limpar texto"
+                >
+                  <X size={14} />
+                </button>
+              )}
 
               {isBusy ? (
                 <button
                   type="button"
                   onClick={() => stop()}
+                  className="p-2.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 transition-all cursor-pointer"
                   title="Interromper geração"
-                  className="h-9 w-9 rounded-xl flex items-center justify-center bg-[#2d1215] border border-rose-500/40 text-rose-300 hover:bg-rose-900/60 transition-colors cursor-pointer shrink-0"
                 >
-                  <Square size={13} className="fill-current" />
+                  <Square size={14} />
                 </button>
               ) : (
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  title="Enviar consulta (Ctrl + Enter)"
-                  className="h-9 px-3.5 rounded-xl flex items-center gap-1.5 bg-[#cda368] hover:bg-[#dfb57a] text-[#090a0d] font-bold text-xs disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer shrink-0 shadow-md shadow-black/40"
+                  className="p-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold transition-all disabled:opacity-30 disabled:pointer-events-none shadow-md shadow-emerald-500/20 cursor-pointer active:scale-95"
+                  title="Enviar pergunta (Enter)"
                 >
-                  <span>Enviar</span>
-                  <ArrowRight size={13} strokeWidth={2.5} />
+                  <Send size={15} />
                 </button>
               )}
             </div>
 
-            {/* Barra de utilidades / hardware marks */}
-            <div className="flex items-center justify-between pt-2 px-2 border-t border-[rgba(205,163,104,0.08)] text-[10px] font-mono text-[#78756e]">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1 text-[#cda368]/80">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#cda368]" />
-                  <span>Atelier v1.8.1</span>
-                </span>
-                <span className="hidden sm:inline">•</span>
-                <span className="hidden sm:inline">IA Generativa Conectsol</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline bg-[#15171d] px-2 py-0.5 rounded border border-[rgba(205,163,104,0.12)] text-[#a39f97]">
-                  [ ⌘ / Ctrl + ↵ ]
-                </span>
-                {input.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setInput("")}
-                    className="hover:text-[#f4f1ea] transition-colors cursor-pointer"
-                  >
-                    limpar
-                  </button>
-                )}
-              </div>
+            <div className="px-4 pb-2 pt-0 flex items-center justify-between text-[10px] font-mono text-slate-500 border-t border-white/[0.04]">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+                <span>Super Solzinho v2.0 • IA Conectsol</span>
+              </span>
+              <span className="hidden sm:inline">Enter ↵ para enviar • Shift + Enter para nova linha</span>
             </div>
           </form>
         </div>
 
-      </main>
+      </div>
     </div>
   );
 }
