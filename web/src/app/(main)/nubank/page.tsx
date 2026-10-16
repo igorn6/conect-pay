@@ -26,6 +26,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import type { NubankSnapshot, NubankMovement } from "@/constants/nubank";
+import CountUp from "@/components/ui/CountUp";
+import SpotlightCard from "@/components/ui/SpotlightCard";
+import MagnetButton from "@/components/ui/MagnetButton";
+import ShinyBadge from "@/components/ui/ShinyBadge";
 
 export default function NubankCajuPage() {
   const router = useRouter();
@@ -261,23 +265,23 @@ export default function NubankCajuPage() {
   if (!isMaster && !isFinanceiro) return null;
 
   return (
-    <div className="flex-1 overflow-y-auto w-full p-4 md:p-6 custom-scrollbar" style={{ color: "var(--text-primary)" }}>
+    <div className="flex-1 overflow-y-auto w-full p-4 md:p-6 custom-scrollbar bg-transparent" style={{ color: "var(--text-primary)" }}>
       <div className="max-w-[1360px] mx-auto space-y-6">
         
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2 border-b" style={{ borderColor: "var(--surface-border)" }}>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">Nubank / Caju</h1>
-              <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#820AD1]/20 text-[#d8b4fe] border border-[#820AD1]/40">
+              <h1 className="text-2xl font-bold tracking-tight text-white">Nubank / Caju</h1>
+              <ShinyBadge variant="purple" size="sm">
                 Nubank 02 • Ativo
-              </span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+              </ShinyBadge>
+              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-900/60 text-slate-400 border border-white/10">
                 Caju • Em breve
               </span>
             </div>
-            <p className="text-sm mt-1" style={{ color: "var(--text-secondary)" }}>
-              Gestão de saldo corporativo, extrato de movimentações e recargas centralizadas.
+            <p className="text-xs text-slate-400 mt-1 font-mono">
+              Liquidação em tempo real, extrato bancário corporativo e recargas centralizadas.
             </p>
           </div>
 
@@ -285,11 +289,10 @@ export default function NubankCajuPage() {
             <button
               onClick={() => fetchBalance(false)}
               disabled={refreshing}
-              className="p-2.5 rounded-xl border transition-colors cursor-pointer hover:bg-white/5"
-              style={{ borderColor: "var(--surface-border)", color: "var(--text-muted)" }}
+              className="p-2.5 rounded-xl border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer backdrop-blur-md"
               title="Atualizar saldo e extrato"
             >
-              <RefreshCw size={16} className={refreshing ? "animate-spin text-[#c084fc]" : ""} />
+              <RefreshCw size={14} className={refreshing ? "animate-spin text-[#c084fc]" : ""} />
             </button>
 
             {isMaster && (
@@ -300,10 +303,9 @@ export default function NubankCajuPage() {
                   setAdjustReason("");
                   setIsAdjustModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all hover:bg-white/5 cursor-pointer"
-                style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer backdrop-blur-md"
               >
-                <SlidersHorizontal size={14} />
+                <SlidersHorizontal size={13} />
                 <span>Ajustar Saldo</span>
               </button>
             )}
@@ -315,49 +317,48 @@ export default function NubankCajuPage() {
                 setRefundDescription("");
                 setIsRefundModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all hover:bg-white/5 cursor-pointer"
-              style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer backdrop-blur-md"
             >
-              <Plus size={14} />
+              <Plus size={13} />
               <span>Registrar Reembolso</span>
             </button>
 
-            <button
+            <MagnetButton
               onClick={handleRequestRecharge}
               disabled={isRecharging}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-950/40 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95 disabled:opacity-50"
             >
               <Sparkles size={14} className="text-slate-950" />
-              <span>{isRecharging ? "Lançando..." : "⚡ Solicitar Recarga (R$ 1.500)"}</span>
-            </button>
+              <span>{isRecharging ? "Lançando..." : "⚡ Recarga (R$ 1.500)"}</span>
+            </MagnetButton>
           </div>
         </div>
 
         {/* ALERTA CRÍTICO: Saldo <= R$ 350 */}
         {isBalanceCritical && !loading && (
-          <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/40 backdrop-blur-xl shadow-[0_0_30px_rgba(245,158,11,0.2)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
             <div className="flex items-start gap-3.5">
-              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5">
-                <AlertTriangle size={24} className="animate-pulse" />
+              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 mt-0.5 border border-amber-500/30">
+                <AlertTriangle size={20} className="animate-pulse" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wide">
+                <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider">
                   Atenção: Saldo Nubank Atingiu o Limite Crítico ({formatBRL(currentBalance)})
                 </h3>
                 <p className="text-xs text-amber-200/90 leading-relaxed mt-0.5">
-                  O saldo está em R$ 350,00 ou menos. Solicite a recarga de R$ 1.500,00 para garantir que as baixas do Kanban continuem sendo liquidadas sem interrupções.
+                  O saldo está em R$ 350,00 ou menos. Solicite a recarga de R$ 1.500,00 para garantir liquidações contínuas no Kanban.
                 </p>
               </div>
             </div>
 
-            <button
+            <MagnetButton
               onClick={handleRequestRecharge}
               disabled={isRecharging}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs shadow-md shadow-amber-950/30 transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md shadow-amber-950/30 transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
             >
               <Sparkles size={14} />
-              <span>{isRecharging ? "Lançando..." : "Solicitar Recarga Imediata (R$ 1.500)"}</span>
-            </button>
+              <span>{isRecharging ? "Lançando..." : "Solicitar Recarga Imediata"}</span>
+            </MagnetButton>
           </div>
         )}
 
@@ -365,112 +366,119 @@ export default function NubankCajuPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           
           {/* Card 1: Saldo Principal Nubank */}
-          <div className="rounded-2xl p-6 relative overflow-hidden shadow-xl border bg-gradient-to-br from-slate-900 via-[#181126] to-slate-900 border-[#820AD1]/40 flex flex-col justify-between">
+          <SpotlightCard
+            spotlightColor="rgba(130, 10, 209, 0.25)"
+            className="rounded-2xl p-6 relative overflow-hidden shadow-2xl border border-[#820AD1]/40 bg-gradient-to-br from-slate-950 via-[#181126] to-slate-950 flex flex-col justify-between"
+          >
             <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-[#820AD1]/20 rounded-full blur-3xl pointer-events-none" />
             
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#d8b4fe]">
+                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#d8b4fe]">
                   Saldo em Conta Nubank
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-[#820AD1]/30 text-[#d8b4fe] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-[#820AD1]/30 border border-[#820AD1]/50 text-[#d8b4fe] flex items-center justify-center shadow-[0_0_12px_rgba(130,10,209,0.4)]">
                   <Wallet size={16} />
                 </div>
               </div>
 
               <div className="mt-3">
                 {loading ? (
-                  <div className="h-10 w-44 bg-slate-800 rounded animate-pulse" />
+                  <div className="h-10 w-44 bg-white/5 rounded animate-pulse" />
                 ) : (
-                  <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                    {formatBRL(currentBalance)}
+                  <div className="text-3xl sm:text-4xl font-mono font-black text-white tracking-tight flex items-baseline gap-1">
+                    <span className="text-2xl text-[#d8b4fe]/80 font-normal">R$</span>
+                    <CountUp value={currentBalance} decimals={2} />
                   </div>
                 )}
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 mt-1 font-mono">
                   Abatimento e liquidação automática atrelados ao Kanban.
                 </p>
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="pt-4 mt-4 border-t border-white/[0.08] flex items-center justify-between text-[11px] font-mono text-slate-400">
               <span>Trava anti-duplicidade: <strong className="text-emerald-400">Ativa</strong></span>
               {snapshot?.updatedAt && (
-                <span>Atualizado às {new Date(snapshot.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span>{new Date(snapshot.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
               )}
             </div>
-          </div>
+          </SpotlightCard>
 
           {/* Card 2: Total Entradas / Recargas */}
-          <div 
-            className="rounded-2xl p-6 shadow-sm border flex flex-col justify-between"
-            style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)" }}
+          <SpotlightCard
+            spotlightColor="rgba(16, 185, 129, 0.18)"
+            className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
                   Entradas / Recargas
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
                   <ArrowDownLeft size={16} />
                 </div>
               </div>
 
               <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-bold text-emerald-400">
-                  {formatBRL(totalEntradas)}
+                <div className="text-2xl sm:text-3xl font-mono font-bold text-emerald-400 flex items-baseline gap-1">
+                  <span className="text-xl text-emerald-400/80 font-normal">R$</span>
+                  <CountUp value={totalEntradas} decimals={2} />
                 </div>
-                <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
-                  Entradas de recargas aprovadas e reembolsos creditados.
+                <p className="text-[11px] text-slate-400 mt-1 font-mono">
+                  Recargas aprovadas e reembolsos creditados.
                 </p>
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t text-[11px]" style={{ borderColor: "var(--surface-border)", color: "var(--text-muted)" }}>
+            <div className="pt-4 mt-4 border-t border-white/[0.06] text-[11px] font-mono text-slate-500">
               <span>Conciliação histórica Nubank 02</span>
             </div>
-          </div>
+          </SpotlightCard>
 
           {/* Card 3: Total Saídas / Pagamentos */}
-          <div 
-            className="rounded-2xl p-6 shadow-sm border flex flex-col justify-between"
-            style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)" }}
+          <SpotlightCard
+            spotlightColor="rgba(244, 63, 94, 0.18)"
+            className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
           >
             <div>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--text-muted)" }}>
+                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
                   Saídas / Pagamentos
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-rose-500/15 text-rose-400 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center">
                   <ArrowUpRight size={16} />
                 </div>
               </div>
 
               <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-bold text-rose-400">
-                  {formatBRL(totalSaidas)}
+                <div className="text-2xl sm:text-3xl font-mono font-bold text-rose-400 flex items-baseline gap-1">
+                  <span className="text-xl text-rose-400/80 font-normal">R$</span>
+                  <CountUp value={totalSaidas} decimals={2} />
                 </div>
-                <p className="text-[11px] mt-1" style={{ color: "var(--text-muted)" }}>
-                  Total debitado por solicitações finalizadas na conta.
+                <p className="text-[11px] text-slate-400 mt-1 font-mono">
+                  Total debitado por solicitações liquidadas.
                 </p>
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t text-[11px]" style={{ borderColor: "var(--surface-border)", color: "var(--text-muted)" }}>
+            <div className="pt-4 mt-4 border-t border-white/[0.06] text-[11px] font-mono text-slate-500">
               <span>Total de saídas registradas</span>
             </div>
-          </div>
+          </SpotlightCard>
         </div>
 
         {/* Extrato Bancário Completo */}
         <div 
-          className="rounded-2xl border shadow-sm overflow-hidden"
-          style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)" }}
+          className="rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden bg-slate-950/60 backdrop-blur-xl"
         >
           {/* Header do Extrato com Filtros */}
-          <div className="p-4 sm:p-5 border-b flex flex-col md:flex-row items-start md:items-center justify-between gap-4" style={{ borderColor: "var(--surface-border)" }}>
+          <div className="p-4 sm:p-5 border-b border-white/[0.08] bg-white/[0.02] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold tracking-tight">Extrato de Movimentações Nubank</h2>
-              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+              <h2 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
+                <span>Extrato de Movimentações Nubank</span>
+              </h2>
+              <p className="text-xs mt-0.5 text-slate-400 font-mono">
                 Registro contínuo e auditável de cada débito e crédito realizado.
               </p>
             </div>
@@ -478,22 +486,17 @@ export default function NubankCajuPage() {
             {/* Controles de Filtro e Busca */}
             <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
               <div className="relative flex-1 md:w-56">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar no extrato..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs outline-none border transition-colors"
-                  style={{
-                    backgroundColor: "var(--bg-card)",
-                    borderColor: "var(--surface-border)",
-                    color: "var(--text-primary)",
-                  }}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none border border-white/10 bg-slate-900/80 text-white placeholder-slate-500 focus:border-white/20 transition-all font-mono"
                 />
               </div>
 
-              <div className="flex items-center gap-1 p-1 rounded-lg border" style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)" }}>
+              <div className="flex items-center gap-1 p-1 rounded-xl border border-white/10 bg-slate-900/80 backdrop-blur-md">
                 {(
                   [
                     { id: "ALL", label: "Todas" },
@@ -506,12 +509,11 @@ export default function NubankCajuPage() {
                   <button
                     key={tab.id}
                     onClick={() => setMovementFilter(tab.id)}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer"
-                    style={
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold transition-all cursor-pointer ${
                       movementFilter === tab.id
-                        ? { backgroundColor: "var(--surface-hover)", color: "var(--text-primary)" }
-                        : { color: "var(--text-muted)" }
-                    }
+                        ? "bg-white/10 text-white shadow-xs"
+                        : "text-slate-400 hover:text-slate-200"
+                    }`}
                   >
                     {tab.label}
                   </button>
@@ -524,7 +526,7 @@ export default function NubankCajuPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b text-[11px] uppercase tracking-wider font-mono font-semibold" style={{ borderColor: "var(--surface-border)", backgroundColor: "var(--surface-hover)", color: "var(--text-muted)" }}>
+                <tr className="border-b border-white/[0.08] text-[10px] uppercase tracking-wider font-mono font-bold bg-white/[0.03] text-slate-400">
                   <th className="px-5 py-3.5">Data / Hora</th>
                   <th className="px-4 py-3.5">Tipo</th>
                   <th className="px-4 py-3.5">Descrição / Motivo</th>
@@ -532,7 +534,7 @@ export default function NubankCajuPage() {
                   <th className="px-5 py-3.5 text-right">Saldo Resultante</th>
                 </tr>
               </thead>
-              <tbody className="divide-y" style={{ borderColor: "var(--surface-border)" }}>
+              <tbody className="divide-y divide-white/[0.06]">
                 {loading ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-xs" style={{ color: "var(--text-muted)" }}>

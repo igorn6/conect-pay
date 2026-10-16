@@ -1,26 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import { DashboardProvider, useDashboard } from "@/contexts/DashboardContext";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import DashboardKPIs from "@/components/dashboard/DashboardKPIs";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import DashboardSla from "@/components/dashboard/DashboardSla";
+import ShinyBadge from "@/components/ui/ShinyBadge";
+import { BarChart3, ShieldCheck } from "lucide-react";
 
 function DashboardContent() {
   const { startDate, endDate, selectedSectorId } = useDashboard();
   const { userId, userRole, sectorId } = useAuth();
-  
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       if (!userId || !userRole) return;
-      
+
       setLoading(true);
       try {
         const params = new URLSearchParams();
@@ -33,7 +33,7 @@ function DashboardContent() {
 
         const res = await fetch(`/api/dashboard?${params.toString()}`);
         if (!res.ok) throw new Error("Erro ao buscar dados do BI");
-        
+
         const json = await res.json();
         setData(json);
       } catch (err) {
@@ -47,45 +47,53 @@ function DashboardContent() {
   }, [userId, userRole, sectorId, selectedSectorId, startDate, endDate]);
 
   return (
-    <div className="flex-1 overflow-y-auto w-full">
-      <div className="max-w-[1400px] mx-auto p-4 md:p-6 w-full">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-white tracking-tight">Inteligência Financeira</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Visão geral de saídas, aprovações e categorias.
-          </p>
+    <div className="flex-1 overflow-y-auto w-full atelier-scrollbar">
+      <div className="max-w-[1440px] mx-auto p-4 md:p-8 w-full space-y-6">
+        
+        {/* Terminal Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/5">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                <BarChart3 size={20} />
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                Inteligência Financeira
+              </h1>
+              <ShinyBadge variant="emerald" className="hidden sm:inline-flex text-[10px]">
+                BI Operacional
+              </ShinyBadge>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 font-mono">
+              Consolidação analítica de saídas, aprovações, SLA e gargalos orçamentários.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Dados Sincronizados</span>
+          </div>
         </div>
 
         <DashboardFilters />
 
         {loading ? (
           <div className="flex flex-col gap-6 animate-pulse">
-            {/* Skeletons KPIs */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-slate-800/50 h-[140px] rounded-2xl border border-slate-700/50"></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="glass-panel h-[160px] rounded-2xl border border-white/10" />
               ))}
             </div>
-            {/* Skeletons SLA */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-slate-800/50 h-[140px] rounded-2xl border border-slate-700/50"></div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="glass-panel h-[130px] rounded-2xl border border-white/10" />
               ))}
             </div>
-            {/* Skeletons Charts Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="bg-slate-800/50 h-[380px] rounded-2xl border border-slate-700/50"></div>
-              {userRole === "MASTER" ? (
-                <>
-                  <div className="bg-slate-800/50 h-[380px] rounded-2xl border border-slate-700/50"></div>
-                  <div className="bg-slate-800/50 h-[380px] rounded-2xl border border-slate-700/50"></div>
-                </>
-              ) : (
-                <div className="bg-slate-800/50 h-[380px] rounded-2xl border border-slate-700/50 lg:col-span-2"></div>
-              )}
+              <div className="glass-panel h-[420px] rounded-2xl border border-white/10" />
+              <div className="glass-panel h-[420px] rounded-2xl border border-white/10" />
+              <div className="glass-panel h-[420px] rounded-2xl border border-white/10" />
             </div>
-            {/* Skeleton Area Chart */}
-            <div className="bg-slate-800/50 h-[400px] rounded-2xl border border-slate-700/50"></div>
           </div>
         ) : data ? (
           <>
@@ -94,8 +102,8 @@ function DashboardContent() {
             <DashboardCharts data={data} />
           </>
         ) : (
-          <div className="flex items-center justify-center h-40 text-slate-400">
-            Falha ao carregar dashboard.
+          <div className="flex items-center justify-center h-48 glass-panel rounded-2xl border border-white/10 text-slate-400 font-mono text-xs">
+            Falha ao carregar dashboard financeiro.
           </div>
         )}
       </div>
@@ -105,7 +113,7 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <div className="flex flex-col h-full bg-slate-900 text-slate-100 overflow-hidden">
+    <div className="flex flex-col h-full bg-transparent text-slate-100 overflow-hidden relative">
       <DashboardProvider>
         <DashboardContent />
       </DashboardProvider>

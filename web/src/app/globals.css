@@ -566,3 +566,45 @@ body {
   vertical-align: middle;
   animation: atelier-pulse-caret 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* ========================================================
+   RADICAL OVERDRIVE: LIQUID GLASS & FINTECH ATMOSPHERE
+   ======================================================== */
+@keyframes aurora-float {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(4vw, -3vh) scale(1.08); }
+  100% { transform: translate(-3vw, 4vh) scale(0.96); }
+}
+
+@keyframes aurora-float-reverse {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-4vw, 3vh) scale(1.06); }
+  100% { transform: translate(3vw, -2vh) scale(0.98); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.glass-panel {
+  background: rgba(15, 20, 32, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel-elevated {
+  background: rgba(18, 24, 38, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.terminal-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+

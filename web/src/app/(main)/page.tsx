@@ -177,7 +177,7 @@ export default function HubPage() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-950 p-6 md:p-10">
+    <div className="flex-1 overflow-y-auto bg-transparent custom-scrollbar p-6 md:p-10">
       <div className="max-w-5xl mx-auto space-y-8">
         <HubGreeting
           userName={userName}

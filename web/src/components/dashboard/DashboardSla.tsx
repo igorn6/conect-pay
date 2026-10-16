@@ -1,7 +1,9 @@
 "use client";
 
-import { Clock, Hourglass, CheckCircle2, ArrowRight } from "lucide-react";
+import { Clock, Hourglass, CheckCircle2, ArrowRight, Gauge } from "lucide-react";
 import type { DashboardSlaAverages } from "@/utils/sla";
+import SpotlightCard from "@/components/ui/SpotlightCard";
+import ShinyBadge from "@/components/ui/ShinyBadge";
 
 interface DashboardSlaProps {
   sla?: DashboardSlaAverages;
@@ -11,95 +13,117 @@ export default function DashboardSla({ sla }: DashboardSlaProps) {
   if (!sla) return null;
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Clock className="w-5 h-5 text-indigo-400" />
-          <h2 className="text-base font-semibold text-white tracking-wide">
-            Médias de SLA & Tempo de Atendimento
-          </h2>
+    <div className="mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <Gauge size={16} />
+          </div>
+          <div>
+            <h2 className="text-sm uppercase font-mono tracking-wider font-bold text-white">
+              Velocidade Operacional & SLA de Pagamentos
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Latência média e throughput por fase de governança
+            </p>
+          </div>
         </div>
-        <span className="text-xs text-slate-400">
-          Métricas calculadas com base nas transições de etapa
+        <span className="hidden sm:inline-block text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+          Tempo Real • Auditado
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Card 1: Nova Solicitação -> Pendente */}
-        <div className="bg-slate-800 p-6 rounded-2xl border border-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.08)] relative overflow-hidden group hover:border-indigo-500/40 transition-all">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-15 transition-opacity">
-            <Clock size={80} className="text-indigo-400" />
-          </div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
-              <Hourglass size={20} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        {/* Card 1: Triagem & Aprovação */}
+        <SpotlightCard
+          spotlightColor="rgba(99, 102, 241, 0.15)"
+          borderColor="rgba(99, 102, 241, 0.2)"
+          className="p-5 glass-panel-elevated relative group"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Hourglass size={16} className="text-indigo-400" />
+              <span className="text-xs font-semibold text-slate-300">Triagem Inicial</span>
             </div>
-            <div>
-              <h3 className="text-slate-300 font-medium text-sm flex items-center gap-1.5">
-                Nova Solicitação <ArrowRight className="w-3 h-3 text-slate-400" /> Pendente
-              </h3>
-              <p className="text-[11px] text-slate-400">Tempo de validação e triagem</p>
-            </div>
+            <ShinyBadge variant="purple" className="text-[10px]">
+              Nova ➔ Pendente
+            </ShinyBadge>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black text-white tracking-tight">
+
+          <div className="mt-2">
+            <p className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
               {sla.avgNovaToPendenteFormatted}
             </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Baseado em <strong className="text-slate-200">{sla.countNovaToPendente}</strong> {sla.countNovaToPendente === 1 ? "solicitação" : "solicitações"}
+            <p className="text-[11px] text-slate-400 mt-1 font-mono">
+              Amostra de <strong className="text-slate-200">{sla.countNovaToPendente}</strong> {sla.countNovaToPendente === 1 ? "solicitação" : "solicitações"}
             </p>
           </div>
-        </div>
 
-        {/* Card 2: Pendente -> Finalizado */}
-        <div className="bg-slate-800 p-6 rounded-2xl border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.08)] relative overflow-hidden group hover:border-emerald-500/40 transition-all">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-15 transition-opacity">
-            <CheckCircle2 size={80} className="text-emerald-400" />
+          <div className="mt-3 pt-2.5 border-t border-white/5 text-[10px] text-slate-400 font-mono">
+            Tempo gasto entre validação e envio ao financeiro
           </div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-500/10 rounded-lg text-emerald-400">
-              <CheckCircle2 size={20} />
+        </SpotlightCard>
+
+        {/* Card 2: Liquidação Financeira */}
+        <SpotlightCard
+          spotlightColor="rgba(16, 185, 129, 0.15)"
+          borderColor="rgba(16, 185, 129, 0.2)"
+          className="p-5 glass-panel-elevated relative group"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={16} className="text-emerald-400" />
+              <span className="text-xs font-semibold text-slate-300">Liquidação Bancária</span>
             </div>
-            <div>
-              <h3 className="text-slate-300 font-medium text-sm flex items-center gap-1.5">
-                Pendente <ArrowRight className="w-3 h-3 text-slate-400" /> Finalizado
-              </h3>
-              <p className="text-[11px] text-slate-400">Tempo do financeiro até o pagamento</p>
-            </div>
+            <ShinyBadge variant="emerald" className="text-[10px]">
+              Pendente ➔ Pago
+            </ShinyBadge>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black text-white tracking-tight">
+
+          <div className="mt-2">
+            <p className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
               {sla.avgPendenteToFinalizadoFormatted}
             </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Baseado em <strong className="text-slate-200">{sla.countPendenteToFinalizado}</strong> {sla.countPendenteToFinalizado === 1 ? "pagamento finalizado" : "pagamentos finalizados"}
+            <p className="text-[11px] text-slate-400 mt-1 font-mono">
+              Amostra de <strong className="text-slate-200">{sla.countPendenteToFinalizado}</strong> {sla.countPendenteToFinalizado === 1 ? "pagamento" : "pagamentos"}
             </p>
           </div>
-        </div>
 
-        {/* Card 3: Ciclo Total */}
-        <div className="bg-slate-800 p-6 rounded-2xl border border-sky-500/20 shadow-[0_0_15px_rgba(14,165,233,0.08)] relative overflow-hidden group hover:border-sky-500/40 transition-all">
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-15 transition-opacity">
-            <Clock size={80} className="text-sky-400" />
+          <div className="mt-3 pt-2.5 border-t border-white/5 text-[10px] text-slate-400 font-mono">
+            Tempo de baixa efetiva e comprovante
           </div>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-sky-500/10 rounded-lg text-sky-400">
-              <Clock size={20} />
+        </SpotlightCard>
+
+        {/* Card 3: Ciclo Completo */}
+        <SpotlightCard
+          spotlightColor="rgba(14, 165, 233, 0.15)"
+          borderColor="rgba(14, 165, 233, 0.2)"
+          className="p-5 glass-panel-elevated relative group"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Clock size={16} className="text-sky-400" />
+              <span className="text-xs font-semibold text-slate-300">Ciclo Total Médio</span>
             </div>
-            <div>
-              <h3 className="text-slate-300 font-medium text-sm">Ciclo Médio Total</h3>
-              <p className="text-[11px] text-slate-400">Desde a abertura até a liquidação</p>
-            </div>
+            <ShinyBadge variant="neutral" className="text-[10px]">
+              Lead Time
+            </ShinyBadge>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black text-white tracking-tight">
+
+          <div className="mt-2">
+            <p className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
               {sla.avgTotalCycleFormatted}
             </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Baseado em <strong className="text-slate-200">{sla.countTotalFinalizados}</strong> {sla.countTotalFinalizados === 1 ? "ciclo concluído" : "ciclos concluídos"}
+            <p className="text-[11px] text-slate-400 mt-1 font-mono">
+              Amostra de <strong className="text-slate-200">{sla.countTotalFinalizados}</strong> {sla.countTotalFinalizados === 1 ? "ciclo concluído" : "ciclos"}
             </p>
           </div>
-        </div>
+
+          <div className="mt-3 pt-2.5 border-t border-white/5 text-[10px] text-slate-400 font-mono">
+            Desde a inserção inicial até o encerramento do processo
+          </div>
+        </SpotlightCard>
       </div>
     </div>
   );

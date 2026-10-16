@@ -1,17 +1,28 @@
 "use client";
 
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  AreaChart, Area, Legend
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  AreaChart,
+  Area,
 } from "recharts";
-import { SearchX } from "lucide-react";
+import { SearchX, PieChart as PieIcon, TrendingUp, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import SpotlightCard from "@/components/ui/SpotlightCard";
+import ShinyBadge from "@/components/ui/ShinyBadge";
 
 const COLORS = [
-  "#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fb7185", 
-  "#f97316", "#fbbf24", "#34d399", "#2dd4bf", "#22d3ee", 
-  "#a78bfa", "#e879f9", "#4ade80", "#60a5fa", "#f87171", "#fb923c"
+  "#10b981", "#06b6d4", "#6366f1", "#f59e0b", "#ec4899",
+  "#3b82f6", "#14b8a6", "#8b5cf6", "#f97316", "#84cc16",
+  "#a855f7", "#e11d48", "#10b981", "#38bdf8", "#fbbf24", "#fb7185",
 ];
 
 interface ChartData {
@@ -23,13 +34,13 @@ interface ChartData {
 
 export default function DashboardCharts({ data }: { data: ChartData }) {
   const { userRole } = useAuth();
-  
+
   if (data.gastosPorCategoria.length === 0 && data.tendenciaDiaria.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-        <SearchX size={64} className="text-slate-500 mb-4" />
-        <h2 className="text-xl font-semibold text-slate-300">Nenhuma movimentação financeira</h2>
-        <p className="text-slate-500 mt-2">Não há dados finalizados para o período e filtros selecionados.</p>
+      <div className="flex flex-col items-center justify-center py-20 glass-panel rounded-2xl border border-white/10">
+        <SearchX size={64} className="text-slate-500 mb-4 opacity-50" />
+        <h2 className="text-lg font-bold font-mono text-slate-300">Nenhuma movimentação financeira</h2>
+        <p className="text-xs text-slate-500 mt-1 font-mono">Não há dados finalizados para o período e filtros selecionados.</p>
       </div>
     );
   }
@@ -45,9 +56,9 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
     if (active && payload && payload.length) {
       const item = payload[0];
       return (
-        <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-700 p-3 rounded-xl shadow-2xl text-xs">
-          <p className="font-bold text-slate-200 mb-1">{item.name}</p>
-          <p className="font-extrabold text-brand-primary text-sm">{formatCurrency(item.value)}</p>
+        <div className="bg-slate-950/95 backdrop-blur-md border border-white/15 p-3 rounded-xl shadow-2xl text-xs font-mono">
+          <p className="font-semibold text-slate-300 mb-1">{item.name}</p>
+          <p className="font-black text-emerald-400 text-sm">{formatCurrency(item.value)}</p>
         </div>
       );
     }
@@ -58,9 +69,9 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
       return (
-        <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-700 p-3 rounded-xl shadow-2xl text-xs">
-          <p className="font-bold text-slate-400 mb-1">{item.fullDate || item.date}</p>
-          <p className="font-extrabold text-emerald-400 text-sm">{formatCurrency(item.value)}</p>
+        <div className="bg-slate-950/95 backdrop-blur-md border border-emerald-500/30 p-3 rounded-xl shadow-2xl text-xs font-mono">
+          <p className="font-semibold text-slate-400 mb-1">{item.fullDate || item.date}</p>
+          <p className="font-black text-emerald-400 text-sm">{formatCurrency(item.value)}</p>
         </div>
       );
     }
@@ -72,10 +83,21 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Gastos por Categoria */}
-        <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-sm flex flex-col min-h-[460px]">
+        <SpotlightCard
+          spotlightColor="rgba(16, 185, 129, 0.12)"
+          borderColor="rgba(255, 255, 255, 0.1)"
+          className="p-6 glass-panel-elevated flex flex-col min-h-[470px]"
+        >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Gastos por Categoria</h3>
-            <span className="text-xs text-slate-500 font-medium">{data.gastosPorCategoria.length} categorias</span>
+            <div className="flex items-center gap-2">
+              <PieIcon size={16} className="text-emerald-400" />
+              <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
+                Gastos por Categoria
+              </h3>
+            </div>
+            <ShinyBadge variant="emerald" className="text-[10px]">
+              {data.gastosPorCategoria.length} categorias
+            </ShinyBadge>
           </div>
 
           {/* Gráfico Donut */}
@@ -100,32 +122,48 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
           </div>
 
           {/* Lista Scrollável de Categorias */}
-          <div className="flex-1 overflow-y-auto max-h-[190px] pr-1 mt-2 space-y-2 border-t border-slate-700/60 pt-3">
+          <div className="flex-1 overflow-y-auto max-h-[190px] pr-1 mt-2 space-y-1.5 border-t border-white/5 pt-3 atelier-scrollbar">
             {data.gastosPorCategoria.map((cat, i) => {
               const color = COLORS[i % COLORS.length];
               const pct = Math.round((cat.value / totalCategorias) * 100);
               return (
-                <div key={i} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/40 transition-colors">
+                <div
+                  key={i}
+                  className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors font-mono"
+                >
                   <div className="flex items-center gap-2 min-w-0 pr-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <span className="text-slate-200 truncate font-medium" title={cat.name}>{cat.name}</span>
+                    <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: color }} />
+                    <span className="text-slate-200 truncate font-medium text-[11px]" title={cat.name}>
+                      {cat.name}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-slate-400 font-mono text-[11px]">{pct}%</span>
-                    <span className="text-white font-bold">{formatCurrency(cat.value)}</span>
+                    <span className="text-slate-400 text-[10px]">{pct}%</span>
+                    <span className="text-white font-bold tabular-nums text-[11px]">{formatCurrency(cat.value)}</span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* Gastos por Setor (Master Only) */}
         {userRole === "MASTER" ? (
-          <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-sm flex flex-col min-h-[460px]">
+          <SpotlightCard
+            spotlightColor="rgba(6, 182, 212, 0.12)"
+            borderColor="rgba(255, 255, 255, 0.1)"
+            className="p-6 glass-panel-elevated flex flex-col min-h-[470px]"
+          >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Gastos por Setor</h3>
-              <span className="text-xs text-slate-500 font-medium">{data.gastosPorSetor.length} setores</span>
+              <div className="flex items-center gap-2">
+                <PieIcon size={16} className="text-cyan-400" />
+                <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
+                  Gastos por Setor
+                </h3>
+              </div>
+              <ShinyBadge variant="purple" className="text-[10px]">
+                {data.gastosPorSetor.length} setores
+              </ShinyBadge>
             </div>
 
             {/* Gráfico Donut Setores */}
@@ -150,43 +188,66 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
             </div>
 
             {/* Lista Scrollável de Setores */}
-            <div className="flex-1 overflow-y-auto max-h-[190px] pr-1 mt-2 space-y-2 border-t border-slate-700/60 pt-3">
+            <div className="flex-1 overflow-y-auto max-h-[190px] pr-1 mt-2 space-y-1.5 border-t border-white/5 pt-3 atelier-scrollbar">
               {data.gastosPorSetor.map((sec, i) => {
                 const color = COLORS[(i + 3) % COLORS.length];
                 const pct = Math.round((sec.value / totalSetores) * 100);
                 return (
-                  <div key={i} className="flex items-center justify-between text-xs py-1 px-1.5 rounded-lg hover:bg-slate-700/40 transition-colors">
+                  <div
+                    key={i}
+                    className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-white/5 transition-colors font-mono"
+                  >
                     <div className="flex items-center gap-2 min-w-0 pr-2">
-                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-slate-200 truncate font-medium" title={sec.name}>{sec.name}</span>
+                      <span className="w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: color }} />
+                      <span className="text-slate-200 truncate font-medium text-[11px]" title={sec.name}>
+                        {sec.name}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-slate-400 font-mono text-[11px]">{pct}%</span>
-                      <span className="text-white font-bold">{formatCurrency(sec.value)}</span>
+                      <span className="text-slate-400 text-[10px]">{pct}%</span>
+                      <span className="text-white font-bold tabular-nums text-[11px]">{formatCurrency(sec.value)}</span>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </SpotlightCard>
         ) : null}
 
         {/* Top Solicitantes */}
-        <div className={`bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-sm flex flex-col min-h-[460px] ${userRole !== 'MASTER' ? 'lg:col-span-2' : ''}`}>
-          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Top Solicitantes</h3>
-          <div className="flex-1 flex flex-col gap-4 overflow-y-auto pr-2">
+        <SpotlightCard
+          spotlightColor="rgba(99, 102, 241, 0.12)"
+          borderColor="rgba(255, 255, 255, 0.1)"
+          className={`p-6 glass-panel-elevated flex flex-col min-h-[470px] ${userRole !== "MASTER" ? "lg:col-span-2" : ""}`}
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users size={16} className="text-indigo-400" />
+              <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
+                Maiores Solicitantes
+              </h3>
+            </div>
+            <span className="text-[10px] font-mono text-slate-400">Classificação por volume</span>
+          </div>
+
+          <div className="flex-1 flex flex-col gap-3.5 overflow-y-auto pr-1 atelier-scrollbar">
             {data.topSolicitantes.map((req, i) => {
               const max = data.topSolicitantes[0]?.value || 1;
               const percent = Math.round((req.value / max) * 100);
               return (
-                <div key={i} className="flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium text-slate-200 truncate pr-2">{req.name}</span>
-                    <span className="font-bold text-brand-primary">{formatCurrency(req.value)}</span>
+                <div key={i} className="flex flex-col gap-1.5 p-2 rounded-xl hover:bg-white/5 transition-colors">
+                  <div className="flex justify-between items-center text-xs font-mono">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="w-5 h-5 rounded-md bg-white/5 border border-white/10 flex items-center justify-center text-[10px] font-bold text-slate-300">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <span className="font-medium text-slate-200 truncate pr-2">{req.name}</span>
+                    </div>
+                    <span className="font-bold tabular-nums text-emerald-400">{formatCurrency(req.value)}</span>
                   </div>
-                  <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="bg-brand-primary h-full rounded-full transition-all duration-1000" 
+                  <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-1000"
                       style={{ width: `${percent}%` }}
                     />
                   </div>
@@ -194,34 +255,58 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
               );
             })}
           </div>
-        </div>
-
+        </SpotlightCard>
       </div>
 
       {/* Tendência Diária */}
-      <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-sm flex flex-col h-[400px]">
+      <SpotlightCard
+        spotlightColor="rgba(16, 185, 129, 0.15)"
+        borderColor="rgba(255, 255, 255, 0.12)"
+        className="p-6 glass-panel-elevated flex flex-col h-[420px]"
+      >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Tendência de Saídas (Período)</h3>
-          <span className="text-xs text-slate-500 font-medium">Ordem cronológica por data</span>
+          <div className="flex items-center gap-2">
+            <TrendingUp size={16} className="text-emerald-400" />
+            <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
+              Série Temporal de Liquidações
+            </h3>
+          </div>
+          <span className="text-[10px] font-mono text-slate-400">Curva diária consolidada</span>
         </div>
         <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data.tendenciaDiaria} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
               <defs>
-                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                <linearGradient id="colorValueOverdrive" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-              <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} dx={-10} tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`} />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+              <XAxis dataKey="date" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} dy={10} fontStyle="mono" />
+              <YAxis
+                stroke="#64748b"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                dx={-10}
+                tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
+                fontStyle="mono"
+              />
               <Tooltip content={<CustomTrendTooltip />} />
-              <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#10b981"
+                strokeWidth={3}
+                fillOpacity={1}
+                fill="url(#colorValueOverdrive)"
+                activeDot={{ r: 6, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </SpotlightCard>
     </div>
   );
 }

@@ -45,23 +45,23 @@ export default function KanbanBoard({
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* Kanban Header / Actions */}
-      <div className="flex items-center justify-end gap-2 px-6 py-2 shrink-0">
+      <div className="flex items-center justify-end gap-2.5 px-6 py-2 shrink-0">
         {emptyCount > 0 && (
           <button
             onClick={() => setHideEmpty((v) => !v)}
             title={hideEmpty ? "Mostrar colunas sem solicitações" : "Ocultar colunas sem solicitações"}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-800/50 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors border border-gray-800"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-900/60 hover:bg-slate-800/80 text-slate-300 hover:text-white transition-all border border-white/10 hover:border-white/20 shadow-xs backdrop-blur-md cursor-pointer"
           >
-            {hideEmpty ? <Eye size={14} /> : <EyeOff size={14} />}
-            {hideEmpty ? `Mostrar colunas vazias (${emptyCount})` : `Ocultar colunas vazias (${emptyCount})`}
+            {hideEmpty ? <Eye size={13} className="text-emerald-400" /> : <EyeOff size={13} className="text-slate-400" />}
+            <span>{hideEmpty ? `Colunas vazias (${emptyCount})` : `Ocultar vazias (${emptyCount})`}</span>
           </button>
         )}
         <button
           onClick={onOpenTrash}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-800/50 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors border border-gray-800"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl bg-slate-900/60 hover:bg-rose-950/40 text-slate-300 hover:text-rose-300 transition-all border border-white/10 hover:border-rose-500/30 shadow-xs backdrop-blur-md cursor-pointer"
         >
-          <Trash2 size={14} />
-          Lixeira
+          <Trash2 size={13} className="text-rose-400" />
+          <span>Lixeira</span>
         </button>
       </div>
 

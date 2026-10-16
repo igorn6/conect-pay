@@ -11,9 +11,10 @@ import { supabase } from "@/lib/supabase";
 import type { PaymentRequest, Category } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Plus, Filter, Calendar, Tag, User, X } from "lucide-react";
+import { Plus, Filter, Calendar, Tag, User, X, Layers, TrendingUp } from "lucide-react";
 import { computeNextStageHistory } from "@/utils/sla";
 import { syncNubankBalance } from "@/lib/nubankClient";
+import MagnetButton from "@/components/ui/MagnetButton";
 
 export default function KanbanPage() {
   const { userRole, userId, userName: simulatedUserName, sectorId } = useAuth();
@@ -361,18 +362,23 @@ export default function KanbanPage() {
     }
   };
 
+  const totalPipelineVolume = cards.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+
   return (
-    <div className="flex flex-col h-full min-h-0 bg-slate-950">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b border-slate-800 bg-slate-900 shrink-0">
+    <div className="flex flex-col h-full min-h-0 bg-transparent">
+      {/* ─── Control Bar / Telemetry HUD ────────────────── */}
+      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 border-b border-white/[0.08] bg-slate-950/40 backdrop-blur-xl shrink-0 z-10 shadow-sm">
         
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg border border-slate-700">
-            <Calendar size={16} className="text-slate-400" />
+        {/* Left: Filters */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Calendar Month Filter */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
+            <Calendar size={14} className="text-slate-400" />
             <input 
               type="month" 
               value={filterMonth}
               onChange={(e) => setFilterMonth(e.target.value)}
-              className="bg-transparent text-sm text-white outline-none border-none focus:ring-0 w-44 min-w-[140px]"
+              className="bg-transparent text-xs text-white outline-none border-none focus:ring-0 w-36 cursor-pointer"
               title={filterMonth ? "Filtrando por mês específico" : "Todo o período (sem filtro de mês)"}
             />
             {filterMonth && (
@@ -380,57 +386,67 @@ export default function KanbanPage() {
                 type="button"
                 onClick={() => setFilterMonth("")}
                 title="Limpar e ver todo o período"
-                className="flex items-center gap-1 px-1.5 py-0.5 text-xs text-slate-300 hover:text-white bg-slate-700 hover:bg-slate-600 rounded transition-colors cursor-pointer"
+                className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition-colors cursor-pointer"
               >
-                <X size={12} />
-                <span className="text-[11px]">Todos</span>
+                <X size={10} />
+                <span>Todos</span>
               </button>
             )}
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg border border-slate-700">
-            <Tag size={16} className="text-slate-400" />
+          {/* Category Select */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
+            <Tag size={14} className="text-slate-400" />
             <select
               value={filterCategoryId}
               onChange={(e) => setFilterCategoryId(e.target.value)}
-              className="bg-transparent text-sm text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[120px] cursor-pointer appearance-none"
+              className="bg-transparent text-xs text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[130px] cursor-pointer appearance-none"
             >
-              <option value="" className="bg-slate-800">Todas Categorias</option>
+              <option value="" className="bg-slate-900 text-slate-300">Todas Categorias</option>
               {categories.map(c => (
-                <option key={c.id} value={c.id} className="bg-slate-800">{c.name}</option>
+                <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.name}</option>
               ))}
             </select>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800 rounded-lg border border-slate-700">
-            <User size={16} className="text-slate-400" />
+          {/* Requester Select */}
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
+            <User size={14} className="text-slate-400" />
             <select
               value={filterRequesterId}
               onChange={(e) => setFilterRequesterId(e.target.value)}
-              className="bg-transparent text-sm text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[120px] cursor-pointer appearance-none"
+              className="bg-transparent text-xs text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[130px] cursor-pointer appearance-none"
             >
-              <option value="" className="bg-slate-800">Todos Solicitantes</option>
+              <option value="" className="bg-slate-900 text-slate-300">Todos Solicitantes</option>
               {Object.entries(profilesMap).map(([id, name]) => (
-                <option key={id} value={id} className="bg-slate-800">{name}</option>
+                <option key={id} value={id} className="bg-slate-900 text-white">{name}</option>
               ))}
             </select>
           </div>
         </div>
 
-        <div className="w-full md:w-auto">
-          <button
+        {/* Right: Financial Pipeline Metrics & Nova Solicitação */}
+        <div className="flex items-center justify-between lg:justify-end gap-3 flex-wrap">
+          {/* Telemetry Capsule */}
+          <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 backdrop-blur-md">
+            <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+              <Layers size={13} className="text-emerald-400" />
+              <span>Pipeline: <strong className="font-mono text-white font-semibold">{cards.length}</strong></span>
+            </div>
+            <div className="w-px h-3.5 bg-white/10" />
+            <div className="flex items-center gap-1.5 text-slate-400 text-xs">
+              <TrendingUp size={13} className="text-emerald-400" />
+              <span>Volume: <strong className="font-mono text-emerald-400 font-bold">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalPipelineVolume)}</strong></span>
+            </div>
+          </div>
+
+          <MagnetButton
             onClick={() => setIsModalOpen(true)}
-            className={`flex items-center justify-center w-full md:w-auto gap-2 px-5 py-2.5 text-sm font-semibold cursor-pointer shadow-md transition-all active:scale-95 text-white border-none ${
-                theme === 'authkit'
-                  ? 'bg-[#663af3] hover:opacity-90 rounded-full shadow-[0_0_20px_rgba(102,58,243,0.4)]'
-                  : theme === 'n8n'
-                  ? 'bg-[image:var(--gradient-ember-cta)] shadow-[0_0_15px_rgba(253,137,37,0.4)] rounded-lg'
-                  : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20 rounded-lg'
-              }`}
+            className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
           >
-            <Plus size={18} strokeWidth={2.5} />
-            Nova Solicitação
-          </button>
+            <Plus size={15} strokeWidth={3} />
+            <span>Nova Solicitação</span>
+          </MagnetButton>
         </div>
 
       </div>

@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T10:44:40.000Z",
+  "title": "Design System: Conect Pay",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Ember Scorch",
+        "canonical": "#ff492c",
+        "tonalRamp": ["#360802", "#631005", "#9e1d0c", "#d9311a", "#ff492c", "#ff725c", "#ffa091", "#ffd2cb"]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Ember Flare",
+        "canonical": "#fd8925",
+        "tonalRamp": ["#3d1a03", "#6e3108", "#aa4e10", "#e06c19", "#fd8925", "#fea353", "#ffc388", "#ffe4c7"]
+      },
+      "void-base": {
+        "role": "neutral",
+        "displayName": "Void Violet Base",
+        "canonical": "#0e0918",
+        "tonalRamp": ["#07040c", "#0e0918", "#181224", "#251c36", "#35294c", "#473865", "#5c4a82", "#7560a2"]
+      },
+      "elevated-surface": {
+        "role": "neutral",
+        "displayName": "Elevated Surface",
+        "canonical": "#1a1624",
+        "tonalRamp": ["#0c0a12", "#1a1624", "#262134", "#352e47", "#473e5e", "#5c5177", "#746794", "#8f82b3"]
+      },
+      "deep-panel": {
+        "role": "neutral",
+        "displayName": "Deep Panel",
+        "canonical": "#1b1728",
+        "tonalRamp": ["#0c0a13", "#1b1728", "#28233a", "#38314f", "#4b4268", "#605584", "#786ca3", "#9487c4"]
+      },
+      "border-smoke": {
+        "role": "neutral",
+        "displayName": "Border Smoke",
+        "canonical": "#3e3a46",
+        "tonalRamp": ["#141317", "#232128", "#3e3a46", "#55505f", "#6f697b", "#8a8398", "#a7a0b6", "#c7c1d5"]
+      },
+      "ash-text": {
+        "role": "neutral",
+        "displayName": "Ash Text",
+        "canonical": "#d1cece",
+        "tonalRamp": ["#313030", "#4d4b4b", "#6c6a6a", "#8e8b8b", "#b2b0b0", "#d1cece", "#e6e5e5", "#f7f7f7"]
+      },
+      "fog-text": {
+        "role": "neutral",
+        "displayName": "Fog Text",
+        "canonical": "#9d9797",
+        "tonalRamp": ["#252323", "#3e3b3b", "#5b5757", "#7a7474", "#9d9797", "#b7b2b2", "#d2cece", "#eeebeb"]
+      },
+      "cloud-white": {
+        "role": "neutral",
+        "displayName": "Cloud White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#404040", "#666666", "#8c8c8c", "#b3b3b3", "#d9d9d9", "#f2f2f2", "#fafafa", "#ffffff"]
+      },
+      "status-nova": {
+        "role": "secondary",
+        "displayName": "Status Nova Solicitação",
+        "canonical": "#6c5ce7",
+        "tonalRamp": ["#1d1547", "#2f2273", "#4533a6", "#5a44d8", "#6c5ce7", "#8b7ef0", "#aca2f5", "#d2ccfa"]
+      },
+      "status-aprovacao": {
+        "role": "secondary",
+        "displayName": "Status Em Aprovação",
+        "canonical": "#f0a500",
+        "tonalRamp": ["#3d2a00", "#694900", "#996b00", "#c78b00", "#f0a500", "#f5be42", "#fad67d", "#fdebbf"]
+      },
+      "status-notinha": {
+        "role": "secondary",
+        "displayName": "Status Aguardando Pagamento",
+        "canonical": "#00b4d8",
+        "tonalRamp": ["#002d36", "#004f5f", "#00788f", "#009bb8", "#00b4d8", "#33c5e2", "#70d7eb", "#b2ebf5"]
+      },
+      "status-finalizado": {
+        "role": "secondary",
+        "displayName": "Status Finalizado",
+        "canonical": "#10b981",
+        "tonalRamp": ["#042e20", "#085239", "#0b7d57", "#0e9d6d", "#10b981", "#41c99c", "#78dcba", "#b6f0dd"]
+      },
+      "status-recusado": {
+        "role": "secondary",
+        "displayName": "Status Recusado",
+        "canonical": "#ef4444",
+        "tonalRamp": ["#3b1111", "#661e1e", "#992c2c", "#cc3b3b", "#ef4444", "#f46e6e", "#f79e9e", "#fbcece"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Grandes números de saldos, totais consolidados e títulos de visão geral do Hub." },
+      "headline": { "displayName": "Headline", "purpose": "Títulos de colunas do Kanban, modais principais e relatórios." },
+      "title": { "displayName": "Title", "purpose": "Títulos de cartões, identificadores de fornecedor e grupos." },
+      "body": { "displayName": "Body", "purpose": "Descrições de pagamento, observações e logs de auditoria." },
+      "label": { "displayName": "Label", "purpose": "Badges de status, métodos de pagamento e timestamps operacionais." }
+    },
+    "shadows": [
+      { "name": "card-rest", "value": "0 2px 8px rgba(0, 0, 0, 0.3)", "purpose": "Elevação em repouso dos cards sobre as colunas do Kanban." },
+      { "name": "card-lifted", "value": "0 12px 28px rgba(0, 0, 0, 0.5), 0 0 0 1px #3e3a46", "purpose": "Elevação pronunciada durante arrasto de card ou foco ativo." },
+      { "name": "ember-glow", "value": "0 0 20px rgba(253, 137, 37, 0.25)", "purpose": "Brilho térmico difuso sob botões primários e ações decisivas." }
+    ],
+    "motion": [
+      { "name": "transition-base", "value": "200ms cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Transição padrão para hovers, cliques e micro-interações." },
+      { "name": "transition-board", "value": "300ms cubic-bezier(0.2, 0.8, 0.2, 1)", "purpose": "Movimentação fluida de colunas e transição de cards." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Action Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Botão de ação primária com gradiente cinético Ember e foco térmico.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 12h14\"/><path d=\"m12 5 7 7-7 7\"/></svg><span>Avançar Solicitação</span></button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(30deg, rgb(253, 137, 37), rgb(255, 12, 0)); color: #ffffff; padding: 8px 16px; font-size: 14px; font-weight: 500; font-family: var(--font-geist-sans), 'Inter', system-ui, sans-serif; border: none; border-radius: 6px; cursor: pointer; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1); outline: none; } .ds-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 16px rgba(253, 137, 37, 0.35); } .ds-btn-primary:focus-visible { box-shadow: 0 0 0 2px #0e0918, 0 0 0 4px #fd8925; } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Secondary Panel Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Botão neutro para cancelamento, filtros ou ações auxiliares.",
+      "html": "<button class=\"ds-btn-secondary\"><span>Filtrar Esteira</span></button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #1a1624; color: #d1cece; padding: 8px 16px; font-size: 14px; font-weight: 500; font-family: var(--font-geist-sans), 'Inter', system-ui, sans-serif; border: 1px solid #3e3a46; border-radius: 6px; cursor: pointer; transition: background 200ms cubic-bezier(0.4, 0, 0.2, 1), color 200ms cubic-bezier(0.4, 0, 0.2, 1); outline: none; } .ds-btn-secondary:hover { background: #2c2834; color: #ffffff; border-color: #55505f; } .ds-btn-secondary:focus-visible { border-color: #6c5ce7; box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.25); }"
+    },
+    {
+      "name": "Kanban Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Cartão de requisição de pagamento com metadados, valor e método.",
+      "html": "<div class=\"ds-kanban-card\"><div class=\"ds-card-header\"><span class=\"ds-badge-pix\">PIX</span><span class=\"ds-card-id\">#1048</span></div><div class=\"ds-card-title\">Fornecedor Conect Soluções</div><div class=\"ds-card-amount\">R$ 4.850,00</div><div class=\"ds-card-footer\"><span>Engenharia</span><span class=\"ds-card-time\">Há 2h</span></div></div>",
+      "css": ".ds-kanban-card { background: #1a1624; border: 1px solid #3e3a46; border-radius: 10px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); font-family: var(--font-geist-sans), 'Inter', system-ui, sans-serif; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; } .ds-kanban-card:hover { transform: translateY(-2px); border-color: #55505f; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); } .ds-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; } .ds-badge-pix { background: rgba(0, 180, 216, 0.15); color: #00b4d8; border: 1px solid rgba(0, 180, 216, 0.3); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; } .ds-card-id { color: #9d9797; font-size: 12px; font-family: monospace; } .ds-card-title { color: #d1cece; font-size: 14px; font-weight: 500; margin-bottom: 6px; } .ds-card-amount { color: #ffffff; font-size: 18px; font-weight: 600; font-feature-settings: 'tnum'; margin-bottom: 12px; } .ds-card-footer { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #9d9797; border-top: 1px solid #282434; padding-top: 8px; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "status-chip",
+      "description": "Tag semântica compacta para status do fluxo de liquidação.",
+      "html": "<span class=\"ds-status-chip ds-status-aprovacao\"><span class=\"ds-status-dot\"></span><span>Em Aprovação</span></span>",
+      "css": ".ds-status-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px; font-weight: 500; font-family: var(--font-geist-sans), 'Inter', system-ui, sans-serif; border-radius: 6px; } .ds-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-status-aprovacao { background: rgba(240, 165, 0, 0.12); color: #f0a500; border: 1px solid rgba(240, 165, 0, 0.25); } .ds-status-finalizado { background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); } .ds-status-recusado { background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); }"
+    },
+    {
+      "name": "Console Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo de entrada estilizado para console de dados escuro.",
+      "html": "<div class=\"ds-input-group\"><label class=\"ds-input-label\">Chave Pix</label><input type=\"text\" class=\"ds-input\" placeholder=\"ex: financeiro@conectsol.com.br\" /></div>",
+      "css": ".ds-input-group { display: flex; flex-direction: column; gap: 6px; font-family: var(--font-geist-sans), 'Inter', system-ui, sans-serif; } .ds-input-label { color: #9d9797; font-size: 12px; font-weight: 500; } .ds-input { background: #0e0918; border: 1px solid #3e3a46; border-radius: 6px; color: #d1cece; padding: 8px 12px; font-size: 14px; outline: none; transition: border-color 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-input:focus { border-color: #6c5ce7; box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.2); color: #ffffff; } .ds-input::placeholder { color: #6f697b; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Financial Engine",
+    "overview": "O Conect Pay é concebido como um motor financeiro de infraestrutura crítica: uma esteira de liquidação ágil, técnica e de alta confiabilidade operacional. Em vez de se comportar como uma planilha fria ou um SaaS burocrático genérico, a interface evoca a sensação de um console de automação e controle em tempo real, onde cada requisição, etapa de aprovação e fluxo monetário é monitorado com precisão cirúrgica.\n\nA paleta ancora-se no vazio violeta escuro (#0e0918), estabelecendo uma base sem brilhos ofuscantes que reduz a fadiga de operadores contábeis e financeiros em jornadas prolongadas. A profundidade é articulada por estratificação tonal deliberada: cartões e painéis modulares (#1a1624 e #1b1728) emergem do fundo através de finas linhas de delimitação fumê (#3e3a46), e acentos de alta energia como o gradiente Ember (#fd8925 → #ff0c00) e correntes elétricas azuis são estritamente reservados para sinalizar dados em trânsito, focos de atenção e ações decisivas.",
+    "keyCharacteristics": [
+      "Atmosfera de Console Técnico: Superfícies escuras profundas com contraste tipográfico intencional, sem recorrer ao preto absoluto puro.",
+      "Hierarquia por Densidade Operacional: Informações financeiras complexas organizadas com espaçamento ritmado e escaneabilidade instantânea.",
+      "Energia Cromática Funcional: O calor do gradiente Ember é um gatilho de ação, não decoração passiva."
+    ],
+    "rules": [
+      {
+        "name": "The Ember Scarcity Rule",
+        "body": "O gradiente Ember é estritamente limitado à ação principal da tela ou etapa de avanço decisivo (máximo 1 instância proeminente visível por viewport). Sua autoridade visual depende da sua raridade.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Pure Black Rule",
+        "body": "Nunca utilize #000000 como plano de fundo. O sistema deve sempre respirar no tom tecnológico enriquecido de #0e0918 para manter o calor dos painéis.",
+        "section": "colors"
+      },
+      {
+        "name": "The Financial Precision Rule",
+        "body": "Todo valor monetário (R$) e código identificador deve ser renderizado com alinhamento tabular (tabular-nums) e peso visual destacado para prevenir equívocos em leitura rápida.",
+        "section": "typography"
+      },
+      {
+        "name": "The Structural Line Rule",
+        "body": "A separação entre zonas funcionais ocorre prioritariamente por meio de bordas finas sutis (1px solid #3e3a46) em vez de afastamentos em branco excessivos, maximizando a densidade útil da tela.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do manter a base profunda em #0e0918 e os cards modulares em #1a1624 para preservar a consistência do tema escuro.",
+      "Do restringir o gradiente Ember (#fd8925 → #ff0c00) à ação prioritária para que continue funcionando como um ímã visual instantâneo.",
+      "Do formatar valores financeiros sempre com duas casas decimais e fonte com números tabulares (font-feature-settings: 'tnum').",
+      "Do usar badges com contraste legível que combinem texto e cor (e ícone quando aplicável) para sinalizar estados de pagamento."
+    ],
+    "donts": [
+      "Don't aplicar fundos cinza-claros genéricos ou botões azuis pastéis típicos de templates genéricos.",
+      "Don't poluir a interface com animações ociosas, sombras excessivas ou decorações de vidro falsas que atrasem o tempo de resposta ou cansem a visão do operador.",
+      "Don't utilizar texto puramente branco (#ffffff) para parágrafos longos ou descrições extensas — utilize #d1cece (Ash Text) para evitar fadiga ocular.",
+      "Don't deixar botões de ação destrutiva (como recusar ou excluir solicitação) com o mesmo peso visual de ações de aprovação."
+    ]
+  }
+}

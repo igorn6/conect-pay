@@ -824,35 +824,31 @@ export default function ChatPanel() {
 
       {/* Panel */}
       <div
-        className="fixed right-0 top-0 h-full z-50 flex flex-col border-l shadow-2xl"
+        className="fixed right-0 top-0 h-full z-50 flex flex-col border-l border-white/[0.08] bg-slate-950/90 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)]"
         style={{
           width: "min(400px, 100vw)",
-          backgroundColor: "var(--bg-secondary)",
-          borderColor: "var(--surface-border)",
-          animation: "slideInRight 0.25s ease-out",
+          animation: "slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
         {/* Panel Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4 border-b shrink-0"
-          style={{
-            borderColor: "var(--surface-border)",
-            backgroundColor: "var(--bg-secondary)",
-          }}
-        >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] bg-slate-950/60 shrink-0">
           <div className="flex items-center gap-2.5">
-            <MessageSquare size={20} className="text-emerald-500" />
-            <h2 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
-              Chat
-            </h2>
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <MessageSquare size={16} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white tracking-wide">
+                Comunicação Interna
+              </h2>
+              <p className="text-[10px] font-mono text-slate-400">Canal direto de equipe</p>
+            </div>
           </div>
           <button
             onClick={() => setIsChatOpen(false)}
-            className="p-1.5 rounded-lg hover:bg-[var(--surface-hover)] transition-colors cursor-pointer"
-            style={{ color: "var(--text-secondary)" }}
+            className="p-1.5 rounded-xl hover:bg-white/10 text-slate-400 hover:text-white transition-all cursor-pointer"
             title="Fechar chat"
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 

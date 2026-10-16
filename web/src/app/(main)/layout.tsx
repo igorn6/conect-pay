@@ -8,15 +8,20 @@ import ChatPanel from "@/components/ChatPanel";
 import SuperSolzinhoWidget from "@/components/SuperSolzinhoWidget";
 import { ChatProvider } from "@/contexts/ChatContext";
 
+import AuroraBackground from "@/components/ui/AuroraBackground";
+
 export default function MainLayout({ children }: { children: ReactNode }) {
   return (
     <ChatProvider>
-      <div className="flex h-screen w-full overflow-hidden bg-gray-950 text-white">
+      <div className="flex h-screen w-full overflow-hidden text-white relative" style={{ backgroundColor: "var(--bg-primary)" }}>
+        {/* Layered Aurora & Noise Background */}
+        <AuroraBackground className="absolute inset-0 -z-10 pointer-events-none terminal-grid" intensity="subtle" />
+        
         <Sidebar />
         <GlobalNotification />
-        <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+        <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative z-10">
           <GlobalHeader />
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden relative">
             {children}
           </div>
         </main>

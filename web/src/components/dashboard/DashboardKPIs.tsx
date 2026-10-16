@@ -1,6 +1,10 @@
 "use client";
 
-import { DollarSign, AlertCircle, XCircle } from "lucide-react";
+import { DollarSign, AlertCircle, XCircle, TrendingUp, Clock, ArrowUpRight } from "lucide-react";
+import SpotlightCard from "@/components/ui/SpotlightCard";
+import TiltCard from "@/components/ui/TiltCard";
+import CountUp from "@/components/ui/CountUp";
+import ShinyBadge from "@/components/ui/ShinyBadge";
 
 interface KPIProps {
   kpis: {
@@ -11,49 +15,153 @@ interface KPIProps {
 }
 
 export default function DashboardKPIs({ kpis }: KPIProps) {
-  const formatValue = (val: number) => {
-    return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(val);
-  };
+  const totalVolume = kpis.totalGasto + kpis.totalPendente + kpis.totalRecusado || 1;
+  const pctGasto = Math.round((kpis.totalGasto / totalVolume) * 100);
+  const pctPendente = Math.round((kpis.totalPendente / totalVolume) * 100);
+  const pctRecusado = Math.round((kpis.totalRecusado / totalVolume) * 100);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-      <div className="bg-slate-800 p-6 rounded-2xl border border-brand-primary/20 shadow-[0_0_15px_rgba(20,184,166,0.1)] relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <DollarSign size={80} className="text-brand-primary" />
-        </div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-brand-primary/10 rounded-lg text-brand-primary">
-            <DollarSign size={20} />
-          </div>
-          <h3 className="text-slate-400 font-medium">Total Gasto (Finalizado)</h3>
-        </div>
-        <p className="text-3xl font-black text-white">{formatValue(kpis.totalGasto)}</p>
+    <div className="space-y-4 mb-8">
+      {/* KPI Cards Grid com 3D Tilt e Specular Cursor Tracking */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        {/* KPI 1: Total Gasto (Liquid Emerald) */}
+        <TiltCard maxTilt={5} glare={true}>
+          <SpotlightCard
+            spotlightColor="rgba(16, 185, 129, 0.16)"
+            borderColor="rgba(16, 185, 129, 0.22)"
+            className="h-full p-6 glass-panel-elevated relative group"
+          >
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-950/40">
+                  <TrendingUp size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xs uppercase font-mono tracking-wider text-emerald-300/90 font-bold">
+                    Total Liquidado
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Pagamentos finalizados</p>
+                </div>
+              </div>
+              <ShinyBadge variant="emerald" className="text-[10px]">
+                {pctGasto}% do total
+              </ShinyBadge>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                <CountUp to={kpis.totalGasto} />
+              </p>
+            </div>
+
+            {/* Micro Progress Bar */}
+            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <span>Execução confirmada</span>
+              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                Ativo <ArrowUpRight size={12} />
+              </span>
+            </div>
+          </SpotlightCard>
+        </TiltCard>
+
+        {/* KPI 2: Pagamentos Pendentes (Warm Amber) */}
+        <TiltCard maxTilt={5} glare={true}>
+          <SpotlightCard
+            spotlightColor="rgba(245, 158, 11, 0.16)"
+            borderColor="rgba(245, 158, 11, 0.22)"
+            className="h-full p-6 glass-panel-elevated relative group"
+          >
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-sm shadow-amber-950/40">
+                  <Clock size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xs uppercase font-mono tracking-wider text-amber-300/90 font-bold">
+                    Em Tramitação
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Aguardando aprovação / baixa</p>
+                </div>
+              </div>
+              <ShinyBadge variant="amber" className="text-[10px]">
+                {pctPendente}% pendente
+              </ShinyBadge>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                <CountUp to={kpis.totalPendente} />
+              </p>
+            </div>
+
+            {/* Micro Progress Bar */}
+            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <span>Comprometimento previsto</span>
+              <span className="text-amber-400 font-semibold flex items-center gap-1">
+                Fila Kanban
+              </span>
+            </div>
+          </SpotlightCard>
+        </TiltCard>
+
+        {/* KPI 3: Recusados / Cancelados (Refined Garnet) */}
+        <TiltCard maxTilt={5} glare={true}>
+          <SpotlightCard
+            spotlightColor="rgba(239, 68, 68, 0.14)"
+            borderColor="rgba(239, 68, 68, 0.2)"
+            className="h-full p-6 glass-panel-elevated relative group"
+          >
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 shadow-sm shadow-rose-950/40">
+                  <XCircle size={18} />
+                </div>
+                <div>
+                  <h3 className="text-xs uppercase font-mono tracking-wider text-rose-300/90 font-bold">
+                    Recusados / Glosas
+                  </h3>
+                  <p className="text-[11px] text-slate-400">Cancelados pela governança</p>
+                </div>
+              </div>
+              <ShinyBadge variant="rose" className="text-[10px]">
+                {pctRecusado}% do total
+              </ShinyBadge>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                <CountUp to={kpis.totalRecusado} />
+              </p>
+            </div>
+
+            {/* Micro Progress Bar */}
+            <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+              <span>Retidos na triagem</span>
+              <span className="text-rose-400 font-semibold">Auditados</span>
+            </div>
+          </SpotlightCard>
+        </TiltCard>
       </div>
 
-      <div className="bg-slate-800 p-6 rounded-2xl border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.1)] relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <AlertCircle size={80} className="text-amber-500" />
+      {/* Terminal Ratio Strip: Balanço Proporcional */}
+      <div className="p-4 rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
+        <div className="flex items-center gap-2 text-slate-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span>Distribuição Financeira Global:</span>
         </div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-amber-500/10 rounded-lg text-amber-500">
-            <AlertCircle size={20} />
-          </div>
-          <h3 className="text-slate-400 font-medium">Pagamento Pendente</h3>
+        
+        <div className="flex-1 w-full sm:max-w-md h-2 rounded-full bg-slate-800 overflow-hidden flex shadow-inner">
+          <div style={{ width: `${pctGasto}%` }} className="bg-emerald-500 transition-all duration-1000" title={`Liquidado: ${pctGasto}%`} />
+          <div style={{ width: `${pctPendente}%` }} className="bg-amber-500 transition-all duration-1000" title={`Pendente: ${pctPendente}%`} />
+          <div style={{ width: `${pctRecusado}%` }} className="bg-rose-500 transition-all duration-1000" title={`Recusado: ${pctRecusado}%`} />
         </div>
-        <p className="text-3xl font-black text-white">{formatValue(kpis.totalPendente)}</p>
-      </div>
 
-      <div className="bg-slate-800 p-6 rounded-2xl border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)] relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <XCircle size={80} className="text-red-500" />
+        <div className="flex items-center gap-3 text-[11px] text-slate-300">
+          <span className="text-emerald-400">{pctGasto}% liq.</span>
+          <span className="text-amber-400">{pctPendente}% pend.</span>
+          <span className="text-rose-400">{pctRecusado}% rec.</span>
         </div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-red-500/10 rounded-lg text-red-500">
-            <XCircle size={20} />
-          </div>
-          <h3 className="text-slate-400 font-medium">Recusados / Cancelados</h3>
-        </div>
-        <p className="text-3xl font-black text-white">{formatValue(kpis.totalRecusado)}</p>
       </div>
     </div>
   );

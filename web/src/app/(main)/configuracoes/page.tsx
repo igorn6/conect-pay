@@ -19,135 +19,77 @@ export default function ConfiguraçõesPage() {
   const [activeTab, setActiveTab] = useState<TabType>("perfil");
 
   return (
-    <div className="flex h-full bg-slate-950 text-slate-200 w-full overflow-hidden">
+    <div className="flex h-full bg-transparent text-slate-200 w-full overflow-hidden">
       
       {/* Sidebar de Abas */}
-      <div className="w-64 flex-shrink-0 border-r border-slate-800 bg-slate-900/50 flex flex-col hidden md:flex">
-        <div className="p-6 border-b border-slate-800">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Settings size={20} className="text-emerald-500" />
-            Configurações
+      <div className="w-64 flex-shrink-0 border-r border-white/[0.08] bg-slate-950/40 backdrop-blur-xl flex flex-col hidden md:flex">
+        <div className="p-6 border-b border-white/[0.08]">
+          <h2 className="text-base font-bold text-white flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <Settings size={16} />
+            </div>
+            <span>Configurações</span>
           </h2>
-          <p className="text-xs text-slate-400 mt-1">Gerencie sua conta e sistema.</p>
+          <p className="text-[11px] text-slate-400 mt-1 font-mono">Preferências e governança do sistema.</p>
         </div>
         
-        <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-          <button
-            onClick={() => setActiveTab("perfil")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "perfil" 
-                ? "bg-slate-700 text-white shadow-sm" 
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-            }`}
-          >
-            <Shield size={18} />
-            Meu Perfil
-          </button>
-          
-          <button
-            onClick={() => setActiveTab("aparencia")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "aparencia" 
-                ? "bg-slate-700 text-white shadow-sm" 
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-            }`}
-          >
-            <Paintbrush size={18} />
-            Aparência
-          </button>
-
-          {( userRole === "MASTER" || userRole === "FINANCEIRO" ) && (
-            <button
-              onClick={() => setActiveTab("categorias")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                activeTab === "categorias" 
-                  ? "bg-slate-700 text-white shadow-sm" 
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-              }`}
-            >
-              <Tags size={18} />
-              Categorias
-            </button>
-          )}
-
-          <button
-            onClick={() => setActiveTab("notificacoes")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-              activeTab === "notificacoes" 
-                ? "bg-slate-700 text-white shadow-sm" 
-                : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-            }`}
-          >
-            <Bell size={18} />
-            Notificações
-          </button>
-
-          {userRole === "MASTER" && (
-            <button
-              onClick={() => setActiveTab("setores")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                activeTab === "setores" 
-                  ? "bg-slate-700 text-white shadow-sm" 
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-              }`}
-            >
-              <Building2 size={18} />
-              Setores
-            </button>
-          )}
-        
-          {(userRole === "MASTER" || userRole === "FINANCEIRO") && (
-            <button
-              onClick={() => setActiveTab("exportacao")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                activeTab === "exportacao" 
-                  ? "bg-slate-700 text-white shadow-sm" 
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-              }`}
-            >
-              <Download size={18} />
-              Exportação
-            </button>
-          )}
-
-          {userRole === "MASTER" && (
-            <button
-              onClick={() => setActiveTab("usuarios")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                activeTab === "usuarios" 
-                  ? "bg-slate-700 text-white shadow-sm" 
-                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-              }`}
-            >
-              <Users size={18} />
-              Usuários
-            </button>
-          )}
+        <nav className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
+          {[
+            { id: "perfil", label: "Meu Perfil", icon: Shield, show: true },
+            { id: "aparencia", label: "Aparência", icon: Paintbrush, show: true },
+            { id: "categorias", label: "Categorias", icon: Tags, show: userRole === "MASTER" || userRole === "FINANCEIRO" },
+            { id: "notificacoes", label: "Notificações", icon: Bell, show: true },
+            { id: "setores", label: "Setores", icon: Building2, show: userRole === "MASTER" },
+            { id: "exportacao", label: "Exportação", icon: Download, show: userRole === "MASTER" || userRole === "FINANCEIRO" },
+            { id: "usuarios", label: "Usuários", icon: Users, show: userRole === "MASTER" },
+          ].filter(t => t.show).map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as TabType)}
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  isActive 
+                    ? "bg-white/[0.08] text-white border border-white/15 shadow-[0_0_15px_rgba(16,185,129,0.1)]" 
+                    : "text-slate-400 hover:text-white hover:bg-white/[0.03]"
+                }`}
+              >
+                <Icon size={15} className={isActive ? "text-emerald-400" : "text-slate-500"} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </nav>
       </div>
 
-
       {/* Mobile Tab Bar */}
-      <div className="md:hidden flex overflow-x-auto gap-2 p-4 border-b border-slate-800 bg-slate-900/50 shrink-0">
-        <button onClick={() => setActiveTab("perfil")} className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === "perfil" ? "bg-slate-700 text-white" : "text-slate-400 bg-slate-800"}`}>Perfil</button>
-        <button onClick={() => setActiveTab("aparencia")} className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === "aparencia" ? "bg-slate-700 text-white" : "text-slate-400 bg-slate-800"}`}>Aparência</button>
-        {(userRole === "MASTER" || userRole === "FINANCEIRO") && (
-          <button onClick={() => setActiveTab("categorias")} className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === "categorias" ? "bg-slate-700 text-white" : "text-slate-400 bg-slate-800"}`}>Categorias</button>
-        )}
-        <button onClick={() => setActiveTab("notificacoes")} className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === "notificacoes" ? "bg-slate-700 text-white" : "text-slate-400 bg-slate-800"}`}>Notificações</button>
-        {userRole === "MASTER" && (
-          <button onClick={() => setActiveTab("setores")} className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === "setores" ? "bg-slate-700 text-white" : "text-slate-400 bg-slate-800"}`}>Setores</button>
-        )}
-        {(userRole === "MASTER" || userRole === "FINANCEIRO") && (
-          <button onClick={() => setActiveTab("exportacao")} className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === "exportacao" ? "bg-slate-700 text-white" : "text-slate-400 bg-slate-800"}`}>Exportação</button>
-        )}
-        {userRole === "MASTER" && (
-          <button onClick={() => setActiveTab("usuarios")} className={`px-4 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${activeTab === "usuarios" ? "bg-slate-700 text-white" : "text-slate-400 bg-slate-800"}`}>Usuários</button>
-        )}
+      <div className="md:hidden flex overflow-x-auto gap-2 p-3 border-b border-white/[0.08] bg-slate-950/60 backdrop-blur-xl shrink-0 custom-scrollbar">
+        {[
+          { id: "perfil", label: "Perfil", show: true },
+          { id: "aparencia", label: "Aparência", show: true },
+          { id: "categorias", label: "Categorias", show: userRole === "MASTER" || userRole === "FINANCEIRO" },
+          { id: "notificacoes", label: "Notificações", show: true },
+          { id: "setores", label: "Setores", show: userRole === "MASTER" },
+          { id: "exportacao", label: "Exportação", show: userRole === "MASTER" || userRole === "FINANCEIRO" },
+          { id: "usuarios", label: "Usuários", show: userRole === "MASTER" },
+        ].filter(t => t.show).map(tab => (
+          <button 
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as TabType)} 
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+              activeTab === tab.id 
+                ? "bg-white/[0.08] text-white border border-white/15" 
+                : "text-slate-400 bg-white/[0.02]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto bg-slate-950 p-6 md:p-10">
+      <div className="flex-1 overflow-y-auto bg-transparent p-6 md:p-10 custom-scrollbar">
         <div className="max-w-4xl mx-auto">
           {activeTab === "perfil" && <SettingsProfile />}
           {activeTab === "aparencia" && <SettingsAppearance />}

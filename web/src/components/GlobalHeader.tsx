@@ -11,6 +11,8 @@ import { useRouter } from "next/navigation";
  * Cabecalho fixo global - aparece em todas as paginas.
  * Contem: foto/perfil, icone do chat com badge, botao sair.
  */
+import ShinyBadge from "@/components/ui/ShinyBadge";
+
 export default function GlobalHeader() {
   const [showThemeMenu, setShowThemeMenu] = React.useState(false);
   const { theme, changeThemeWithTransition } = useTheme();
@@ -30,31 +32,39 @@ export default function GlobalHeader() {
       ? `Gestor • ${sectorName}`
       : "Gestor";
 
+  const roleBadgeVariant =
+    userRole === "MASTER" ? "emerald" : userRole === "FINANCEIRO" ? "purple" : "neutral";
+
   return (
     <header
-      className="flex items-center justify-between px-6 h-[73px] border-b shrink-0 z-30"
+      className="flex items-center justify-between px-6 h-[73px] border-b shrink-0 z-30 backdrop-blur-xl transition-colors duration-300"
       style={{
-        backgroundColor: "var(--bg-secondary)",
+        backgroundColor: "color-mix(in srgb, var(--bg-secondary) 85%, transparent)",
         borderColor: "var(--surface-border)",
       }}
     >
       {/* Left: Profile */}
       <button
         onClick={() => router.push("/configuracoes")}
-        className="flex items-center gap-3 pl-12 md:pl-0 hover:opacity-80 transition-opacity cursor-pointer"
+        className="flex items-center gap-3 pl-12 md:pl-0 hover:opacity-90 transition-opacity cursor-pointer group"
       >
-        <img
-          src={avatar}
-          alt="Avatar"
-          className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500/30"
-        />
+        <div className="relative">
+          <img
+            src={avatar}
+            alt="Avatar"
+            className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500/30 group-hover:border-emerald-400 transition-colors shadow-sm"
+          />
+          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
+        </div>
         <div className="hidden sm:block text-left">
-          <p className="text-base font-semibold leading-tight" style={{ color: "var(--text-primary)" }}>
+          <p className="text-sm font-semibold leading-tight tracking-tight" style={{ color: "var(--text-primary)" }}>
             {userName}
           </p>
-          <p className="text-xs leading-tight" style={{ color: "var(--text-muted)" }}>
-            {roleLabel}
-          </p>
+          <div className="mt-1">
+            <ShinyBadge variant={roleBadgeVariant} className="text-[10px] py-0 px-2">
+              {roleLabel}
+            </ShinyBadge>
+          </div>
         </div>
       </button>
 
