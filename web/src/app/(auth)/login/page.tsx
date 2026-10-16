@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, Eye, EyeOff } from "lucide-react";
+import { Mail, Eye, EyeOff, Lock, AlertCircle, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import BrandLogo from "@/components/BrandLogo";
 
@@ -16,7 +16,7 @@ export default function LoginPage() {
   const [bgImage, setBgImage] = useState("/weather/sunny.jpg");
   const [bgReady, setBgReady] = useState(false);
 
-  // Fundo estático escolhido pelo horário local (sem chamadas de rede nem animações contínuas)
+  // Fundo estático escolhido pelo horário local
   useEffect(() => {
     const h = new Date().getHours();
     const image = h >= 19 || h < 6 ? "/weather/night.jpg" : h >= 17 ? "/weather/sunset.jpg" : "/weather/sunny.jpg";
@@ -48,122 +48,155 @@ export default function LoginPage() {
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Parallax effect: subtle movement based on mouse position inside the image panel
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 30; // max 15px
-    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 30;
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 24;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 24;
     setMousePos({ x, y });
   };
 
   return (
-    <div className="min-h-screen w-full flex bg-[#0A0A0A] overflow-hidden font-sans">
+    <div className="min-h-screen w-full flex bg-[#080b12] text-[#f8fafc] overflow-hidden font-sans select-none">
       
-      {/* Left Side: Image (less than half, ~40%) */}
+      {/* Left Side: Ambient Parallax Imagery (42%) */}
       <div 
-        className="hidden lg:block w-[40%] relative overflow-hidden"
+        className="hidden lg:block w-[42%] relative overflow-hidden bg-[#05070c]"
         onMouseMove={handleMouseMove}
       >
-        
         {/* Mouse Parallax Wrapper */}
         <div 
-          className="absolute inset-0 w-full h-full transition-transform duration-300 ease-out"
-          style={{ transform: `translate(${-mousePos.x}px, ${-mousePos.y}px) scale(1.05)` }}
+          className="absolute inset-0 w-full h-full transition-transform duration-500 ease-out"
+          style={{ transform: `translate(${-mousePos.x}px, ${-mousePos.y}px) scale(1.06)` }}
         >
-          {/* The Background Image with Handheld Sway */}
           <div 
-            className={`absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-1000 ease-in-out ${bgReady ? "opacity-100" : "opacity-0"}`}
+            className={`absolute inset-0 w-full h-full bg-cover bg-center transition-opacity duration-1000 ease-in-out ${bgReady ? "opacity-90" : "opacity-0"}`}
             style={{ backgroundImage: `url(${bgImage})` }}
           />
-          
+          <div className="absolute inset-0 bg-gradient-to-t from-[#080b12]/80 via-transparent to-[#080b12]/30 pointer-events-none" />
         </div>
 
-        {/* Gradient fade to fake black (#0A0A0A) */}
-        <div className="absolute inset-y-0 right-0 w-48 bg-gradient-to-r from-transparent to-[#0A0A0A] z-10 pointer-events-none" />
+        {/* Gradient edge blending to form panel */}
+        <div className="absolute inset-y-0 right-0 w-36 bg-gradient-to-r from-transparent to-[#080b12] z-10 pointer-events-none" />
+        
+        {/* Subtle branding watermark on bottom left */}
+        <div className="absolute bottom-8 left-8 z-20 pointer-events-none">
+          <div className="text-xs uppercase tracking-widest font-mono text-white/50">
+            Conect Pay • Gestão Financeira Inteligente
+          </div>
+        </div>
       </div>
   
-      {/* Right Side: Form Panel (60%) */}
-      <div className="w-full lg:w-[60%] relative flex flex-col justify-center items-center p-8 sm:p-12 z-20 bg-[#0A0A0A]">
+      {/* Right Side: Form Panel (58%) */}
+      <div className="w-full lg:w-[58%] relative flex flex-col justify-center items-center p-6 sm:p-12 z-20 bg-[#080b12]">
         
-        <div className="w-full max-w-[400px] relative z-10">
+        {/* Ambient Glow Orbs */}
+        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-[420px] relative z-10">
+          
+          {/* Header Card */}
           <div className="mb-8 flex flex-col items-center text-center">
-            {/* Logo Conect Pay em destaque (maior e com glow) */}
             <div className="relative mb-6 group select-none">
-              <div className="absolute -inset-3 bg-gradient-to-r from-purple-600/35 via-indigo-600/25 to-blue-600/35 rounded-3xl blur-2xl opacity-75 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative flex items-center justify-center px-4 py-3 rounded-2xl bg-white/[0.04] border border-white/[0.1] shadow-2xl backdrop-blur-sm hover:border-white/[0.2] transition-all">
+              <div className="absolute -inset-3 bg-gradient-to-r from-emerald-500/20 via-indigo-500/20 to-purple-500/20 rounded-3xl blur-2xl opacity-75 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="relative flex items-center justify-center px-5 py-3.5 rounded-2xl bg-[#0f1422] border border-[#253046] shadow-xl hover:border-[#384869] transition-all">
                 <BrandLogo size="2xl" forceTheme="dark" />
               </div>
             </div>
 
-            <h1 className="text-3xl font-bold text-[#ffffff] tracking-wide mb-1 drop-shadow-md">
-              Olá!
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#f8fafc] tracking-tight mb-1.5">
+              Acesso ao Sistema
             </h1>
-            <h2 className="text-base font-medium text-[#aaaaaa] tracking-wide drop-shadow-md">
-              Bem-vindo de volta
-            </h2>
+            <p className="text-sm font-medium text-[#94a3b8]">
+              Entre com suas credenciais corporativas
+            </p>
           </div>
 
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            {errorMsg && (
-              <div className="bg-[#ef4444]/20 border border-[#ef4444]/50 text-[#fca5a5] text-sm p-3 rounded-lg text-center">
-                {errorMsg}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              <div className="relative group">
-                <style dangerouslySetInnerHTML={{__html: `
-                  input:-webkit-autofill,
-                  input:-webkit-autofill:hover, 
-                  input:-webkit-autofill:focus, 
-                  input:-webkit-autofill:active{
-                      -webkit-box-shadow: 0 0 0 30px #1A1D24 inset !important;
-                      -webkit-text-fill-color: white !important;
-                  }
-                `}} />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Seu e-mail"
-                  className="w-full px-5 py-4 rounded-xl bg-[#1A1D24] border border-[#ffffff]/10 text-[#ffffff] text-sm font-medium outline-none placeholder:text-[#888888] focus:bg-[#20242D] focus:border-[#10b981]/50 focus:ring-1 focus:ring-[#10b981]/50 transition-all shadow-inner"
-                />
-                <Mail size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-[#888888] group-focus-within:text-[#10b981] transition-colors" />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <div className="relative group">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Sua senha"
-                  className="w-full px-5 py-4 rounded-xl bg-[#1A1D24] border border-[#ffffff]/10 text-[#ffffff] text-sm font-medium outline-none placeholder:text-[#888888] focus:bg-[#20242D] focus:border-[#10b981]/50 focus:ring-1 focus:ring-[#10b981]/50 transition-all shadow-inner"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#ffffff] group-focus-within:text-[#10b981] transition-colors"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center justify-center w-full py-4 mt-2 text-sm font-bold text-[#0A0A0A] bg-[#ffffff] rounded-xl disabled:opacity-50 transition-all hover:bg-[#e2e8f0] shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_25px_rgba(255,255,255,0.2)] hover:-translate-y-0.5"
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-[#0A0A0A]/30 border-t-[#0A0A0A] rounded-full animate-spin" />
-              ) : (
-                "Entrar"
+          {/* Form Card */}
+          <div className="rounded-2xl bg-[#0f1422]/90 border border-[#253046] p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              
+              {/* Error Alert */}
+              {errorMsg && (
+                <div className="flex items-center gap-2.5 bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs sm:text-sm p-3.5 rounded-xl font-medium">
+                  <AlertCircle size={18} className="text-rose-400 shrink-0" />
+                  <span>{errorMsg}</span>
+                </div>
               )}
-            </button>
-          </form>
+
+              {/* Email Input */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#cbd5e1] font-mono">
+                  E-mail
+                </label>
+                <div className="relative group">
+                  <style dangerouslySetInnerHTML={{__html: `
+                    input:-webkit-autofill,
+                    input:-webkit-autofill:hover, 
+                    input:-webkit-autofill:focus, 
+                    input:-webkit-autofill:active{
+                        -webkit-box-shadow: 0 0 0 30px #151b2c inset !important;
+                        -webkit-text-fill-color: #f8fafc !important;
+                    }
+                  `}} />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu.email@conectsol.com"
+                    className="w-full pl-4 pr-11 py-3.5 rounded-xl bg-[#151b2c] border border-[#283452] text-[#f8fafc] text-sm font-medium outline-none placeholder:text-[#64748b] hover:border-[#384869] focus:bg-[#182138] focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner"
+                  />
+                  <Mail size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8] group-focus-within:text-emerald-400 transition-colors pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Password Input */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#cbd5e1] font-mono">
+                  Senha
+                </label>
+                <div className="relative group">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••••••"
+                    className="w-full pl-4 pr-11 py-3.5 rounded-xl bg-[#151b2c] border border-[#283452] text-[#f8fafc] text-sm font-medium outline-none placeholder:text-[#64748b] hover:border-[#384869] focus:bg-[#182138] focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-inner"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#f8fafc] group-focus-within:text-emerald-400 transition-colors"
+                    title={showPassword ? "Ocultar senha" : "Exibir senha"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex items-center justify-center gap-2 w-full py-3.5 mt-2 text-sm font-bold text-slate-950 bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 rounded-xl disabled:opacity-50 transition-all shadow-[0_0_20px_rgba(16,185,129,0.35)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] hover:-translate-y-0.5 cursor-pointer"
+              >
+                {loading ? (
+                  <div className="w-5 h-5 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Entrar no Conect Pay</span>
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Footer note */}
+          <div className="mt-6 text-center text-xs text-[#64748b] font-mono">
+            Conect Pay v1.6.0 • Ambiente Seguro e Criptografado
+          </div>
         </div>
       </div>
     </div>

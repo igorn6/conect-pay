@@ -286,7 +286,7 @@ export default function NubankBalanceWidget() {
                 Últimas Movimentações Nubank
               </span>
               <span className="text-[10px] text-slate-500 font-semibold bg-slate-800 px-2 py-0.5 rounded-full">
-                {snapshot?.recentMovements?.length || 0} de 5
+                {snapshot?.movements?.length || 0} de 5
               </span>
             </div>
             {snapshot?.updatedAt && (
@@ -302,17 +302,17 @@ export default function NubankBalanceWidget() {
                 <div key={i} className="h-10 bg-slate-800/40 rounded-xl animate-pulse" />
               ))}
             </div>
-          ) : !snapshot?.recentMovements || snapshot.recentMovements.length === 0 ? (
+          ) : !snapshot?.movements || snapshot.movements.length === 0 ? (
             <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/60 text-center text-xs text-slate-400">
               Nenhuma movimentação registrada no histórico recente.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5">
-              {snapshot.recentMovements.slice(0, 5).map((mov: NubankMovement) => {
-                const isPositive = mov.delta > 0;
+              {snapshot.movements.slice(0, 5).map((mov: NubankMovement) => {
+                const isPositive = mov.amount > 0;
                 const isRefund = mov.type === "REEMBOLSO";
-                const isRecharge = mov.type === "RECARGA_ENTRADA";
-                const isAdjustment = mov.type === "AJUSTE_MANUAL";
+                const isRecharge = mov.type === "ENTRADA";
+                const isAdjustment = mov.type === "AJUSTE";
 
                 return (
                   <div
@@ -336,7 +336,7 @@ export default function NubankBalanceWidget() {
                           }`}
                         >
                           {isPositive ? "+" : ""}
-                          {formatBRL(mov.delta)}
+                          {formatBRL(mov.amount)}
                         </span>
                       </div>
 
@@ -348,7 +348,7 @@ export default function NubankBalanceWidget() {
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-slate-300 font-medium truncate" title={mov.description}>
+                    <p className="text-[11px] text-slate-300 font-medium truncate" title={mov.description || undefined}>
                       {mov.description}
                     </p>
 

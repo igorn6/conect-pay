@@ -233,8 +233,12 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
                   />
                 </div>
                 <div
-                  className="min-w-0 max-w-[92%] px-3.5 py-2.5 rounded-2xl rounded-tl-md text-sm border"
-                  style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
+                  className="min-w-0 max-w-[92%] px-3.5 py-2.5 rounded-2xl rounded-tl-md text-sm border shadow-sm"
+                  style={{ 
+                    backgroundColor: "var(--bg-card)",
+                    borderColor: "var(--surface-border)", 
+                    color: "var(--text-primary)" 
+                  }}
                 >
                   {isToolRunning && (
                     <div className="flex items-center gap-2 text-xs mb-1.5" style={{ color: "var(--text-muted)" }}>

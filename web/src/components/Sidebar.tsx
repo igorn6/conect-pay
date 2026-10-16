@@ -59,26 +59,42 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside 
-        className={`fixed inset-y-0 left-0 z-50 border-r border-slate-800 h-full flex flex-col shrink-0 bg-slate-900 transition-all duration-300 ease-in-out md:relative md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 border-r h-full flex flex-col shrink-0 transition-all duration-300 ease-in-out md:relative md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         } ${isCollapsed ? "w-64 md:w-20" : "w-64"}`} 
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          borderColor: "var(--surface-border)",
+        }}
       >
         {/* Toggle Button (Floating Tab) */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hidden md:flex absolute -right-[20px] top-[90px] z-50 items-center justify-center w-[20px] h-10 bg-slate-900 hover:bg-slate-800 border-y border-r border-slate-800 border-l-0 rounded-r-full text-slate-500 hover:text-white transition-colors cursor-pointer"
+          className="hidden md:flex absolute -right-[20px] top-[90px] z-50 items-center justify-center w-[20px] h-10 border-y border-r border-l-0 rounded-r-full transition-colors cursor-pointer"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderColor: "var(--surface-border)",
+            color: "var(--text-muted)",
+          }}
           title={isCollapsed ? "Expandir Menu" : "Recolher Menu"}
         >
           {isCollapsed ? <ChevronRight size={14} strokeWidth={2.5} className="-ml-1" /> : <ChevronLeft size={14} strokeWidth={2.5} className="-ml-1" />}
         </button>
 
         {/* Header / Brand */}
-        <div className="flex items-center justify-between px-6 h-[73px] border-b border-slate-800 shrink-0">
+        <div 
+          className="flex items-center justify-between px-6 h-[73px] border-b shrink-0"
+          style={{ borderColor: "var(--surface-border)" }}
+        >
           <Link target="_self" href="/" aria-label="Ir para a página inicial" className="flex items-center h-full pt-1 overflow-hidden">
             <BrandLogo isCollapsed={isCollapsed} />
           </Link>
           
-          <button onClick={() => setIsOpen(false)} className="md:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+          <button 
+            onClick={() => setIsOpen(false)} 
+            className="md:hidden p-1.5 rounded-lg transition-colors"
+            style={{ color: "var(--text-muted)" }}
+          >
             <X size={20} />
           </button>
         </div>
@@ -86,7 +102,10 @@ export default function Sidebar() {
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-6 px-4 flex flex-col gap-1.5">
           {!isCollapsed && (
-            <div className="text-xs font-semibold mb-2 px-3 tracking-wider uppercase whitespace-nowrap text-slate-500">
+            <div 
+              className="text-xs font-semibold mb-2 px-3 tracking-wider uppercase whitespace-nowrap font-mono"
+              style={{ color: "var(--text-muted)" }}
+            >
               MENU
             </div>
           )}
@@ -102,14 +121,28 @@ export default function Sidebar() {
                 key={item.name}
                 href={item.href}
                 title={isCollapsed ? item.name : undefined}
-                className={`flex items-center gap-3 px-3 py-5.5 rounded-xl text-sm font-medium transition-all overflow-hidden ${
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all overflow-hidden ${
+                  isCollapsed ? "justify-center" : "justify-start"
+                }`}
+                style={
                   isActive 
-                    ? "bg-slate-800 text-white" 
-                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-                } ${isCollapsed ? "justify-center" : "justify-start"}`}
+                    ? {
+                        backgroundColor: "var(--surface-hover)",
+                        color: "var(--text-primary)",
+                        fontWeight: 600,
+                        border: "1px solid var(--surface-border)",
+                      }
+                    : {
+                        color: "var(--text-secondary)",
+                      }
+                }
                 onClick={() => setIsOpen(false)}
               >
-                <item.icon size={18} className={`shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
+                <item.icon 
+                  size={18} 
+                  className="shrink-0 transition-colors" 
+                  style={{ color: isActive ? "var(--brand-primary)" : "inherit" }} 
+                />
                 {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
               </Link>
             );
@@ -117,14 +150,17 @@ export default function Sidebar() {
         </nav>
 
         {/* Rodapé com Versão */}
-        <div className="px-5 py-3 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between shrink-0">
+        <div 
+          className="px-5 py-3 border-t text-[11px] flex items-center justify-between shrink-0"
+          style={{ borderColor: "var(--surface-border)", color: "var(--text-muted)" }}
+        >
           {!isCollapsed ? (
             <>
-              <span className="font-medium text-slate-400">Conect Pay</span>
-              <span className="font-mono text-slate-400 font-semibold">v{APP_VERSION}</span>
+              <span className="font-medium" style={{ color: "var(--text-secondary)" }}>Conect Pay</span>
+              <span className="font-mono font-semibold" style={{ color: "var(--text-primary)" }}>v{APP_VERSION}</span>
             </>
           ) : (
-            <span className="w-full text-center font-mono text-[10px] text-slate-500">v{APP_VERSION}</span>
+            <span className="w-full text-center font-mono text-[10px]" style={{ color: "var(--text-muted)" }}>v{APP_VERSION}</span>
           )}
         </div>
       </aside>

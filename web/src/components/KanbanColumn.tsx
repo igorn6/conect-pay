@@ -262,32 +262,34 @@ export default function KanbanColumn({
                   const sla = getCardSlaMetrics(card);
                   if (sla.timeToPendenteSeconds === null && sla.pendenteToFinalizadoSeconds === null) return null;
                   return (
-                    <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-slate-800/60 flex-wrap text-[10px]" style={{ color: "var(--text-secondary)" }}>
+                    <div className="flex items-center gap-1 mt-1.5 pt-1.5 flex-wrap text-[10px]" style={{ borderTop: "1px solid var(--surface-border)", color: "var(--text-secondary)" }}>
                       {sla.timeToPendenteSeconds !== null && (
                         <span
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium ${
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium border"
+                          style={
                             sla.isPendenteOngoing
-                              ? "bg-amber-500/10 text-amber-300 border border-amber-500/20"
-                              : "bg-slate-800/90 text-slate-300 border border-slate-700/60"
-                          }`}
+                              ? { backgroundColor: "rgba(245, 158, 11, 0.12)", color: "#f59e0b", borderColor: "rgba(245, 158, 11, 0.3)" }
+                              : { backgroundColor: "var(--surface-hover)", color: "var(--text-secondary)", borderColor: "var(--surface-border)" }
+                          }
                           title={sla.isPendenteOngoing ? "Tempo em Nova Solicitação (em andamento)" : "Tempo até entrar em Pendente"}
                         >
-                          <Clock size={10} className="shrink-0 text-slate-400" />
-                          <span>Pendente: <strong className="font-semibold text-slate-200">{sla.timeToPendenteFormatted}</strong></span>
+                          <Clock size={10} className="shrink-0 opacity-70" />
+                          <span>Pendente: <strong className="font-semibold" style={{ color: "var(--text-primary)" }}>{sla.timeToPendenteFormatted}</strong></span>
                         </span>
                       )}
 
                       {sla.pendenteToFinalizadoSeconds !== null && (
                         <span
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium ${
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-medium border"
+                          style={
                             card.status === "FINALIZADO"
-                              ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/25"
-                              : "bg-slate-800/90 text-slate-300 border border-slate-700/60"
-                          }`}
+                              ? { backgroundColor: "rgba(16, 185, 129, 0.12)", color: "#10b981", borderColor: "rgba(16, 185, 129, 0.3)" }
+                              : { backgroundColor: "var(--surface-hover)", color: "var(--text-secondary)", borderColor: "var(--surface-border)" }
+                          }
                           title={card.status === "FINALIZADO" ? "Tempo de Pendente até Finalizado" : "Tempo decorrido desde Pendente (em andamento)"}
                         >
-                          <CheckCircle2 size={10} className="shrink-0 text-slate-400" />
-                          <span>Finalizado: <strong className="font-semibold text-slate-200">{sla.pendenteToFinalizadoFormatted}</strong></span>
+                          <CheckCircle2 size={10} className="shrink-0 opacity-70" />
+                          <span>Finalizado: <strong className="font-semibold" style={{ color: "var(--text-primary)" }}>{sla.pendenteToFinalizadoFormatted}</strong></span>
                         </span>
                       )}
                     </div>

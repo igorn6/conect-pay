@@ -624,7 +624,7 @@ export default function CardDetailModal({
     const motivo = (card.notes || card.description)?.trim() || card.title;
 
     // Obter links de notas/notinhas anexadas pelo solicitante
-    const activeInvoices = (invoiceUrl || card.invoice_url || card.receipt_url || "")
+    const activeInvoices = (invoiceUrl || card.invoice_url || (card as any).receipt_url || "")
       .split(",")
       .map((u: string) => u.trim())
       .filter(Boolean);
