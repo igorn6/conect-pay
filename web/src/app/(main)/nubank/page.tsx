@@ -25,6 +25,7 @@ import {
   Search,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 import type { NubankSnapshot, NubankMovement } from "@/constants/nubank";
 import CountUp from "@/components/ui/CountUp";
 import SpotlightCard from "@/components/ui/SpotlightCard";
@@ -117,8 +118,15 @@ export default function NubankCajuPage() {
   };
 
   const parseCurrencyInput = (val: string): number => {
-    const clean = val.replace(/[\R$\s.]/g, "").replace(",", ".");
-    return parseFloat(clean) || 0;
+    if (!val || !val.trim()) return NaN;
+    const clean = val.trim().replace(/^R\$\s*/i, "").trim();
+    if (clean.includes(",") && clean.includes(".")) {
+      return parseFloat(clean.replace(/\./g, "").replace(",", "."));
+    }
+    if (clean.includes(",")) {
+      return parseFloat(clean.replace(/\s/g, "").replace(",", "."));
+    }
+    return parseFloat(clean.replace(/\s/g, ""));
   };
 
   // Ação: Solicitar Recarga Nubank
@@ -161,12 +169,20 @@ export default function NubankCajuPage() {
 
     try {
       setIsSubmittingRefund(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (userId) headers["x-user-id"] = userId;
+
       const res = await fetch("/api/nubank-balance/refund", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           amount: amountNum,
           description: refundDescription.trim(),
+          reason: refundDescription.trim(),
+          userId,
         }),
       });
 
@@ -179,6 +195,9 @@ export default function NubankCajuPage() {
       setRefundAmount("");
       setRefundDescription("");
       fetchBalance(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("nubank-balance-updated"));
+      }
     } catch (err: any) {
       setRefundError(err.message || "Erro inesperado.");
     } finally {
@@ -191,7 +210,7 @@ export default function NubankCajuPage() {
     e.preventDefault();
     setAdjustError(null);
     const targetBalanceNum = parseCurrencyInput(adjustTargetBalance);
-    if (targetBalanceNum < 0) {
+    if (!Number.isFinite(targetBalanceNum) || targetBalanceNum < 0) {
       setAdjustError("Informe um saldo válido.");
       return;
     }
@@ -202,12 +221,21 @@ export default function NubankCajuPage() {
 
     try {
       setIsSubmittingAdjust(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (userId) headers["x-user-id"] = userId;
+
       const res = await fetch("/api/nubank-balance/adjust", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
+          newBalance: targetBalanceNum,
           targetBalance: targetBalanceNum,
+          description: adjustReason.trim(),
           reason: adjustReason.trim(),
+          userId,
         }),
       });
 
@@ -220,6 +248,9 @@ export default function NubankCajuPage() {
       setAdjustTargetBalance("");
       setAdjustReason("");
       fetchBalance(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("nubank-balance-updated"));
+      }
     } catch (err: any) {
       setAdjustError(err.message || "Erro inesperado.");
     } finally {
