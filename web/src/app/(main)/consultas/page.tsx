@@ -437,20 +437,25 @@ export default function SearchPage() {
     }
 
     // 7. Valores (Exato vs Faixa Mín/Máx)
+    const parseMoneyInput = (val: string) => {
+      const clean = val.replace(/[^\d.,]/g, "").replace(/\./g, "").replace(",", ".");
+      return parseFloat(clean);
+    };
+
     if (exactValue.trim()) {
-      const exactNum = parseFloat(exactValue.replace(/\./g, "").replace(",", "."));
+      const exactNum = parseMoneyInput(exactValue);
       if (Number.isFinite(exactNum)) {
         result = result.filter((req) => Math.abs(Number(req.amount) - exactNum) < 0.01);
       }
     } else {
       if (minValue.trim()) {
-        const minNum = parseFloat(minValue.replace(/\./g, "").replace(",", "."));
+        const minNum = parseMoneyInput(minValue);
         if (Number.isFinite(minNum)) {
           result = result.filter((req) => Number(req.amount) >= minNum);
         }
       }
       if (maxValue.trim()) {
-        const maxNum = parseFloat(maxValue.replace(/\./g, "").replace(",", "."));
+        const maxNum = parseMoneyInput(maxValue);
         if (Number.isFinite(maxNum)) {
           result = result.filter((req) => Number(req.amount) <= maxNum);
         }
@@ -576,19 +581,32 @@ export default function SearchPage() {
     setQuickPeriod(type);
   };
 
-  // Verifica se há filtros aplicados para exibir botão Limpar
-  const hasActiveFilters = Boolean(
-    searchTerm ||
-      requesterOrSectorFilter ||
-      modalityFilter ||
-      categoryFilter ||
-      statusFilter ||
-      dateStart ||
-      dateEnd ||
-      exactValue ||
-      minValue ||
-      maxValue
-  );
+  // Contador e validação de filtros ativos para feedback visual instantâneo
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (searchTerm.trim()) count++;
+    if (requesterOrSectorFilter) count++;
+    if (modalityFilter) count++;
+    if (categoryFilter) count++;
+    if (statusFilter) count++;
+    if (dateStart || dateEnd || quickPeriod) count++;
+    if (exactValue.trim() || minValue.trim() || maxValue.trim()) count++;
+    return count;
+  }, [
+    searchTerm,
+    requesterOrSectorFilter,
+    modalityFilter,
+    categoryFilter,
+    statusFilter,
+    dateStart,
+    dateEnd,
+    quickPeriod,
+    exactValue,
+    minValue,
+    maxValue,
+  ]);
+
+  const hasActiveFilters = activeFilterCount > 0;
 
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -692,7 +710,7 @@ export default function SearchPage() {
     }
   };
 
-  // Renderizador do cabeçalho de coluna ordenável (Diretriz 3)
+  // Renderizador do cabeçalho de coluna ordenável (Diretriz 3 & A11y)
   const renderSortableHeader = (
     label: string,
     field: SortField,
@@ -702,8 +720,18 @@ export default function SearchPage() {
     const isActive = sortField === field;
     return (
       <th
+        scope="col"
+        role="columnheader"
+        aria-sort={isActive ? (sortDirection === "asc" ? "ascending" : "descending") : "none"}
         onClick={() => handleSort(field)}
-        className={`px-4 py-3.5 cursor-pointer select-none transition-colors group/th ${
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleSort(field);
+          }
+        }}
+        tabIndex={0}
+        className={`px-4 py-3.5 cursor-pointer select-none transition-colors group/th focus:outline-none focus:bg-white/[0.04] ${
           align === "right" ? "text-right" : "text-left"
         } ${extraClasses} ${isActive ? "text-emerald-400 font-bold" : "text-slate-400 hover:text-slate-200"}`}
       >
@@ -749,13 +777,13 @@ export default function SearchPage() {
               {/* Badge Total de Registros */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-white/10 text-xs font-mono shadow-sm">
                 <span className="text-slate-400">Total:</span>
-                <strong className="text-emerald-400 font-bold">{totalFilteredCount}</strong>
+                <strong className="text-emerald-400 font-bold tabular-nums">{totalFilteredCount}</strong>
               </div>
 
               {/* Badge Soma Financeira Total (Diretriz 4) */}
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-mono shadow-sm">
                 <span className="text-emerald-300 font-medium">Soma Total:</span>
-                <strong className="text-emerald-400 font-bold text-sm tracking-tight">
+                <strong className="text-emerald-400 font-bold text-sm tracking-tight tabular-nums">
                   {formatCurrency(totalFinancialSum)}
                 </strong>
               </div>
@@ -792,6 +820,7 @@ export default function SearchPage() {
                   placeholder="Buscar por título, titular (recebedor), descrição, solicitante ou chave pix..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
+                  aria-label="Buscar solicitações por múltiplos campos (título, titular, recebedor, descrição, solicitante ou chave pix)"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500/50 transition-all font-mono border"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -801,7 +830,9 @@ export default function SearchPage() {
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                    aria-label="Limpar busca textual"
+                    title="Limpar busca"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer"
                   >
                     <X size={14} />
                   </button>
@@ -814,6 +845,7 @@ export default function SearchPage() {
                   <select
                     value={requesterOrSectorFilter}
                     onChange={(e) => setRequesterOrSectorFilter(e.target.value)}
+                    aria-label="Filtrar por solicitante ou setor"
                     className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer font-sans"
                     style={{
                       backgroundColor: "var(--bg-secondary)",
@@ -854,6 +886,7 @@ export default function SearchPage() {
                 <select
                   value={modalityFilter}
                   onChange={(e) => setModalityFilter(e.target.value)}
+                  aria-label="Filtrar por modalidade de pagamento (Boleto, Caju, Pix ou FOPAG)"
                   className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer font-sans"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -873,6 +906,7 @@ export default function SearchPage() {
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
+                  aria-label="Filtrar por categoria financeira"
                   className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer font-sans"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -899,10 +933,12 @@ export default function SearchPage() {
                   Período:
                 </span>
 
-                <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/5">
+                <div className="flex items-center gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/5" role="group" aria-label="Atalhos rápidos de período">
                   <button
                     type="button"
                     onClick={() => handleQuickPeriod("today")}
+                    aria-pressed={quickPeriod === "today"}
+                    aria-label="Filtrar por solicitações de hoje"
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
                       quickPeriod === "today"
                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
@@ -914,6 +950,8 @@ export default function SearchPage() {
                   <button
                     type="button"
                     onClick={() => handleQuickPeriod("7days")}
+                    aria-pressed={quickPeriod === "7days"}
+                    aria-label="Filtrar por solicitações dos últimos 7 dias"
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
                       quickPeriod === "7days"
                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
@@ -925,6 +963,8 @@ export default function SearchPage() {
                   <button
                     type="button"
                     onClick={() => handleQuickPeriod("month")}
+                    aria-pressed={quickPeriod === "month"}
+                    aria-label="Filtrar por solicitações deste mês"
                     className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors cursor-pointer ${
                       quickPeriod === "month"
                         ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
@@ -943,6 +983,7 @@ export default function SearchPage() {
                       setDateStart(e.target.value);
                       setQuickPeriod(null);
                     }}
+                    aria-label="Data inicial para filtro"
                     className="px-2.5 py-1 rounded-lg text-xs text-white border outline-none font-mono"
                     style={{
                       backgroundColor: "var(--bg-secondary)",
@@ -958,6 +999,7 @@ export default function SearchPage() {
                       setDateEnd(e.target.value);
                       setQuickPeriod(null);
                     }}
+                    aria-label="Data final para filtro"
                     className="px-2.5 py-1 rounded-lg text-xs text-white border outline-none font-mono"
                     style={{
                       backgroundColor: "var(--bg-secondary)",
@@ -981,6 +1023,7 @@ export default function SearchPage() {
                   placeholder="Exato (R$)"
                   value={exactValue}
                   onChange={(e) => setExactValue(e.target.value)}
+                  aria-label="Filtrar por valor monetário exato em reais"
                   className="w-24 px-2 py-1 rounded-lg text-xs text-white placeholder-slate-500 border outline-none font-mono"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -1000,6 +1043,7 @@ export default function SearchPage() {
                     setMinValue(e.target.value);
                     if (exactValue) setExactValue("");
                   }}
+                  aria-label="Filtrar por valor monetário mínimo em reais"
                   className="w-20 px-2 py-1 rounded-lg text-xs text-white placeholder-slate-500 border outline-none font-mono"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -1015,6 +1059,7 @@ export default function SearchPage() {
                     setMaxValue(e.target.value);
                     if (exactValue) setExactValue("");
                   }}
+                  aria-label="Filtrar por valor monetário máximo em reais"
                   className="w-20 px-2 py-1 rounded-lg text-xs text-white placeholder-slate-500 border outline-none font-mono"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -1027,6 +1072,7 @@ export default function SearchPage() {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  aria-label="Filtrar por status do ciclo de vida da solicitação"
                   className="px-2.5 py-1 rounded-lg text-xs text-slate-200 border outline-none cursor-pointer"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
@@ -1044,16 +1090,17 @@ export default function SearchPage() {
                   <option value="RECUSADO">Recusado</option>
                 </select>
 
-                {/* Botão Limpar Filtros (Diretriz 2) */}
+                {/* Botão Limpar Filtros com Contador Ativo (Diretriz 2 & A11y) */}
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={handleClearFilters}
+                    aria-label={`Limpar ${activeFilterCount} filtros aplicados`}
                     className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-medium transition-colors cursor-pointer"
                     title="Resetar todos os filtros aplicados"
                   >
                     <RotateCcw size={12} />
-                    <span>Limpar</span>
+                    <span>Limpar ({activeFilterCount})</span>
                   </button>
                 )}
               </div>
@@ -1142,8 +1189,17 @@ export default function SearchPage() {
                       return (
                         <tr
                           key={req.id}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Ver detalhes da solicitação: ${req.title}`}
                           onClick={() => setSelectedCard(req)}
-                          className="hover:bg-white/[0.03] cursor-pointer transition-colors group select-none"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setSelectedCard(req);
+                            }
+                          }}
+                          className="hover:bg-white/[0.03] cursor-pointer transition-colors group select-none focus:outline-none focus-visible:bg-white/[0.05] focus-visible:ring-1 focus-visible:ring-emerald-500/50"
                         >
                           {/* 1. TÍTULO */}
                           <td className="px-5 py-3.5 font-semibold text-slate-200 group-hover:text-white transition-colors max-w-xs md:max-w-md truncate">
@@ -1174,7 +1230,7 @@ export default function SearchPage() {
                           </td>
 
                           {/* 4. VALOR */}
-                          <td className="px-4 py-3.5 text-right font-mono font-bold text-white group-hover:text-emerald-400 transition-colors whitespace-nowrap">
+                          <td className="px-4 py-3.5 text-right font-mono font-bold tabular-nums text-white group-hover:text-emerald-400 transition-colors whitespace-nowrap">
                             {formatCurrency(req.amount)}
                           </td>
 
@@ -1228,6 +1284,7 @@ export default function SearchPage() {
                   <select
                     value={pageSize}
                     onChange={(e) => setPageSize(Number(e.target.value))}
+                    aria-label="Selecionar quantidade de itens por página"
                     className="px-2 py-1 rounded-lg text-xs text-white border outline-none cursor-pointer"
                     style={{
                       backgroundColor: "var(--bg-card)",
@@ -1246,7 +1303,8 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1 || totalPages <= 1}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                    aria-label="Ir para a primeira página"
+                    className="min-w-[32px] min-h-[32px] flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                     title="Primeira página"
                   >
                     <ChevronsLeft size={16} />
@@ -1255,13 +1313,14 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1 || totalPages <= 1}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                    aria-label="Ir para a página anterior"
+                    className="min-w-[32px] min-h-[32px] flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                     title="Página anterior"
                   >
                     <ChevronLeft size={16} />
                   </button>
 
-                  <span className="px-2.5 py-1 font-mono text-[11px] text-slate-300 bg-white/[0.04] border border-white/5 rounded-lg">
+                  <span className="px-2.5 py-1 font-mono text-[11px] text-slate-300 bg-white/[0.04] border border-white/5 rounded-lg tabular-nums">
                     Página <strong className="text-white">{currentPage}</strong> de{" "}
                     <strong className="text-white">{totalPages}</strong>
                   </span>
@@ -1270,7 +1329,8 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages || totalPages <= 1}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                    aria-label="Ir para a próxima página"
+                    className="min-w-[32px] min-h-[32px] flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                     title="Próxima página"
                   >
                     <ChevronRight size={16} />
@@ -1279,7 +1339,8 @@ export default function SearchPage() {
                     type="button"
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages || totalPages <= 1}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                    aria-label="Ir para a última página"
+                    className="min-w-[32px] min-h-[32px] flex items-center justify-center p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
                     title="Última página"
                   >
                     <ChevronsRight size={16} />
