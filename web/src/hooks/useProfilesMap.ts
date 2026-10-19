@@ -4,6 +4,9 @@ export interface Profile {
   id: string;
   name: string;
   is_active: boolean;
+  sector?: string | null;
+  role?: string;
+  email?: string;
 }
 
 export function useProfilesMap() {
