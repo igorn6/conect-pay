@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export interface Profile {
   id: string;
@@ -19,15 +20,42 @@ export function useProfilesMap() {
 
     async function fetchProfiles() {
       try {
-        const response = await fetch("/api/admin/users");
-        if (!response.ok) throw new Error("Erro ao buscar perfis na API");
-        
-        const data = await response.json();
+        // Busca direta da tabela profiles no Supabase (latência < 30ms, pública para leitura)
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, name, sector, role, email")
+          .order("name");
+
+        if (error) {
+          // Fallback para API admin caso necessário
+          const response = await fetch("/api/admin/users");
+          if (!response.ok) throw error;
+          const fallbackData = await response.json();
+          if (isMounted && fallbackData) {
+            setProfilesList(fallbackData as Profile[]);
+            const map: Record<string, string> = {};
+            fallbackData.forEach((p: Profile) => {
+              map[p.id] = p.name;
+            });
+            setProfilesMap(map);
+          }
+          return;
+        }
 
         if (isMounted && data) {
-          setProfilesList(data as Profile[]);
+          const list: Profile[] = data.map((p: any) => ({
+            id: p.id,
+            name: p.name || "Sem Nome",
+            is_active: true,
+            sector: p.sector || null,
+            role: p.role || "",
+            email: p.email || "",
+          }));
+          setProfilesList(list);
           const map: Record<string, string> = {};
-          data.forEach((p: Profile) => map[p.id] = p.name);
+          list.forEach((p: Profile) => {
+            map[p.id] = p.name;
+          });
           setProfilesMap(map);
         }
       } catch (err) {
@@ -39,7 +67,9 @@ export function useProfilesMap() {
 
     fetchProfiles();
 
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return { profilesMap, profilesList, isLoading };

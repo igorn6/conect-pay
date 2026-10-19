@@ -253,44 +253,75 @@ export default function SearchPage() {
     }
   };
 
-  // Listas dinâmicas para filtros
-  const dynamicSectors = useMemo(() => {
-    return sectors
-      .filter((s) => !s.is_deleted)
-      .map((s) => ({ id: s.id, name: s.name }))
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [sectors]);
+  const isMasterOrFinanceiro = userRole === "MASTER" || userRole === "FINANCEIRO";
+  const isGestor = userRole === "GESTOR";
 
-  const dynamicRequesters = useMemo(() => {
-    const userIds = new Set<string>();
-    requests.forEach((r) => {
-      if (r.real_requester_id) userIds.add(r.real_requester_id);
-      if (r.created_by) userIds.add(r.created_by);
+  // Identificação do setor do Gestor
+  const currentSector = useMemo(() => {
+    if (!sectorId) return null;
+    return sectors.find((s) => s.id === sectorId) || null;
+  }, [sectors, sectorId]);
+  const currentSectorName = currentSector?.name || (sectorId ? "Meu Setor" : "");
+
+  // Setores disponíveis (Master e Financeiro veem todos; Gestor vê apenas o seu)
+  const availableSectors = useMemo(() => {
+    if (isMasterOrFinanceiro) {
+      return sectors
+        .filter((s) => !s.is_deleted)
+        .map((s) => ({ id: s.id, name: s.name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    }
+    if (isGestor && sectorId) {
+      return currentSector ? [{ id: currentSector.id, name: currentSector.name }] : [];
+    }
+    return [];
+  }, [sectors, isMasterOrFinanceiro, isGestor, sectorId, currentSector]);
+
+  // Solicitantes disponíveis (Master e Financeiro veem todos; Gestor vê apenas do seu setor)
+  const availableRequesters = useMemo(() => {
+    if (isGestor && sectorId) {
+      // Gestor só puxa membros do seu próprio setor
+      return profilesList
+        .filter((p) => p.sector === sectorId && p.name && p.name !== "Sem Nome")
+        .map((p) => ({ id: p.id, name: p.name }))
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    }
+
+    if (isMasterOrFinanceiro) {
+      // Master e Financeiro puxam todos os solicitantes da empresa
+      const list = profilesList
+        .filter((p) => p.name && p.name !== "Sem Nome")
+        .map((p) => ({ id: p.id, name: p.name }));
+
+      const existingIds = new Set(list.map((u) => u.id));
+      requests.forEach((r) => {
+        const id = r.real_requester_id || r.created_by;
+        if (id && !existingIds.has(id)) {
+          const resolvedName = profilesMap[id];
+          if (resolvedName) {
+            list.push({ id, name: resolvedName });
+            existingIds.add(id);
+          }
+        }
+      });
+
+      return list.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    }
+
+    return [];
+  }, [isGestor, sectorId, isMasterOrFinanceiro, profilesList, requests, profilesMap]);
+
+  // Categorias instantâneas (combina cache/banco + solicitações carregadas para latência zero)
+  const dynamicCategories = useMemo(() => {
+    const set = new Set<string>();
+    categories.forEach((c) => {
+      if (c.name) set.add(c.name);
     });
-    profilesList.forEach((p) => userIds.add(p.id));
-
-    return Array.from(userIds)
-      .map((id) => ({
-        id,
-        name: profilesMap[id] || `Usuário (${id.slice(0, 6)})`,
-      }))
-      .filter((u) => u.name && u.name !== "Desconhecido")
-      .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [requests, profilesList, profilesMap]);
-
-  const dynamicModalities = useMemo(() => {
-    const set = new Set<string>(["PIX", "CAJU", "BOLETO"]);
     requests.forEach((r) => {
-      if (r.payment_method) set.add(r.payment_method.toUpperCase());
-      if (r.payment_type) set.add(r.payment_type.toUpperCase());
-      if (Array.isArray(r.splits)) {
-        r.splits.forEach((s) => {
-          if (s.payment_type) set.add(s.payment_type.toUpperCase());
-        });
-      }
+      if (r.category) set.add(r.category);
     });
-    return Array.from(set).filter(Boolean).sort();
-  }, [requests]);
+    return Array.from(set).filter(Boolean).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [categories, requests]);
 
   // Função avançada de busca por múltiplos campos (Diretriz 1)
   const matchesSearch = (req: PaymentRequest, term: string, requesterName: string): boolean => {
@@ -366,7 +397,7 @@ export default function SearchPage() {
       }
     }
 
-    // 3. Dropdown Modalidade
+    // 3. Dropdown Modalidade (Estritamente: Boleto, Caju, Pix, FOPAG)
     if (modalityFilter) {
       const mod = modalityFilter.toUpperCase();
       result = result.filter((req) => {
@@ -375,6 +406,11 @@ export default function SearchPage() {
         if (method === mod || type === mod) return true;
         if (Array.isArray(req.splits) && req.splits.some((s) => (s.payment_type || "").toUpperCase() === mod)) {
           return true;
+        }
+        if (mod === "FOPAG") {
+          if ((req.notes || "").toUpperCase().includes("FOPAG")) return true;
+          if ((req.description || "").toUpperCase().includes("FOPAG")) return true;
+          if ((req.category || "").toUpperCase().includes("FOPAG")) return true;
         }
         return false;
       });
@@ -772,82 +808,83 @@ export default function SearchPage() {
                 )}
               </div>
 
-              {/* Dropdown Solicitante / Setor (Diretriz 2) */}
-              <div className="lg:col-span-3">
+              {/* Dropdown Solicitante / Setor (Exclusivo Master e Financeiro, ou Gestor restrito ao seu setor) */}
+              {(isMasterOrFinanceiro || isGestor) && (
+                <div className="lg:col-span-3">
+                  <select
+                    value={requesterOrSectorFilter}
+                    onChange={(e) => setRequesterOrSectorFilter(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer font-sans"
+                    style={{
+                      backgroundColor: "var(--bg-secondary)",
+                      borderColor: "var(--surface-border)",
+                    }}
+                  >
+                    <option value="">
+                      {isMasterOrFinanceiro
+                        ? "Todos os Solicitantes / Setores"
+                        : `Meu Setor (${currentSectorName || "Geral"})`}
+                    </option>
+
+                    {isMasterOrFinanceiro && availableSectors.length > 0 && (
+                      <optgroup label="🏢 Setores">
+                        {availableSectors.map((sec) => (
+                          <option key={sec.id} value={`sector:${sec.id}`}>
+                            Setor: {sec.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {availableRequesters.length > 0 && (
+                      <optgroup label={isGestor ? "👤 Solicitantes do Meu Setor" : "👤 Solicitantes"}>
+                        {availableRequesters.map((user) => (
+                          <option key={user.id} value={`user:${user.id}`}>
+                            {user.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+              )}
+
+              {/* Dropdown Modalidade (Estritamente: Boleto, Caju, Pix e FOPAG) */}
+              <div className={isMasterOrFinanceiro || isGestor ? "lg:col-span-2" : "lg:col-span-3"}>
                 <select
-                  value={requesterOrSectorFilter}
-                  onChange={(e) => setRequesterOrSectorFilter(e.target.value)}
+                  value={modalityFilter}
+                  onChange={(e) => setModalityFilter(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer font-sans"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--surface-border)",
                   }}
                 >
-                  <option value="">Todos os Solicitantes / Setores</option>
-
-                  {dynamicSectors.length > 0 && (
-                    <optgroup label="🏢 Setores">
-                      {dynamicSectors.map((sec) => (
-                        <option key={sec.id} value={`sector:${sec.id}`}>
-                          Setor: {sec.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-
-                  {dynamicRequesters.length > 0 && (
-                    <optgroup label="👤 Solicitantes">
-                      {dynamicRequesters.map((user) => (
-                        <option key={user.id} value={`user:${user.id}`}>
-                          {user.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </div>
-
-              {/* Dropdown Modalidade (Diretriz 2) */}
-              <div className="lg:col-span-2">
-                <select
-                  value={modalityFilter}
-                  onChange={(e) => setModalityFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer"
-                  style={{
-                    backgroundColor: "var(--bg-secondary)",
-                    borderColor: "var(--surface-border)",
-                  }}
-                >
                   <option value="">Todas as Modalidades</option>
-                  {dynamicModalities.map((mod) => (
-                    <option key={mod} value={mod}>
-                      {mod}
-                    </option>
-                  ))}
+                  <option value="BOLETO">Boleto</option>
+                  <option value="CAJU">Caju</option>
+                  <option value="PIX">Pix</option>
+                  <option value="FOPAG">FOPAG</option>
                 </select>
               </div>
 
-              {/* Dropdown Categorias (Diretriz 2) */}
-              <div className="lg:col-span-3">
+              {/* Dropdown Categorias (Carregamento instantâneo via cache + DB) */}
+              <div className={isMasterOrFinanceiro || isGestor ? "lg:col-span-3" : "lg:col-span-3"}>
                 <select
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer"
+                  className="w-full px-3 py-2.5 rounded-xl text-xs text-slate-200 focus:outline-none focus:border-emerald-500/50 transition-all border cursor-pointer font-sans"
                   style={{
                     backgroundColor: "var(--bg-secondary)",
                     borderColor: "var(--surface-border)",
                   }}
                 >
                   <option value="">Todas as Categorias</option>
-                  {isLoadingCategories ? (
-                    <option value="" disabled>Carregando categorias...</option>
-                  ) : (
-                    categories.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))
-                  )}
+                  {dynamicCategories.map((catName) => (
+                    <option key={catName} value={catName}>
+                      {catName}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
