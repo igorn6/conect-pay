@@ -466,8 +466,9 @@ export default function CardDetailModal({
         stage_history: nextStageHistory,
       })
       .eq("id", card.id);
+    if (error) { setLoading(false); alert("Erro ao recusar solicitação."); return; }
+    await syncNubankBalance(card.id);
     setLoading(false);
-    if (error) { alert("Erro ao recusar solicitação."); return; }
     onUpdate("Solicitação enviada para Recusados.");
   }
 
@@ -475,8 +476,9 @@ export default function CardDetailModal({
     if (!window.confirm("Deseja realmente mover este card para a Lixeira?")) return;
     setLoading(true);
     const { error } = await supabase.from("payment_requests").update({ is_deleted: true }).eq("id", card.id);
+    if (error) { setLoading(false); alert("Erro ao excluir solicitação."); return; }
+    await syncNubankBalance(card.id);
     setLoading(false);
-    if (error) { alert("Erro ao excluir solicitação."); return; }
     onUpdate("Solicitação movida para a Lixeira.");
   }
 
@@ -784,6 +786,7 @@ export default function CardDetailModal({
     }).eq("id", card.id);
     setIsUploading(false);
     if (error) { alert("Erro ao enviar correcao."); return; }
+    await syncNubankBalance(card.id);
     onUpdate("Comprovante corrigido. Aguardando nova validacao do Gestor.");
   };
 
@@ -834,6 +837,8 @@ export default function CardDetailModal({
   const handleCnpjChange = async (newCnpj: string) => {
     setLocalCnpj(newCnpj);
     await supabase.from("payment_requests").update({ cnpj: newCnpj }).eq("id", card.id);
+    await syncNubankBalance(card.id);
+    onUpdate();
   };
 
   const handleValidateAction = async (action: "APPROVE" | "REJECT" | "FORCE_APPROVE") => {
@@ -850,6 +855,7 @@ export default function CardDetailModal({
       });
       const data = await res.json();
       if (!res.ok) { alert(data.error || "Erro na validacao."); setLoading(false); return; }
+      await syncNubankBalance(card.id);
       setLoading(false);
       onUpdate(data.message || "Solicitacao atualizada.");
     } catch {

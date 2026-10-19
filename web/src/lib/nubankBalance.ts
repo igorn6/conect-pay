@@ -8,7 +8,7 @@ import {
   type NubankSnapshot,
 } from "@/constants/nubank";
 
-type AllowedRole = "MASTER" | "FINANCEIRO";
+type AllowedRole = "MASTER" | "FINANCEIRO" | "GESTOR";
 
 export type AuthResult =
   | { ok: true; userId: string; name: string; role: AllowedRole }
@@ -118,48 +118,178 @@ export async function applyMovement(args: {
   };
 }
 
-const IDLE_STATUSES = ["NOVA_SOLICITACAO", "EM_APROVACAO", "RECUSADO"];
+/** Chama a função atômica de estorno (devolve saldo ao Nubank e seta balance_processed = false). */
+export async function revertMovement(args: {
+  requestId: string;
+  userId: string | null;
+  description?: string;
+}): Promise<ApplyResult> {
+  await ensureNubankBalance();
+
+  const { data, error } = await supabaseAdmin.rpc("revert_nubank_movement", {
+    p_request_id: args.requestId,
+    p_user: args.userId,
+    p_description: args.description ?? null,
+  });
+
+  if (error) throw error;
+  const r = (data || {}) as any;
+  return {
+    processed: Boolean(r.processed),
+    balance: round2(Number(r.balance)),
+    delta: r.delta !== undefined ? Number(r.delta) : undefined,
+  };
+}
+
+/** Status onde a despesa já foi paga ou validada/finalizada. */
+export const NUBANK_ACTIVE_STATUSES = [
+  "VALIDACAO_GESTOR",
+  "CORRECAO_PENDENTE",
+  "VALIDADO_GESTOR",
+  "AGUARDANDO_PAGAMENTO",
+  "FINALIZADO",
+];
+
+/** Status inativos (não pagos ou cancelados) onde o saldo Nubank não deve estar descontado. */
+export const NUBANK_IDLE_STATUSES = ["NOVA_SOLICITACAO", "EM_APROVACAO", "RECUSADO"];
 
 export type CardDecision =
   | { action: "SKIP"; reason: string }
-  | { action: "APPLY"; type: "ENTRADA" | "SAIDA"; delta: number; description: string };
+  | { action: "APPLY"; type: "ENTRADA" | "SAIDA"; delta: number; description: string }
+  | { action: "REVERT"; reason: string; description: string };
 
 /**
- * Regra de negócio (idempotente, baseada no estado do cartão):
- *  - Enquanto o cartão está em Nova Solicitação / Pendente (ou foi recusado) não mexe no saldo.
- *  - SAÍDA (-): cartão pago via Nubank (qualquer despesa ou Recarga Caju paga via NU) que já saiu de Pendente.
- *  - ENTRADA (+): "Recarga de Saldo Nubank" que chegou em FINALIZADO.
- *  - balance_processed garante que o cartão nunca mexe no saldo duas vezes (ex.: voltou p/ Correção Pendente).
+ * Regra de negócio bidirecional e idempotente baseada no estado real do cartão:
+ *  - Se balance_processed === true mas o cartão foi excluído, recusado, voltou para Pendente ou trocou para outro banco:
+ *      -> REVERT: Estorna o saldo de volta ao Nubank.
+ *  - Se balance_processed === false e o cartão for Nubank em status ativo (Validação do Gestor, Correção Pendente, Validado pelo Gestor, Aguardando Nota ou Finalizado):
+ *      -> APPLY: Desconta o saldo do Nubank (SAÍDA).
+ *  - Se for Recarga Nubank que chegou em FINALIZADO:
+ *      -> APPLY: Adiciona saldo ao Nubank (ENTRADA).
  */
 export function decideCardMovement(
   card: any,
   creatorRole: string | null
 ): CardDecision {
   if (!card) return { action: "SKIP", reason: "Cartão não encontrado." };
-  if (card.is_deleted) return { action: "SKIP", reason: "Cartão na lixeira." };
-  if (card.balance_processed) return { action: "SKIP", reason: "Cartão já processado." };
-  if (IDLE_STATUSES.includes(card.status)) return { action: "SKIP", reason: "Cartão ainda não saiu de Pendente." };
 
   const amount = round2(Number(card.amount) || 0);
-  if (!(amount > 0)) return { action: "SKIP", reason: "Valor inválido." };
-
   const title = card.title || "Sem título";
 
+  // =========================================================================
+  // CENÁRIO 1: Cartão JÁ teve o saldo processado (balance_processed === true).
+  // Devemos manter o processamento ou REVERTER (estornar) o saldo ao Nubank?
+  // =========================================================================
+  if (card.balance_processed) {
+    // 1.1 Se o cartão foi excluído (enviado para lixeira)
+    if (card.is_deleted) {
+      return {
+        action: "REVERT",
+        reason: "Cartão excluído / movido para a lixeira.",
+        description: `Estorno por exclusão: ${title}`,
+      };
+    }
+
+    // 1.2 Se o cartão foi recusado
+    if (card.status === "RECUSADO") {
+      return {
+        action: "REVERT",
+        reason: "Cartão recusado.",
+        description: `Estorno por recusa: ${title}`,
+      };
+    }
+
+    // 1.3 Se o cartão retornou para status anterior ao pagamento (Nova Solicitação ou Pendente)
+    if (card.status === "NOVA_SOLICITACAO" || card.status === "EM_APROVACAO") {
+      return {
+        action: "REVERT",
+        reason: "Cartão retornou para status anterior ao pagamento.",
+        description: `Estorno por retorno de status: ${title}`,
+      };
+    }
+
+    // 1.4 Se for Recarga Nubank
+    if (card.request_kind === "RECARGA_NUBANK") {
+      if (card.status !== "FINALIZADO") {
+        return {
+          action: "REVERT",
+          reason: "Recarga Nubank não está mais finalizada.",
+          description: `Estorno de recarga: ${title}`,
+        };
+      }
+      if (creatorRole !== "MASTER" && creatorRole !== "FINANCEIRO") {
+        return {
+          action: "REVERT",
+          reason: "Recarga criada por perfil sem permissão.",
+          description: `Estorno de recarga: ${title}`,
+        };
+      }
+      return { action: "SKIP", reason: "Recarga Nubank já creditada." };
+    }
+
+    // 1.5 Para despesas normais: o cartão deixou de ser conta Nubank?
+    if (!isNubankAccount(card.cnpj)) {
+      return {
+        action: "REVERT",
+        reason: "Cartão alterado para conta não Nubank.",
+        description: `Estorno por alteração de pagador: ${title}`,
+      };
+    }
+
+    // Se continua sendo Nubank e em status ativo:
+    return { action: "SKIP", reason: "Cartão já debitado e no estado correto." };
+  }
+
+  // =========================================================================
+  // CENÁRIO 2: Cartão AINDA NÃO teve o saldo processado (balance_processed !== true).
+  // Devemos DEBITAR (SAÍDA) ou CREDITAR (ENTRADA)?
+  // =========================================================================
+
+  // 2.1 Se estiver na lixeira, não processa
+  if (card.is_deleted) {
+    return { action: "SKIP", reason: "Cartão na lixeira." };
+  }
+
+  // 2.2 Se o valor não for válido (> 0)
+  if (!(amount > 0)) {
+    return { action: "SKIP", reason: "Valor inválido." };
+  }
+
+  // 2.3 Se ainda estiver em status inativo (NOVA_SOLICITACAO, EM_APROVACAO, RECUSADO)
+  if (NUBANK_IDLE_STATUSES.includes(card.status)) {
+    return { action: "SKIP", reason: "Cartão ainda não saiu de Pendente ou foi recusado." };
+  }
+
+  // 2.4 Se for Recarga de Saldo Nubank
   if (card.request_kind === "RECARGA_NUBANK") {
-    if (card.status !== "FINALIZADO") return { action: "SKIP", reason: "Recarga só entra ao finalizar." };
-    // Só Financeiro/Master podem criar recargas: ignora cartões forjados por outros perfis.
+    if (card.status !== "FINALIZADO") {
+      return { action: "SKIP", reason: "Recarga só entra ao finalizar." };
+    }
     if (creatorRole !== "MASTER" && creatorRole !== "FINANCEIRO") {
       return { action: "SKIP", reason: "Recarga criada por perfil sem permissão." };
     }
-    return { action: "APPLY", type: "ENTRADA", delta: amount, description: `Recarga de Saldo Nubank: ${title}` };
+    return {
+      action: "APPLY",
+      type: "ENTRADA",
+      delta: amount,
+      description: `Recarga de Saldo Nubank: ${title}`,
+    };
   }
 
+  // 2.5 Para despesas normais: se a conta pagadora for Nubank e estiver em status ativo
   if (isNubankAccount(card.cnpj)) {
-    const prefix = isRechargeKind(card.request_kind) ? "Recarga Caju paga via NU" : "Pagamento";
-    return { action: "APPLY", type: "SAIDA", delta: -amount, description: `${prefix}: ${title}` };
+    if (NUBANK_ACTIVE_STATUSES.includes(card.status)) {
+      const prefix = isRechargeKind(card.request_kind) ? "Recarga Caju paga via NU" : "Pagamento";
+      return {
+        action: "APPLY",
+        type: "SAIDA",
+        delta: -amount,
+        description: `${prefix}: ${title}`,
+      };
+    }
   }
 
-  return { action: "SKIP", reason: "Cartão não utiliza o Nubank." };
+  return { action: "SKIP", reason: "Cartão não utiliza o Nubank ou não atingiu etapa aplicável." };
 }
 
 export async function processCardMovement(paymentId: string, userId: string) {
@@ -184,6 +314,22 @@ export async function processCardMovement(paymentId: string, userId: string) {
     return { processed: false, reason: decision.reason };
   }
 
+  if (decision.action === "REVERT") {
+    const result = await revertMovement({
+      requestId: card.id,
+      userId,
+      description: decision.description,
+    });
+    return {
+      processed: result.processed,
+      action: "REVERT" as const,
+      type: "REEMBOLSO" as const,
+      delta: result.delta,
+      balance: result.balance,
+      reason: result.processed ? undefined : "Cartão já revertido.",
+    };
+  }
+
   const result = await applyMovement({
     type: decision.type,
     delta: decision.delta,
@@ -194,6 +340,7 @@ export async function processCardMovement(paymentId: string, userId: string) {
 
   return {
     processed: result.processed,
+    action: "APPLY" as const,
     reason: result.processed ? undefined : "Cartão já processado.",
     type: decision.type,
     delta: decision.delta,

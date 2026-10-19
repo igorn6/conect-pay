@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { computeNextStageHistory } from "@/utils/sla";
+import { processCardMovement } from "@/lib/nubankBalance";
 
 type ValidateAction = "APPROVE" | "REJECT" | "FORCE_APPROVE";
 
@@ -132,6 +133,7 @@ export async function POST(req: Request) {
         .eq("id", paymentId);
 
       if (updateError) throw updateError;
+      try { await processCardMovement(paymentId, user.id); } catch (e) { console.warn("[Nubank sync in validate]", e); }
 
       const actionMessage = isCreator
         ? "Pagamento validado pelo solicitante."
@@ -196,6 +198,7 @@ export async function POST(req: Request) {
         .eq("id", paymentId);
 
       if (updateError) throw updateError;
+      try { await processCardMovement(paymentId, user.id); } catch (e) { console.warn("[Nubank sync in validate]", e); }
 
       return NextResponse.json({
         success: true,
@@ -237,6 +240,7 @@ export async function POST(req: Request) {
         .eq("id", paymentId);
 
       if (updateError) throw updateError;
+      try { await processCardMovement(paymentId, user.id); } catch (e) { console.warn("[Nubank sync in validate]", e); }
 
       return NextResponse.json({
         success: true,

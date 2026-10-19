@@ -10,7 +10,7 @@ import { authorize, processCardMovement } from "@/lib/nubankBalance";
  */
 export async function POST(req: Request) {
   try {
-    const auth = await authorize(["MASTER", "FINANCEIRO"]);
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"]);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const { paymentId } = await req.json();

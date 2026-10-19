@@ -211,15 +211,19 @@ export default function KanbanPage() {
     if (action === "LIXEIRA") {
       if (!window.confirm("Deseja mover " + selectedIds.size + " solicitações para a lixeira?")) return;
       
+      const idsArray = Array.from(selectedIds);
       const { error } = await supabase
         .from("payment_requests")
         .update({ is_deleted: true })
-        .in("id", Array.from(selectedIds));
+        .in("id", idsArray);
         
       if (error) {
         setToast({ message: "Erro ao excluir", type: "error" });
         return;
       }
+      // Sincroniza saldo Nubank para estornar qualquer card debitado que foi para a lixeira
+      await Promise.all(idsArray.map((id) => syncNubankBalance(id)));
+
       setToast({ message: selectedIds.size + " solicitações removidas", type: "success" });
       setSelectedIds(new Set());
       fetchCards();
@@ -246,7 +250,11 @@ export default function KanbanPage() {
             stage_history: nextHistory,
           })
           .eq("id", card.id);
-        if (error) hasError = true;
+        if (error) {
+          hasError = true;
+        } else {
+          syncNubankBalance(card.id);
+        }
       }
         
       if (hasError) {

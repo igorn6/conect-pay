@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Trash2, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { PaymentRequest } from "@/types/database";
+import { syncNubankBalance } from "@/lib/nubankClient";
 
 interface TrashModalProps {
   simulatedUserName: string;
@@ -53,6 +54,9 @@ export default function TrashModal({ simulatedUserName, userId, userRole, onClos
       setActionLoading(null);
       return;
     }
+
+    // Sincroniza saldo Nubank caso o card restaurado seja Nubank e esteja em status ativo
+    await syncNubankBalance(card.id);
 
     // Log de auditoria silencioso
     await supabase.from("audit_logs").insert({
