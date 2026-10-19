@@ -437,8 +437,8 @@ export default function CardDetailModal({
     setLoading(false);
     if (error) { alert("Erro ao avançar solicitação."); return; }
 
-    // Dispara a sincronização de saldo Nubank em background (com proteção anti-duplicidade)
-    syncNubankBalance(card.id);
+    // Dispara a sincronização de saldo Nubank
+    await syncNubankBalance(card.id);
 
     onUpdate(`Solicitação avançou para ${getStatusLabel(newStatus)}`);
   }

@@ -11,9 +11,9 @@ const RECHARGE_PIX_OWNER = "Lima e Trindade";
 const RECHARGE_CNPJ = "CNPJ 2";
 const RECHARGE_AMOUNT = 1500.00;
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
-    const auth = await authorize(["MASTER", "FINANCEIRO"]);
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const cookieStore = await cookies();

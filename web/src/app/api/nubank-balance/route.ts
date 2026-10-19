@@ -6,7 +6,7 @@ import { authorize, getNubankSnapshot } from "@/lib/nubankBalance";
 /** GET /api/nubank-balance?limit=5 — saldo atual + últimas movimentações (MASTER/FINANCEIRO). */
 export async function GET(req: Request) {
   try {
-    const auth = await authorize(["MASTER", "FINANCEIRO"]);
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const limitParam = Number(new URL(req.url).searchParams.get("limit"));

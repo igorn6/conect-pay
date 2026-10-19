@@ -327,7 +327,7 @@ export default function KanbanPage() {
         if (error) {
           hasError = true;
         } else {
-          syncNubankBalance(card.id);
+          await syncNubankBalance(card.id);
         }
       }
       

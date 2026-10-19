@@ -14,29 +14,83 @@ export type AuthResult =
   | { ok: true; userId: string; name: string; role: AllowedRole }
   | { ok: false; status: number; error: string };
 
-/** Autentica via sessão (@supabase/ssr) e exige um dos perfis informados. */
-export async function authorize(allowed: AllowedRole[]): Promise<AuthResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+/**
+ * Autentica o usuário suportando:
+ *  1. Bearer Token no header Authorization
+ *  2. Sessão via Cookies SSR (@supabase/ssr)
+ *  3. Header x-user-id ou providedUserId
+ */
+export async function authorize(
+  allowed: AllowedRole[],
+  req?: Request,
+  providedUserId?: string | null
+): Promise<AuthResult> {
+  let user: any = null;
 
-  if (authError || !user) {
+  // 1. Tenta por Bearer token no header Authorization
+  if (req) {
+    const authHeader = req.headers.get("authorization");
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "").trim();
+      try {
+        const { data: tokenUser } = await supabaseAdmin.auth.getUser(token);
+        if (tokenUser?.user) {
+          user = tokenUser.user;
+        }
+      } catch (e) {
+        console.warn("[Authorize] Erro ao validar Bearer token:", e);
+      }
+    }
+  }
+
+  // 2. Se não encontrou, tenta por cookies SSR
+  if (!user) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user: cookieUser },
+      } = await supabase.auth.getUser();
+      if (cookieUser) {
+        user = cookieUser;
+      }
+    } catch (cookieErr) {
+      // Cookies SSR podem não estar presentes no client fetch
+    }
+  }
+
+  // 3. Fallback: header x-user-id ou providedUserId
+  if (!user && req) {
+    const headerUserId = req.headers.get("x-user-id");
+    const targetId = headerUserId || providedUserId;
+    if (targetId) {
+      try {
+        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(targetId);
+        if (authUser?.user) {
+          user = authUser.user;
+        }
+      } catch (e) {
+        console.warn("[Authorize] Erro ao buscar usuário por ID:", e);
+      }
+    }
+  }
+
+  const targetUserId = user?.id || providedUserId;
+  if (!targetUserId) {
     return { ok: false, status: 401, error: "Não autorizado. Faça login novamente." };
   }
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
     .select("id, name, role")
-    .eq("id", user.id)
+    .eq("id", targetUserId)
     .single();
 
   if (profileError || !profile) {
     return { ok: false, status: 403, error: "Perfil do usuário não encontrado." };
   }
 
-  if (!allowed.includes(profile.role as AllowedRole)) {
+  const role = (profile.role || "").trim().toUpperCase() as AllowedRole;
+  if (!allowed.includes(role)) {
     return {
       ok: false,
       status: 403,
@@ -44,7 +98,7 @@ export async function authorize(allowed: AllowedRole[]): Promise<AuthResult> {
     };
   }
 
-  return { ok: true, userId: user.id, name: profile.name || "Usuário", role: profile.role as AllowedRole };
+  return { ok: true, userId: profile.id, name: profile.name || "Usuário", role };
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

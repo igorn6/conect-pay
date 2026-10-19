@@ -6,7 +6,7 @@ import { applyMovement, authorize } from "@/lib/nubankBalance";
 /** POST /api/nubank-balance/adjust  { newBalance, description? } — EXCLUSIVO MASTER. */
 export async function POST(req: Request) {
   try {
-    const auth = await authorize(["MASTER"]);
+    const auth = await authorize(["MASTER"], req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     const { newBalance, description } = await req.json();
