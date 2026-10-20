@@ -29,12 +29,15 @@ export default function SuperSolzinhoWidget() {
         <div
           role="dialog"
           aria-label="Super Solzinho"
-          className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[min(75vh,640px)] rounded-2xl border shadow-2xl backdrop-blur-xl overflow-hidden"
+          className={`fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[420px] h-[min(75vh,640px)] rounded-2xl border shadow-2xl backdrop-blur-xl overflow-hidden transition-all duration-200 ease-out origin-bottom-right motion-reduce:transition-none ${
+            isOpen
+              ? "opacity-100 scale-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 scale-95 translate-y-2 pointer-events-none"
+          }`}
           style={{
-            display: isOpen ? "block" : "none",
             backgroundColor: "rgba(10, 15, 26, 0.95)",
             borderColor: "rgba(255, 255, 255, 0.12)",
-            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(16, 185, 129, 0.15)",
+            boxShadow: "0 25px 60px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08)",
           }}
         >
           <SuperSolzinhoChat key={chatKey} variant="floating" onReset={() => setChatKey((k) => k + 1)} />
@@ -47,21 +50,21 @@ export default function SuperSolzinhoWidget() {
         onClick={toggle}
         aria-label={isOpen ? "Fechar Super Solzinho" : "Abrir Super Solzinho"}
         title="Super Solzinho - IA da Conectsol"
-        className="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full p-0.5 border-2 border-amber-400 shadow-xl shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95 transition-all flex items-center justify-center cursor-pointer overflow-hidden group bg-gradient-to-br from-amber-400 to-orange-500"
+        className="fixed bottom-6 right-6 z-50 w-13 h-13 sm:w-14 sm:h-14 rounded-full border border-white/15 bg-slate-900/90 shadow-2xl hover:border-amber-400/40 hover:scale-105 active:scale-95 hover:shadow-[0_0_24px_rgba(251,191,36,0.35)] transition-all duration-200 ease-out flex items-center justify-center cursor-pointer overflow-hidden group backdrop-blur-md motion-reduce:transition-none motion-reduce:hover:scale-100"
       >
         {isOpen ? (
-          <div className="w-full h-full rounded-full bg-slate-900/90 text-white flex items-center justify-center backdrop-blur-sm">
-            <X size={26} />
+          <div className="w-full h-full rounded-full text-slate-300 flex items-center justify-center transition-transform duration-200 rotate-0">
+            <X size={22} />
           </div>
         ) : (
-          <div className="w-full h-full rounded-full overflow-hidden bg-slate-950/20 relative">
+          <div className="w-full h-full rounded-full overflow-hidden p-1.5 relative flex items-center justify-center">
             <img
               src="/images/solzinho/solzinho-smart.png"
               alt="Super Solzinho"
-              className="w-full h-full object-cover object-center scale-110 group-hover:scale-125 transition-transform duration-300"
+              className="w-full h-full object-contain scale-105 group-hover:scale-115 group-hover:drop-shadow-[0_0_8px_rgba(251,191,36,0.6)] transition-all duration-200 ease-out"
             />
-            {/* Indicador de presença / online */}
-            <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-900 shadow-sm ring-2 ring-emerald-400/50 animate-pulse" />
+            {/* Indicador de presença / online sutil */}
+            <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-slate-950 shadow-xs" />
           </div>
         )}
       </button>

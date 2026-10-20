@@ -20,9 +20,9 @@ import SpotlightCard from "@/components/ui/SpotlightCard";
 import ShinyBadge from "@/components/ui/ShinyBadge";
 
 const COLORS = [
-  "#10b981", "#06b6d4", "#6366f1", "#f59e0b", "#ec4899",
-  "#3b82f6", "#14b8a6", "#8b5cf6", "#f97316", "#84cc16",
-  "#a855f7", "#e11d48", "#10b981", "#38bdf8", "#fbbf24", "#fb7185",
+  "#10b981", "#0284c7", "#6366f1", "#d97706", "#8b5cf6",
+  "#0d9488", "#475569", "#2563eb", "#ea580c", "#059669",
+  "#7c3aed", "#0891b2", "#64748b", "#3b82f6", "#b45309", "#4f46e5",
 ];
 
 interface ChartData {
@@ -58,7 +58,7 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
       return (
         <div className="bg-slate-950/95 backdrop-blur-md border border-white/15 p-3 rounded-xl shadow-2xl text-xs font-mono">
           <p className="font-semibold text-slate-300 mb-1">{item.name}</p>
-          <p className="font-black text-emerald-400 text-sm">{formatCurrency(item.value)}</p>
+          <p className="font-bold text-white text-sm">{formatCurrency(item.value)}</p>
         </div>
       );
     }
@@ -69,9 +69,9 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
     if (active && payload && payload.length) {
       const item = payload[0].payload;
       return (
-        <div className="bg-slate-950/95 backdrop-blur-md border border-emerald-500/30 p-3 rounded-xl shadow-2xl text-xs font-mono">
+        <div className="bg-slate-950/95 backdrop-blur-md border border-white/15 p-3 rounded-xl shadow-2xl text-xs font-mono">
           <p className="font-semibold text-slate-400 mb-1">{item.fullDate || item.date}</p>
-          <p className="font-black text-emerald-400 text-sm">{formatCurrency(item.value)}</p>
+          <p className="font-bold text-white text-sm">{formatCurrency(item.value)}</p>
         </div>
       );
     }
@@ -84,18 +84,18 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
         
         {/* Gastos por Categoria */}
         <SpotlightCard
-          spotlightColor="rgba(16, 185, 129, 0.12)"
+          spotlightColor="rgba(255, 255, 255, 0.05)"
           borderColor="rgba(255, 255, 255, 0.1)"
           className="p-6 glass-panel-elevated flex flex-col min-h-[470px]"
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <PieIcon size={16} className="text-emerald-400" />
+              <PieIcon size={16} className="text-slate-400" />
               <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
                 Gastos por Categoria
               </h3>
             </div>
-            <ShinyBadge variant="emerald" className="text-[10px]">
+            <ShinyBadge variant="neutral" className="text-[10px] font-mono">
               {data.gastosPorCategoria.length} categorias
             </ShinyBadge>
           </div>
@@ -150,18 +150,18 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
         {/* Gastos por Setor (Master Only) */}
         {userRole === "MASTER" ? (
           <SpotlightCard
-            spotlightColor="rgba(6, 182, 212, 0.12)"
+            spotlightColor="rgba(255, 255, 255, 0.05)"
             borderColor="rgba(255, 255, 255, 0.1)"
             className="p-6 glass-panel-elevated flex flex-col min-h-[470px]"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <PieIcon size={16} className="text-cyan-400" />
+                <PieIcon size={16} className="text-slate-400" />
                 <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
                   Gastos por Setor
                 </h3>
               </div>
-              <ShinyBadge variant="purple" className="text-[10px]">
+              <ShinyBadge variant="neutral" className="text-[10px] font-mono">
                 {data.gastosPorSetor.length} setores
               </ShinyBadge>
             </div>
@@ -216,13 +216,13 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
 
         {/* Top Solicitantes */}
         <SpotlightCard
-          spotlightColor="rgba(99, 102, 241, 0.12)"
+          spotlightColor="rgba(255, 255, 255, 0.05)"
           borderColor="rgba(255, 255, 255, 0.1)"
           className={`p-6 glass-panel-elevated flex flex-col min-h-[470px] ${userRole !== "MASTER" ? "lg:col-span-2" : ""}`}
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Users size={16} className="text-indigo-400" />
+              <Users size={16} className="text-slate-400" />
               <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
                 Maiores Solicitantes
               </h3>
@@ -243,11 +243,11 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
                       </span>
                       <span className="font-medium text-slate-200 truncate pr-2">{req.name}</span>
                     </div>
-                    <span className="font-bold tabular-nums text-emerald-400">{formatCurrency(req.value)}</span>
+                    <span className="font-bold tabular-nums text-white">{formatCurrency(req.value)}</span>
                   </div>
                   <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
                     <div
-                      className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-1000"
+                      className="bg-slate-300 h-full rounded-full transition-all duration-1000"
                       style={{ width: `${percent}%` }}
                     />
                   </div>
@@ -260,51 +260,67 @@ export default function DashboardCharts({ data }: { data: ChartData }) {
 
       {/* Tendência Diária */}
       <SpotlightCard
-        spotlightColor="rgba(16, 185, 129, 0.15)"
-        borderColor="rgba(255, 255, 255, 0.12)"
+        spotlightColor="rgba(255, 255, 255, 0.05)"
+        borderColor="rgba(255, 255, 255, 0.1)"
         className="p-6 glass-panel-elevated flex flex-col h-[420px]"
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <TrendingUp size={16} className="text-emerald-400" />
+            <TrendingUp size={16} className="text-slate-400" />
             <h3 className="text-xs uppercase font-mono tracking-wider font-bold text-white">
               Série Temporal de Liquidações
             </h3>
           </div>
-          <span className="text-[10px] font-mono text-slate-400">Curva diária consolidada</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-slate-400">Curva diária consolidada</span>
+            {data.tendenciaDiaria && data.tendenciaDiaria.length > 0 && (
+              <ShinyBadge variant="neutral" className="text-[9px] font-mono">
+                {data.tendenciaDiaria.length} dias
+              </ShinyBadge>
+            )}
+          </div>
         </div>
-        <div className="flex-1 min-h-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data.tendenciaDiaria} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorValueOverdrive" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="date" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} dy={10} fontStyle="mono" />
-              <YAxis
-                stroke="#64748b"
-                fontSize={11}
-                tickLine={false}
-                axisLine={false}
-                dx={-10}
-                tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
-                fontStyle="mono"
-              />
-              <Tooltip content={<CustomTrendTooltip />} />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke="#10b981"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorValueOverdrive)"
-                activeDot={{ r: 6, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="w-full h-[320px] min-h-[300px]">
+          {data.tendenciaDiaria && data.tendenciaDiaria.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data.tendenciaDiaria} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorValueOverdrive" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                <XAxis dataKey="date" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} dy={10} fontStyle="mono" />
+                <YAxis
+                  stroke="#64748b"
+                  fontSize={11}
+                  tickLine={false}
+                  axisLine={false}
+                  dx={-10}
+                  tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
+                  fontStyle="mono"
+                />
+                <Tooltip content={<CustomTrendTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#10b981"
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#colorValueOverdrive)"
+                  activeDot={{ r: 6, fill: "#10b981", stroke: "#fff", strokeWidth: 2 }}
+                  dot={{ r: 3, fill: "#10b981", stroke: "#fff", strokeWidth: 1 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 font-mono text-xs">
+              <TrendingUp size={36} className="text-slate-600 mb-2 opacity-50" />
+              <p className="font-semibold text-slate-400">Nenhuma liquidação registrada no período</p>
+              <p className="text-[11px] text-slate-500 mt-1">Ajuste os filtros de data no topo da página para visualizar os dias com pagamentos.</p>
+            </div>
+          )}
         </div>
       </SpotlightCard>
     </div>

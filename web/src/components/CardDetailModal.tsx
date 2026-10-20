@@ -866,12 +866,11 @@ export default function CardDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.75)", backdropFilter: "blur(8px)" }}
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 motion-reduce:transition-none"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl relative overflow-hidden"
+        className="w-full max-w-4xl rounded-2xl flex flex-col max-h-[92vh] shadow-2xl relative overflow-hidden animate-in zoom-in-95 fade-in duration-200 ease-out motion-reduce:transition-none"
         style={{ backgroundColor: "var(--bg-secondary)", border: "1px solid var(--surface-border)" }}
         onClick={(e) => e.stopPropagation()}
         onPaste={handlePaste}
@@ -1792,15 +1791,28 @@ export default function CardDetailModal({
           {/* ACCORDION: Receipts History */}
           {receiptsHistory.length > 0 && (
             <div className="mt-6 rounded-xl border border-gray-700/50 overflow-hidden">
-              <button onClick={() => setHistoryOpen(!historyOpen)} className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800/80 transition-colors">
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(!historyOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/50 hover:bg-gray-800/80 transition-colors cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
                   <History size={16} className="text-gray-400" />
                   <span className="text-xs font-bold text-gray-300 uppercase tracking-wider">Histórico de Comprovantes ({receiptsHistory.length})</span>
                 </div>
-                {historyOpen ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+                <span
+                  className="inline-flex transition-transform duration-200 ease-out motion-reduce:transition-none"
+                  style={{ transform: historyOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                >
+                  <ChevronDown size={16} className="text-gray-400" />
+                </span>
               </button>
-              {historyOpen && (
-                <div className="p-4 space-y-3 bg-gray-900/30">
+              <div
+                className={`grid transition-all duration-200 ease-out overflow-hidden motion-reduce:transition-none ${
+                  historyOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="min-h-0 p-4 space-y-3 bg-gray-900/30">
                   {receiptsHistory.map((receipt, idx) => {
                     const isLast = idx === receiptsHistory.length - 1;
                     const isPixConverted = !!card.payment_conversion_log && isLast;
@@ -1881,7 +1893,7 @@ export default function CardDetailModal({
                     </div>
                   );})}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
@@ -1913,12 +1925,21 @@ export default function CardDetailModal({
                     Finalizado: <strong className="ml-1" style={{ color: "var(--text-primary)" }}>{cardSla.pendenteToFinalizadoFormatted}</strong>
                   </span>
                 )}
-                {stageHistoryOpen ? <ChevronUp size={16} style={{ color: "var(--text-secondary)" }} /> : <ChevronDown size={16} style={{ color: "var(--text-secondary)" }} />}
+                <span
+                  className="inline-flex transition-transform duration-200 ease-out motion-reduce:transition-none"
+                  style={{ transform: stageHistoryOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                >
+                  <ChevronDown size={16} style={{ color: "var(--text-secondary)" }} />
+                </span>
               </div>
             </button>
 
-            {stageHistoryOpen && (
-              <div className="p-4 space-y-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
+            <div
+              className={`grid transition-all duration-200 ease-out overflow-hidden motion-reduce:transition-none ${
+                stageHistoryOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="min-h-0 p-4 space-y-3" style={{ backgroundColor: "var(--bg-secondary)" }}>
                 {/* Resumo de SLAs do Card */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-2">
                   <div className="p-2.5 rounded-lg border" style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)" }}>
@@ -2007,7 +2028,7 @@ export default function CardDetailModal({
                   })}
                 </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Legacy refuse form */}

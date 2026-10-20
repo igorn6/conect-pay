@@ -16,7 +16,7 @@ const DashboardContext = createContext<DashboardContextData | undefined>(undefin
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
-  const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
+  const [endDate, setEndDate] = useState<Date>(new Date());
   const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
 
   return (

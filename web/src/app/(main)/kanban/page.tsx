@@ -438,19 +438,19 @@ export default function KanbanPage() {
           {/* Telemetry Capsule */}
           <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 backdrop-blur-md">
             <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-              <Layers size={13} className="text-emerald-400" />
+              <Layers size={13} className="text-slate-400" />
               <span>Pipeline: <strong className="font-mono text-white font-semibold">{cards.length}</strong></span>
             </div>
             <div className="w-px h-3.5 bg-white/10" />
             <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-              <TrendingUp size={13} className="text-emerald-400" />
-              <span>Volume: <strong className="font-mono text-emerald-400 font-bold">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalPipelineVolume)}</strong></span>
+              <TrendingUp size={13} className="text-slate-400" />
+              <span>Volume: <strong className="font-mono text-white font-bold">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalPipelineVolume)}</strong></span>
             </div>
           </div>
 
           <MagnetButton
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-slate-950 shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
+            className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-950/40 transition-all cursor-pointer active:scale-95"
           >
             <Plus size={15} strokeWidth={3} />
             <span>Nova Solicitação</span>

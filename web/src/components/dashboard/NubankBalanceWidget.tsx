@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
 import {
   Wallet,
   ArrowUpRight,
@@ -91,6 +92,25 @@ export default function NubankBalanceWidget() {
       currency: "BRL",
     }).format(val);
   };
+
+  // Totais analíticos de movimentações Nubank
+  const { totalEntradas, totalSaidas, totalReembolsos } = useMemo(() => {
+    let ent = 0;
+    let sai = 0;
+    let reemb = 0;
+    if (snapshot?.movements) {
+      for (const m of snapshot.movements) {
+        if (m.type === "REEMBOLSO") {
+          reemb += Math.abs(m.amount);
+        } else if (m.type === "ENTRADA" || m.amount > 0) {
+          ent += m.amount;
+        } else if (m.type === "SAIDA" || m.amount < 0) {
+          sai += Math.abs(m.amount);
+        }
+      }
+    }
+    return { totalEntradas: ent, totalSaidas: sai, totalReembolsos: reemb };
+  }, [snapshot?.movements]);
 
   const handleAmountInput = (val: string, setter: (v: string) => void) => {
     let num = val.replace(/\D/g, "");
@@ -223,7 +243,7 @@ export default function NubankBalanceWidget() {
 
   return (
     <>
-      <div className="mb-6 rounded-2xl bg-gradient-to-r from-slate-900 via-[#1a1329] to-slate-900 border border-[#820AD1]/30 p-5 md:p-6 shadow-xl relative overflow-hidden">
+      <div className="mb-6 rounded-2xl bg-gradient-to-r from-slate-900 via-[#1a1329] to-slate-900 border border-[#820AD1]/30 p-5 md:p-6 shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200 motion-reduce:transition-none">
         {/* Glow de fundo Nubank roxo sutil */}
         <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-[#820AD1]/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-1/3 -mb-16 w-48 h-48 bg-purple-600/10 rounded-full blur-2xl pointer-events-none" />
@@ -255,9 +275,12 @@ export default function NubankBalanceWidget() {
                     <span>Erro ao consultar</span>
                   </div>
                 ) : (
-                  <span className="text-3xl md:text-4xl font-black text-white tracking-tight">
-                    {formatBRL(snapshot?.balance ?? 609.74)}
-                  </span>
+                  <AnimatedCurrency
+                    value={snapshot?.balance ?? 609.74}
+                    prefix="R$ "
+                    prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-normal mr-1"
+                    className="text-3xl md:text-4xl font-black text-white tracking-tight"
+                  />
                 )}
 
                 <button
@@ -273,6 +296,22 @@ export default function NubankBalanceWidget() {
               <p className="text-xs text-slate-400 mt-1">
                 Atualização em tempo real sincronizada com o fluxo do Kanban.
               </p>
+
+              {/* Micro Indicadores Financeiros (Reembolsado, Entradas, Saídas) */}
+              <div className="flex flex-wrap items-center gap-2.5 mt-3 pt-3 border-t border-slate-800/60 text-xs">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-amber-400/80">Reembolsado:</span>
+                  <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-emerald-400/80">Entradas:</span>
+                  <AnimatedCurrency value={totalEntradas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-emerald-400" />
+                </div>
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-rose-400/80">Saídas:</span>
+                  <AnimatedCurrency value={totalSaidas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-rose-400" />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -352,7 +391,7 @@ export default function NubankBalanceWidget() {
                 return (
                   <div
                     key={mov.id}
-                    className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 hover:border-purple-500/30 transition-all flex flex-col justify-between gap-2 text-xs"
+                    className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 hover:border-purple-500/40 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 ease-out flex flex-col justify-between gap-2 text-xs group"
                   >
                     <div className="flex items-start justify-between gap-1.5">
                       <div className="flex items-center gap-1.5 min-w-0">
@@ -365,14 +404,14 @@ export default function NubankBalanceWidget() {
                         >
                           {isPositive ? <ArrowDownLeft size={13} /> : <ArrowUpRight size={13} />}
                         </div>
-                        <span
+                        <AnimatedCurrency
+                          value={Math.abs(mov.amount)}
+                          prefix={isPositive ? "+R$ " : "-R$ "}
+                          prefixClassName="font-normal opacity-90 mr-0.5"
                           className={`font-black text-xs ${
                             isPositive ? "text-emerald-400" : "text-rose-400"
                           }`}
-                        >
-                          {isPositive ? "+" : ""}
-                          {formatBRL(mov.amount)}
-                        </span>
+                        />
                       </div>
 
                       <span className="text-[10px] text-slate-500 shrink-0">

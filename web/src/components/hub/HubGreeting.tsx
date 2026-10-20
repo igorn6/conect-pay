@@ -27,11 +27,8 @@ export default function HubGreeting({ userName, onNewRequest }: HubGreetingProps
       {/* Esquerda: Saudação editorial, Data e Perfil */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 relative">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-[11px] font-mono uppercase tracking-widest text-emerald-400 font-semibold">
+          <span className="w-2 h-2 rounded-full bg-emerald-500/80 shrink-0" />
+          <span className="text-[11px] font-mono uppercase tracking-widest text-slate-400 font-semibold">
             Terminal Operacional
           </span>
         </div>
@@ -43,7 +40,7 @@ export default function HubGreeting({ userName, onNewRequest }: HubGreetingProps
         <div className="flex flex-wrap items-center gap-3 mt-0.5">
           <p className="text-slate-400 text-xs font-mono">{capitalized}</p>
           <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-700" />
-          <ShinyBadge variant={userRole === "MASTER" ? "emerald" : "slate"} size="sm">
+          <ShinyBadge variant="neutral" size="sm">
             {userRole}
           </ShinyBadge>
         </div>
@@ -61,7 +58,7 @@ export default function HubGreeting({ userName, onNewRequest }: HubGreetingProps
 
         <MagnetButton
           onClick={onNewRequest}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md shadow-emerald-950/40 transition-all cursor-pointer active:scale-95"
         >
           <Plus size={16} strokeWidth={3} />
           <span>Nova Solicitação</span>

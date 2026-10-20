@@ -16,7 +16,7 @@ export default function DashboardSla({ sla }: DashboardSlaProps) {
     <div className="mb-8">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+          <div className="p-2 rounded-lg bg-white/[0.04] border border-white/10 text-slate-300">
             <Gauge size={16} />
           </div>
           <div>
@@ -28,25 +28,28 @@ export default function DashboardSla({ sla }: DashboardSlaProps) {
             </p>
           </div>
         </div>
-        <span className="hidden sm:inline-block text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-          Tempo Real • Auditado
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-[10px] font-mono text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
+            Horário Comercial (Seg–Sex, 08h às 18h)
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
         {/* Card 1: Triagem & Aprovação */}
         <SpotlightCard
-          spotlightColor="rgba(99, 102, 241, 0.15)"
-          borderColor="rgba(99, 102, 241, 0.2)"
+          spotlightColor="rgba(255, 255, 255, 0.05)"
+          borderColor="rgba(255, 255, 255, 0.1)"
           className="p-5 glass-panel-elevated relative group"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Hourglass size={16} className="text-indigo-400" />
+              <Hourglass size={16} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-300">Triagem Inicial</span>
             </div>
-            <ShinyBadge variant="purple" className="text-[10px]">
+            <ShinyBadge variant="neutral" className="text-[10px]">
               Nova ➔ Pendente
             </ShinyBadge>
           </div>
@@ -67,16 +70,16 @@ export default function DashboardSla({ sla }: DashboardSlaProps) {
 
         {/* Card 2: Liquidação Financeira */}
         <SpotlightCard
-          spotlightColor="rgba(16, 185, 129, 0.15)"
-          borderColor="rgba(16, 185, 129, 0.2)"
+          spotlightColor="rgba(255, 255, 255, 0.05)"
+          borderColor="rgba(255, 255, 255, 0.1)"
           className="p-5 glass-panel-elevated relative group"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-emerald-400" />
+              <CheckCircle2 size={16} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-300">Liquidação Bancária</span>
             </div>
-            <ShinyBadge variant="emerald" className="text-[10px]">
+            <ShinyBadge variant="neutral" className="text-[10px]">
               Pendente ➔ Pago
             </ShinyBadge>
           </div>
@@ -97,13 +100,13 @@ export default function DashboardSla({ sla }: DashboardSlaProps) {
 
         {/* Card 3: Ciclo Completo */}
         <SpotlightCard
-          spotlightColor="rgba(14, 165, 233, 0.15)"
-          borderColor="rgba(14, 165, 233, 0.2)"
+          spotlightColor="rgba(255, 255, 255, 0.05)"
+          borderColor="rgba(255, 255, 255, 0.1)"
           className="p-5 glass-panel-elevated relative group"
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Clock size={16} className="text-sky-400" />
+              <Clock size={16} className="text-slate-400" />
               <span className="text-xs font-semibold text-slate-300">Ciclo Total Médio</span>
             </div>
             <ShinyBadge variant="neutral" className="text-[10px]">

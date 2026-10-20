@@ -123,29 +123,25 @@ export default function Sidebar() {
                 key={item.name}
                 href={item.href}
                 title={isCollapsed ? item.name : undefined}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all overflow-hidden ${
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 ease-out overflow-hidden relative group motion-reduce:transition-none ${
                   isCollapsed ? "justify-center" : "justify-start"
+                } ${
+                  isActive
+                    ? "bg-white/[0.07] text-white font-semibold border border-white/10 shadow-xs"
+                    : "text-slate-300 hover:bg-white/[0.04] hover:text-white"
                 }`}
-                style={
-                  isActive 
-                    ? {
-                        backgroundColor: "var(--surface-hover)",
-                        color: "var(--text-primary)",
-                        fontWeight: 600,
-                        border: "1px solid var(--surface-border)",
-                      }
-                    : {
-                        color: "var(--text-secondary)",
-                      }
-                }
                 onClick={() => setIsOpen(false)}
               >
+                {isActive && (
+                  <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-in fade-in duration-200 motion-reduce:animate-none" />
+                )}
                 <item.icon 
                   size={18} 
-                  className="shrink-0 transition-colors" 
-                  style={{ color: isActive ? "var(--brand-primary)" : "inherit" }} 
+                  className={`shrink-0 transition-all duration-200 ease-out ${
+                    isActive ? "text-emerald-400 scale-105" : "text-slate-400 group-hover:text-slate-200"
+                  }`} 
                 />
-                {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+                {!isCollapsed && <span className="whitespace-nowrap transition-colors">{item.name}</span>}
               </Link>
             );
           })}

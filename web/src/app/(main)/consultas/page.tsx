@@ -31,6 +31,7 @@ import { useSectors } from "@/hooks/useSectors";
 import CardDetailModal from "@/components/CardDetailModal";
 import NewRequestModal from "@/components/NewRequestModal";
 import Toast from "@/components/Toast";
+import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
 import { supabase } from "@/lib/supabase";
 import type { PaymentRequest } from "@/types/database";
 
@@ -743,11 +744,14 @@ export default function SearchPage() {
           <span>{label}</span>
           <span className="p-0.5 rounded transition-colors group-hover/th:bg-white/5">
             {isActive ? (
-              sortDirection === "asc" ? (
+              <span
+                className="inline-flex transition-transform duration-200 ease-out motion-reduce:transition-none"
+                style={{
+                  transform: sortDirection === "asc" ? "rotate(0deg)" : "rotate(180deg)",
+                }}
+              >
                 <ArrowUp size={13} className="text-emerald-400 shrink-0" />
-              ) : (
-                <ArrowDown size={13} className="text-emerald-400 shrink-0" />
-              )
+              </span>
             ) : (
               <ArrowUpDown size={13} className="text-slate-600 opacity-40 group-hover/th:opacity-100 shrink-0 transition-opacity" />
             )}
@@ -784,7 +788,7 @@ export default function SearchPage() {
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-mono shadow-sm">
                 <span className="text-emerald-300 font-medium">Soma Total:</span>
                 <strong className="text-emerald-400 font-bold text-sm tracking-tight tabular-nums">
-                  {formatCurrency(totalFinancialSum)}
+                  <AnimatedCurrency value={totalFinancialSum} prefix="R$ " prefixClassName="font-normal opacity-90 mr-0.5" />
                 </strong>
               </div>
 
@@ -1140,7 +1144,10 @@ export default function SearchPage() {
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-white/[0.05]">
+                <tbody
+                  key={`${currentPage}-${sortField}-${sortDirection}-${activeFilterCount}-${searchTerm}`}
+                  className="divide-y divide-white/[0.05]"
+                >
                   {isLoading ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-14 text-center">
@@ -1178,7 +1185,7 @@ export default function SearchPage() {
                       </td>
                     </tr>
                   ) : (
-                    paginatedRequests.map((req) => {
+                    paginatedRequests.map((req, idx) => {
                       const requesterName =
                         profilesMap[req.real_requester_id || ""] ||
                         profilesMap[req.created_by] ||
@@ -1199,7 +1206,10 @@ export default function SearchPage() {
                               setSelectedCard(req);
                             }
                           }}
-                          className="hover:bg-white/[0.03] cursor-pointer transition-colors group select-none focus:outline-none focus-visible:bg-white/[0.05] focus-visible:ring-1 focus-visible:ring-emerald-500/50"
+                          style={{
+                            animationDelay: `${Math.min(idx * 20, 200)}ms`,
+                          }}
+                          className="hover:bg-white/[0.03] cursor-pointer transition-colors group select-none focus:outline-none focus-visible:bg-white/[0.05] focus-visible:ring-1 focus-visible:ring-emerald-500/50 animate-in fade-in slide-in-from-bottom-1 duration-150 fill-mode-both motion-reduce:animate-none motion-reduce:transition-none"
                         >
                           {/* 1. TÍTULO */}
                           <td className="px-5 py-3.5 font-semibold text-slate-200 group-hover:text-white transition-colors max-w-xs md:max-w-md truncate">

@@ -21,7 +21,7 @@ export default function GlobalHeader() {
   const router = useRouter();
 
   const avatar = avatarUrl
-    || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || "U")}&background=10b981&color=fff&size=36`;
+    || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName || "U")}&background=1e293b&color=cbd5e1&size=36`;
 
   const roleLabel =
     userRole === "MASTER"
@@ -31,9 +31,6 @@ export default function GlobalHeader() {
       : sectorName
       ? `Gestor • ${sectorName}`
       : "Gestor";
-
-  const roleBadgeVariant =
-    userRole === "MASTER" ? "emerald" : userRole === "FINANCEIRO" ? "purple" : "neutral";
 
   return (
     <header
@@ -52,16 +49,16 @@ export default function GlobalHeader() {
           <img
             src={avatar}
             alt="Avatar"
-            className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500/30 group-hover:border-emerald-400 transition-colors shadow-sm"
+            className="w-10 h-10 rounded-full object-cover border border-white/10 group-hover:border-white/20 transition-colors shadow-sm"
           />
-          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
+          <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500/80 ring-2 ring-slate-950" />
         </div>
         <div className="hidden sm:block text-left">
           <p className="text-sm font-semibold leading-tight tracking-tight" style={{ color: "var(--text-primary)" }}>
             {userName}
           </p>
           <div className="mt-1">
-            <ShinyBadge variant={roleBadgeVariant} className="text-[10px] py-0 px-2">
+            <ShinyBadge variant="neutral" className="text-[10px] font-mono tracking-tight py-0.5 px-2">
               {roleLabel}
             </ShinyBadge>
           </div>
@@ -78,7 +75,7 @@ export default function GlobalHeader() {
             style={{ color: "var(--text-muted)" }}
             title="Tema"
           >
-            <Palette size={22} />
+            <Palette size={20} />
           </button>
           
           {showThemeMenu && (
@@ -111,11 +108,11 @@ export default function GlobalHeader() {
           onClick={() => setIsChatOpen(!isChatOpen)}
           className="relative p-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
           title="Chat"
-          style={{ color: isChatOpen ? "#10b981" : "var(--text-muted)" }}
+          style={{ color: isChatOpen ? "var(--text-primary)" : "var(--text-muted)" }}
         >
-          <MessageSquare size={24} />
+          <MessageSquare size={22} />
           {totalUnread > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1 shadow-lg animate-pulse">
+            <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-md">
               {totalUnread > 99 ? "99+" : totalUnread}
             </span>
           )}
@@ -127,7 +124,7 @@ export default function GlobalHeader() {
           className="p-2.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-red-400 transition-colors cursor-pointer"
           title="Sair"
         >
-          <LogOut size={22} />
+          <LogOut size={20} />
         </button>
       </div>
     </header>

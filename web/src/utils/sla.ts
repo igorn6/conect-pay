@@ -1,8 +1,59 @@
 import type { PaymentRequest, StageHistoryItem } from "@/types/database";
 
 /**
+ * Calcula a duração em segundos úteis (Horário Comercial: Segunda a Sexta, das 08h às 18h no fuso de Brasília UTC-3).
+ * Qualquer tempo fora deste intervalo (finais de semana ou antes das 08h / após as 18h) é pausado e desconsiderado.
+ */
+export function calculateBusinessHoursDuration(
+  startDateInput: Date | string | number | null | undefined,
+  endDateInput: Date | string | number | null | undefined
+): number {
+  if (!startDateInput || !endDateInput) return 0;
+  const start = new Date(startDateInput).getTime();
+  const end = new Date(endDateInput).getTime();
+  if (isNaN(start) || isNaN(end) || end <= start) return 0;
+
+  // Fuso horário padrão de Brasília = UTC-3
+  const BRT_OFFSET_MS = -3 * 60 * 60 * 1000;
+
+  let totalSeconds = 0;
+
+  // Ajusta timestamps para a régua civil de Brasília
+  const startBrtMs = start + BRT_OFFSET_MS;
+  const endBrtMs = end + BRT_OFFSET_MS;
+
+  const startDateBrt = new Date(startBrtMs);
+  const currentDayBrt = new Date(
+    Date.UTC(startDateBrt.getUTCFullYear(), startDateBrt.getUTCMonth(), startDateBrt.getUTCDate())
+  );
+
+  while (currentDayBrt.getTime() <= endBrtMs) {
+    const dayOfWeek = currentDayBrt.getUTCDay(); // 0 = Domingo, 6 = Sábado
+
+    // Segunda a Sexta-feira (1 a 5)
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+      // Janela útil: 08:00 às 18:00 BRT
+      const workStartMs = currentDayBrt.getTime() + 8 * 3600 * 1000 - BRT_OFFSET_MS;
+      const workEndMs = currentDayBrt.getTime() + 18 * 3600 * 1000 - BRT_OFFSET_MS;
+
+      const overlapStart = Math.max(start, workStartMs);
+      const overlapEnd = Math.min(end, workEndMs);
+
+      if (overlapEnd > overlapStart) {
+        totalSeconds += Math.round((overlapEnd - overlapStart) / 1000);
+      }
+    }
+
+    // Avança para o próximo dia civil (24h)
+    currentDayBrt.setUTCDate(currentDayBrt.getUTCDate() + 1);
+  }
+
+  return totalSeconds;
+}
+
+/**
  * Atualiza o histórico de etapas registrando a saída da etapa anterior
- * e a entrada na nova etapa com timestamps e duração.
+ * e a entrada na nova etapa com timestamps e duração útil (SLA comercial).
  */
 export function computeNextStageHistory(
   existingHistory: StageHistoryItem[] | null | undefined,
@@ -19,7 +70,7 @@ export function computeNextStageHistory(
 
   if (history.length === 0) {
     const initialEnteredAt = createdAt ? new Date(createdAt).toISOString() : nowIso;
-    const durSec = Math.max(0, Math.round((now.getTime() - new Date(initialEnteredAt).getTime()) / 1000));
+    const durSec = calculateBusinessHoursDuration(initialEnteredAt, now);
     history.push({
       stage: oldStatus,
       entered_at: initialEnteredAt,
@@ -31,8 +82,7 @@ export function computeNextStageHistory(
     // Fecha a última etapa aberta se existir
     const last = history[history.length - 1];
     if (!last.left_at) {
-      const enteredAtDate = new Date(last.entered_at);
-      const durSec = Math.max(0, Math.round((now.getTime() - enteredAtDate.getTime()) / 1000));
+      const durSec = calculateBusinessHoursDuration(last.entered_at, now);
       last.left_at = nowIso;
       last.duration_seconds = durSec;
     }
@@ -101,9 +151,10 @@ export interface CardSlaSummary {
 }
 
 /**
- * Extrai as métricas de SLA do card com foco em:
+ * Extrai as métricas de SLA do card com base em horário comercial (Seg-Sex, 08h-18h):
  * 1) Nova Solicitação -> Pendente
  * 2) Pendente -> Finalizado
+ * 3) Ciclo Total
  */
 export function getCardSlaMetrics(card: PaymentRequest): CardSlaSummary {
   const history = Array.isArray(card.stage_history) ? card.stage_history : [];
@@ -122,13 +173,13 @@ export function getCardSlaMetrics(card: PaymentRequest): CardSlaSummary {
   if (pendenteItem) {
     const pendenteStart = new Date(pendenteItem.entered_at).getTime();
     const createdStart = novaItem ? new Date(novaItem.entered_at).getTime() : createdMs;
-    timeToPendenteSeconds = Math.max(0, Math.round((pendenteStart - createdStart) / 1000));
+    timeToPendenteSeconds = calculateBusinessHoursDuration(createdStart, pendenteStart);
   } else if (card.status === "NOVA_SOLICITACAO") {
     // Ainda está em Nova Solicitação
-    timeToPendenteSeconds = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+    timeToPendenteSeconds = calculateBusinessHoursDuration(createdMs, nowMs);
     isPendenteOngoing = true;
   } else if (novaItem && novaItem.left_at) {
-    timeToPendenteSeconds = novaItem.duration_seconds || null;
+    timeToPendenteSeconds = calculateBusinessHoursDuration(novaItem.entered_at, novaItem.left_at);
   }
 
   // 2. Pendente -> Finalizado
@@ -139,15 +190,15 @@ export function getCardSlaMetrics(card: PaymentRequest): CardSlaSummary {
     const finalizadoStart = new Date(finalizadoItem.entered_at).getTime();
     if (pendenteItem) {
       const pendenteStart = new Date(pendenteItem.entered_at).getTime();
-      pendenteToFinalizadoSeconds = Math.max(0, Math.round((finalizadoStart - pendenteStart) / 1000));
+      pendenteToFinalizadoSeconds = calculateBusinessHoursDuration(pendenteStart, finalizadoStart);
     } else {
       // Se pulou pendente direto para finalizado
-      pendenteToFinalizadoSeconds = Math.max(0, Math.round((finalizadoStart - createdMs) / 1000));
+      pendenteToFinalizadoSeconds = calculateBusinessHoursDuration(createdMs, finalizadoStart);
     }
   } else if (pendenteItem) {
     // Já entrou em Pendente, mas ainda não foi Finalizado
     const pendenteStart = new Date(pendenteItem.entered_at).getTime();
-    pendenteToFinalizadoSeconds = Math.max(0, Math.round((nowMs - pendenteStart) / 1000));
+    pendenteToFinalizadoSeconds = calculateBusinessHoursDuration(pendenteStart, nowMs);
     isFinalizadoOngoing = true;
   }
 
@@ -155,9 +206,9 @@ export function getCardSlaMetrics(card: PaymentRequest): CardSlaSummary {
   let totalCycleSeconds: number | null = null;
   if (finalizadoItem) {
     const finalizadoStart = new Date(finalizadoItem.entered_at).getTime();
-    totalCycleSeconds = Math.max(0, Math.round((finalizadoStart - createdMs) / 1000));
+    totalCycleSeconds = calculateBusinessHoursDuration(createdMs, finalizadoStart);
   } else {
-    totalCycleSeconds = Math.max(0, Math.round((nowMs - createdMs) / 1000));
+    totalCycleSeconds = calculateBusinessHoursDuration(createdMs, nowMs);
   }
 
   return {

@@ -29,9 +29,9 @@ export default function CountUp({
   const rawTarget = to !== undefined ? to : (value !== undefined ? value : 0);
   const target = Number.isFinite(Number(rawTarget)) ? Number(rawTarget) : 0;
   
-  // Sensible defaults: if currency is explicitly set, use it; otherwise if decimals is 0, default currency to false
+  // Sensible defaults: only format with BRL currency if explicitly set to true
   const resolvedDecimals = decimals !== undefined ? decimals : (currency ? 2 : 0);
-  const resolvedCurrency = currency !== undefined ? currency : (resolvedDecimals > 0 && decimals !== 0);
+  const resolvedCurrency = currency === true;
 
   const [current, setCurrent] = useState<number>(from);
   const startTimeRef = useRef<number | null>(null);

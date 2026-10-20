@@ -56,7 +56,7 @@ export default function HubRecentActivity({ activities, profilesMap, isLoading }
     <div className="rounded-2xl p-6 bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2.5">
-          <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div className="p-1.5 rounded-lg bg-white/[0.04] text-slate-300 border border-white/10">
             <Banknote size={16} />
           </div>
           <span>Últimas Movimentações Financeiras</span>

@@ -4,6 +4,7 @@ import { DollarSign, AlertCircle, XCircle, TrendingUp, Clock, ArrowUpRight } fro
 import SpotlightCard from "@/components/ui/SpotlightCard";
 import TiltCard from "@/components/ui/TiltCard";
 import CountUp from "@/components/ui/CountUp";
+import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
 import ShinyBadge from "@/components/ui/ShinyBadge";
 
 interface KPIProps {
@@ -25,20 +26,20 @@ export default function DashboardKPIs({ kpis }: KPIProps) {
       {/* KPI Cards Grid com 3D Tilt e Specular Cursor Tracking */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         
-        {/* KPI 1: Total Gasto (Liquid Emerald) */}
+        {/* KPI 1: Total Gasto */}
         <TiltCard maxTilt={5} glare={true}>
           <SpotlightCard
-            spotlightColor="rgba(16, 185, 129, 0.16)"
-            borderColor="rgba(16, 185, 129, 0.22)"
+            spotlightColor="rgba(255, 255, 255, 0.05)"
+            borderColor="rgba(255, 255, 255, 0.1)"
             className="h-full p-6 glass-panel-elevated relative group"
           >
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-950/40">
+                <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-emerald-400 shadow-xs">
                   <TrendingUp size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs uppercase font-mono tracking-wider text-emerald-300/90 font-bold">
+                  <h3 className="text-xs uppercase font-mono tracking-wider text-slate-200 font-bold">
                     Total Liquidado
                   </h3>
                   <p className="text-[11px] text-slate-400">Pagamentos finalizados</p>
@@ -51,7 +52,7 @@ export default function DashboardKPIs({ kpis }: KPIProps) {
 
             <div className="mt-4">
               <p className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                <CountUp to={kpis.totalGasto} />
+                <AnimatedCurrency value={kpis.totalGasto} prefix="R$ " prefixClassName="text-xl sm:text-2xl font-normal opacity-85 mr-1" />
               </p>
             </div>
 
@@ -65,20 +66,20 @@ export default function DashboardKPIs({ kpis }: KPIProps) {
           </SpotlightCard>
         </TiltCard>
 
-        {/* KPI 2: Pagamentos Pendentes (Warm Amber) */}
+        {/* KPI 2: Pagamentos Pendentes */}
         <TiltCard maxTilt={5} glare={true}>
           <SpotlightCard
-            spotlightColor="rgba(245, 158, 11, 0.16)"
-            borderColor="rgba(245, 158, 11, 0.22)"
+            spotlightColor="rgba(255, 255, 255, 0.05)"
+            borderColor="rgba(255, 255, 255, 0.1)"
             className="h-full p-6 glass-panel-elevated relative group"
           >
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-sm shadow-amber-950/40">
+                <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-amber-400 shadow-xs">
                   <Clock size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs uppercase font-mono tracking-wider text-amber-300/90 font-bold">
+                  <h3 className="text-xs uppercase font-mono tracking-wider text-slate-200 font-bold">
                     Em Tramitação
                   </h3>
                   <p className="text-[11px] text-slate-400">Aguardando aprovação / baixa</p>
@@ -91,7 +92,7 @@ export default function DashboardKPIs({ kpis }: KPIProps) {
 
             <div className="mt-4">
               <p className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                <CountUp to={kpis.totalPendente} />
+                <AnimatedCurrency value={kpis.totalPendente} prefix="R$ " prefixClassName="text-xl sm:text-2xl font-normal opacity-85 mr-1" />
               </p>
             </div>
 
@@ -105,20 +106,20 @@ export default function DashboardKPIs({ kpis }: KPIProps) {
           </SpotlightCard>
         </TiltCard>
 
-        {/* KPI 3: Recusados / Cancelados (Refined Garnet) */}
+        {/* KPI 3: Recusados / Cancelados */}
         <TiltCard maxTilt={5} glare={true}>
           <SpotlightCard
-            spotlightColor="rgba(239, 68, 68, 0.14)"
-            borderColor="rgba(239, 68, 68, 0.2)"
+            spotlightColor="rgba(255, 255, 255, 0.05)"
+            borderColor="rgba(255, 255, 255, 0.1)"
             className="h-full p-6 glass-panel-elevated relative group"
           >
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 shadow-sm shadow-rose-950/40">
+                <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-rose-400 shadow-xs">
                   <XCircle size={18} />
                 </div>
                 <div>
-                  <h3 className="text-xs uppercase font-mono tracking-wider text-rose-300/90 font-bold">
+                  <h3 className="text-xs uppercase font-mono tracking-wider text-slate-200 font-bold">
                     Recusados / Glosas
                   </h3>
                   <p className="text-[11px] text-slate-400">Cancelados pela governança</p>
@@ -131,7 +132,7 @@ export default function DashboardKPIs({ kpis }: KPIProps) {
 
             <div className="mt-4">
               <p className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                <CountUp to={kpis.totalRecusado} />
+                <AnimatedCurrency value={kpis.totalRecusado} prefix="R$ " prefixClassName="text-xl sm:text-2xl font-normal opacity-85 mr-1" />
               </p>
             </div>
 
@@ -147,7 +148,7 @@ export default function DashboardKPIs({ kpis }: KPIProps) {
       {/* Terminal Ratio Strip: Balanço Proporcional */}
       <div className="p-4 rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
         <div className="flex items-center gap-2 text-slate-400">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
           <span>Distribuição Financeira Global:</span>
         </div>
         

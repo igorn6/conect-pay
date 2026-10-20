@@ -78,15 +78,9 @@ export default function KanbanColumn({
     <div
       className="flex flex-col min-w-[290px] w-[310px] flex-1 h-full rounded-2xl overflow-hidden shrink-0 bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.4)] relative"
       style={{
-        borderTop: `3px solid ${config.color || 'rgba(255,255,255,0.2)'}`,
+        borderTop: `2px solid ${config.color || 'rgba(255,255,255,0.1)'}`,
       }}
     >
-      {/* Glow sutil na borda superior */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-10 pointer-events-none opacity-20 blur-xl"
-        style={{ backgroundColor: config.color || '#10b981' }}
-      />
-
       {/* ─── Header da Coluna ─────────────── */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-white/[0.06] bg-white/[0.02]">
         <div className="flex items-center gap-2.5">
@@ -110,12 +104,11 @@ export default function KanbanColumn({
               {cards.every(c => selectedIds.has(c.id)) && <Check size={11} className="text-white" strokeWidth={3} />}
             </div>
           )}
-          {/* Indicador de cor com pulso luminoso */}
+          {/* Indicador de cor nítido sem halo luminoso */}
           <div
-            className="w-2.5 h-2.5 rounded-full relative shrink-0"
+            className="w-2 h-2 rounded-full relative shrink-0"
             style={{
               backgroundColor: config.color,
-              boxShadow: `0 0 10px ${config.color}`,
             }}
           />
           <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
@@ -158,9 +151,9 @@ export default function KanbanColumn({
                 key={card.id}
                 id={`kanban-card-${card.id}`}
                 onClick={() => onCardClick(card)}
-                className="group p-3 rounded-xl cursor-pointer bg-slate-900/80 hover:bg-slate-900 border border-white/[0.08] hover:border-white/20 transition-all duration-200 shadow-md hover:shadow-xl hover:-translate-y-0.5 relative overflow-hidden"
+                className="group p-3 rounded-xl cursor-pointer bg-slate-900/80 hover:bg-slate-900 border border-white/[0.08] hover:border-white/20 transition-all duration-200 ease-out shadow-md hover:shadow-xl hover:-translate-y-0.5 relative overflow-hidden motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                 style={{
-                  borderLeft: `3px solid ${config.color || '#3b82f6'}`,
+                  borderLeft: `2.5px solid ${config.color || 'rgba(255,255,255,0.12)'}`,
                 }}
               >
                 {/* Luminous hover sheen */}
@@ -179,10 +172,10 @@ export default function KanbanColumn({
 
                   {card.payment_conversion_log && (
                     <div
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider"
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-200 text-[10px] font-bold uppercase tracking-wider animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.35)] motion-reduce:animate-none"
                       title={`Convertido de Caju para Pix em ${new Date(card.payment_conversion_log.convertedAt).toLocaleString("pt-BR")}`}
                     >
-                      <RefreshCw size={10} className="text-purple-400 animate-spin" style={{ animationDuration: "6s" }} />
+                      <RefreshCw size={10} className="text-purple-300 animate-spin" style={{ animationDuration: "5s" }} />
                       <span>Caju ➔ Pix</span>
                     </div>
                   )}
@@ -293,7 +286,7 @@ export default function KanbanColumn({
                 {/* Rodapé: Valor Tabular Monospace + Tipo de Pagamento */}
                 <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-white/[0.06]">
                   <span
-                    className="text-sm font-mono font-bold tracking-tight text-white group-hover:text-emerald-400 transition-colors"
+                    className="text-sm font-mono font-bold tracking-tight text-white group-hover:text-slate-200 transition-colors"
                   >
                     {new Intl.NumberFormat("pt-BR", {
                       style: "currency",

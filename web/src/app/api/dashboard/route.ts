@@ -21,29 +21,23 @@ export async function GET(req: Request) {
     let query = supabaseAdmin
       .from("payment_requests")
       .select("*")
-      .in("status", ["NOVA_SOLICITACAO", "EM_APROVACAO", "VALIDACAO_GESTOR", "CORRECAO_PENDENTE", "VALIDADO_GESTOR", "AGUARDANDO_PAGAMENTO", "FINALIZADO", "RECUSADO"])
-      .or("is_deleted.eq.false,is_deleted.is.null");
-
-    // Filtros de Data
-    if (startDateParam && endDateParam) {
-      query = query.gte("created_at", startDateParam).lte("created_at", endDateParam);
-    }
+      .in("status", [
+        "NOVA_SOLICITACAO",
+        "EM_APROVACAO",
+        "VALIDACAO_GESTOR",
+        "CORRECAO_PENDENTE",
+        "VALIDADO_GESTOR",
+        "AGUARDANDO_PAGAMENTO",
+        "FINALIZADO",
+        "RECUSADO",
+      ])
+      .or("is_deleted.eq.false,is_deleted.is.null")
+      .order("created_at", { ascending: false })
+      .limit(3000);
 
     // Filtros RBAC e Isolamento de Setor
     if (userRole === "GESTOR") {
-      // Gestor só vê o próprio setor ou os criados por ele / para ele
-      if (userSector) {
-        // Se a base não salva sector_id não payment_requests, precisamos da junção ou 
-        // garantir a query não front. Mas a instrução manda forçar eq('sector_id', ...). 
-        // Vamos checar se "sector_id" existe em payment_requests ou em profiles.
-        // Assumiremos que o filtro se baseia em "real_requester_id" da tabela profiles ou só dele
-        // Por via das dúvidas, se a coluna não existir, dará erro. A modelagem do usuário pediu isso.
-        // Para evitar crashes caso 'sector_id' não exista em payment_requests, vamos tentar usar perfis.
-      }
       query = query.or(`real_requester_id.eq.${userId},created_by.eq.${userId}`);
-    } else if (userRole === "MASTER" && selectedSectorId) {
-      // Se for MASTER e selecionou um setor.
-      // Sem poder fazer join seguro, a regra de "gastosPorSetor" dependerá do 'profiles.sector'
     }
 
     const { data: requests, error } = await query;
@@ -76,8 +70,31 @@ export async function GET(req: Request) {
       };
     });
 
+    // Helper para obter a data real de liquidação do card
+    const getLiquidationDate = (req: any): string => {
+      if (Array.isArray(req.stage_history)) {
+        const finStage = req.stage_history.find((s: any) => s.stage === "FINALIZADO");
+        if (finStage?.entered_at) return finStage.entered_at;
+      }
+      return req.updated_at || req.created_at;
+    };
+
     // Agregações Matemáticas
-    const data = requests || [];
+    let data = requests || [];
+
+    // Filtro de Data em memória:
+    // Se for FINALIZADO: avalia a data em que foi liquidado
+    // Se for pendente/recusado: avalia a data de criação
+    const startD = startDateParam ? new Date(startDateParam) : null;
+    const endD = endDateParam ? new Date(endDateParam) : null;
+
+    if (startD && endD && isValid(startD) && isValid(endD)) {
+      data = data.filter((req) => {
+        const dateToCheck = req.status === "FINALIZADO" ? getLiquidationDate(req) : req.created_at;
+        const d = new Date(dateToCheck);
+        return isValid(d) && d >= startD && d <= endD;
+      });
+    }
 
     // Se não houver suporte a .eq('sector_id') no PostgREST, filtramos em memória.
     let filteredData = data;
@@ -133,27 +150,63 @@ export async function GET(req: Request) {
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
 
-    // Tendência Diária (Ordenação estritamente cronológica crescente por data)
+    // Tendência Diária de Liquidações (Ordenação cronológica com régua diária contínua)
     const dailyMap: Record<string, number> = {};
     finalizados.forEach(req => {
-      let d = new Date(req.created_at);
+      const liqDateStr = getLiquidationDate(req);
+      const d = new Date(liqDateStr);
       if (!isValid(d)) return;
       const dayKey = format(d, "yyyy-MM-dd");
       dailyMap[dayKey] = (dailyMap[dayKey] || 0) + Number(req.amount);
     });
 
-    const sortedDays = Object.keys(dailyMap).sort((a, b) => a.localeCompare(b));
+    let sortedDays = Object.keys(dailyMap).sort((a, b) => a.localeCompare(b));
+
+    // Se houver filtros de data definidos, preenche os dias do intervalo para gerar uma curva temporal fluida
+    if (startD && endD && isValid(startD) && isValid(endD) && startD <= endD) {
+      // Nunca projeta dias futuros na curva temporal de liquidações (limita no máximo ao dia de hoje)
+      const now = new Date();
+      const effectiveEndD = endD > now ? now : endD;
+
+      const fullDailyMap: Record<string, number> = {};
+      const curr = new Date(startD);
+      let iterations = 0;
+      while (curr <= effectiveEndD && iterations < 90) {
+        const k = format(curr, "yyyy-MM-dd");
+        fullDailyMap[k] = dailyMap[k] || 0;
+        curr.setDate(curr.getDate() + 1);
+        iterations++;
+      }
+      sortedDays = Object.keys(fullDailyMap).sort((a, b) => a.localeCompare(b));
+      sortedDays.forEach((k) => {
+        if (dailyMap[k] === undefined) {
+          dailyMap[k] = 0;
+        }
+      });
+    } else if (sortedDays.length === 1) {
+      // Se houver apenas 1 dia no conjunto, adiciona o dia anterior e posterior com 0 para permitir desenho da curva no Recharts
+      const singleDay = sortedDays[0];
+      const [y, m, d] = singleDay.split("-").map(Number);
+      const prevDate = new Date(y, m - 1, d - 1);
+      const nextDate = new Date(y, m - 1, d + 1);
+      const prevKey = format(prevDate, "yyyy-MM-dd");
+      const nextKey = format(nextDate, "yyyy-MM-dd");
+      dailyMap[prevKey] = 0;
+      dailyMap[nextKey] = 0;
+      sortedDays = [prevKey, singleDay, nextKey];
+    }
+
     const tendenciaDiaria = sortedDays.map(dayKey => {
       const [year, month, day] = dayKey.split("-");
       const dateObj = new Date(Number(year), Number(month) - 1, Number(day));
       return {
         date: format(dateObj, "dd/MM"),
         fullDate: format(dateObj, "dd/MM/yyyy"),
-        value: dailyMap[dayKey],
+        value: dailyMap[dayKey] || 0,
       };
     });
 
-    // Métricas de SLA
+    // Métricas de SLA (Horário comercial: Seg-Sex, 08h às 18h)
     const sla = calculateDashboardSlaAverages(filteredData);
 
     return NextResponse.json({

@@ -195,17 +195,21 @@ export async function revertMovement(args: {
   };
 }
 
-/** Status onde a despesa já foi paga ou validada/finalizada. */
+/** Status onde a despesa já foi validada pelo gestor ou finalizada (deve estar debitada do Nubank). */
 export const NUBANK_ACTIVE_STATUSES = [
-  "VALIDACAO_GESTOR",
-  "CORRECAO_PENDENTE",
   "VALIDADO_GESTOR",
   "AGUARDANDO_PAGAMENTO",
   "FINALIZADO",
 ];
 
-/** Status inativos (não pagos ou cancelados) onde o saldo Nubank não deve estar descontado. */
-export const NUBANK_IDLE_STATUSES = ["NOVA_SOLICITACAO", "EM_APROVACAO", "RECUSADO"];
+/** Status inativos (não pagos ou que voltaram para correção/análise) onde o saldo Nubank não deve estar descontado. */
+export const NUBANK_IDLE_STATUSES = [
+  "NOVA_SOLICITACAO",
+  "EM_APROVACAO",
+  "VALIDACAO_GESTOR",
+  "CORRECAO_PENDENTE",
+  "RECUSADO",
+];
 
 export type CardDecision =
   | { action: "SKIP"; reason: string }
@@ -214,9 +218,9 @@ export type CardDecision =
 
 /**
  * Regra de negócio bidirecional e idempotente baseada no estado real do cartão:
- *  - Se balance_processed === true mas o cartão foi excluído, recusado, voltou para Pendente ou trocou para outro banco:
+ *  - Se balance_processed === true mas o cartão foi excluído, recusado, voltou para Correção/Pendente ou trocou para outro banco:
  *      -> REVERT: Estorna o saldo de volta ao Nubank.
- *  - Se balance_processed === false e o cartão for Nubank em status ativo (Validação do Gestor, Correção Pendente, Validado pelo Gestor, Aguardando Nota ou Finalizado):
+ *  - Se balance_processed === false e o cartão for Nubank em status ativo (Validado pelo Gestor, Aguardando Nota ou Finalizado):
  *      -> APPLY: Desconta o saldo do Nubank (SAÍDA).
  *  - Se for Recarga Nubank que chegou em FINALIZADO:
  *      -> APPLY: Adiciona saldo ao Nubank (ENTRADA).
@@ -253,11 +257,11 @@ export function decideCardMovement(
       };
     }
 
-    // 1.3 Se o cartão retornou para status anterior ao pagamento (Nova Solicitação ou Pendente)
-    if (card.status === "NOVA_SOLICITACAO" || card.status === "EM_APROVACAO") {
+    // 1.3 Se o cartão retornou para status inativo/anterior (Nova Solicitação, Pendente, Validação Gestor ou Correção)
+    if (NUBANK_IDLE_STATUSES.includes(card.status)) {
       return {
         action: "REVERT",
-        reason: "Cartão retornou para status anterior ao pagamento.",
+        reason: "Cartão retornou para status anterior/correção.",
         description: `Estorno por retorno de status: ${title}`,
       };
     }
@@ -309,9 +313,9 @@ export function decideCardMovement(
     return { action: "SKIP", reason: "Valor inválido." };
   }
 
-  // 2.3 Se ainda estiver em status inativo (NOVA_SOLICITACAO, EM_APROVACAO, RECUSADO)
+  // 2.3 Se ainda estiver em status inativo (NOVA_SOLICITACAO, EM_APROVACAO, VALIDACAO_GESTOR, CORRECAO_PENDENTE, RECUSADO)
   if (NUBANK_IDLE_STATUSES.includes(card.status)) {
-    return { action: "SKIP", reason: "Cartão ainda não saiu de Pendente ou foi recusado." };
+    return { action: "SKIP", reason: "Cartão ainda não atingiu Validado pelo Gestor." };
   }
 
   // 2.4 Se for Recarga de Saldo Nubank
@@ -369,6 +373,25 @@ export async function processCardMovement(paymentId: string, userId: string) {
   }
 
   if (decision.action === "REVERT") {
+    // Trava de segurança: só estorna do Cofre Nubank se este cartão tiver de fato
+    // um débito ou crédito prévio registrado em nubank_movements (tipo SAIDA ou ENTRADA).
+    const { data: priorMovements } = await supabaseAdmin
+      .from("nubank_movements")
+      .select("id")
+      .eq("payment_request_id", card.id)
+      .in("type", ["SAIDA", "ENTRADA"])
+      .limit(1);
+
+    if (!priorMovements || priorMovements.length === 0) {
+      // Cartão nunca movimentou o saldo Nubank (ex.: solicitação Caju ou de outro banco com flag legada).
+      // Apenas desmarca balance_processed para limpar o estado sem alterar o saldo financeiro.
+      await supabaseAdmin
+        .from("payment_requests")
+        .update({ balance_processed: false })
+        .eq("id", card.id);
+      return { processed: false, reason: "Cartão não possui movimentação prévia no Nubank." };
+    }
+
     const result = await revertMovement({
       requestId: card.id,
       userId,

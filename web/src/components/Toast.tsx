@@ -34,10 +34,9 @@ export default function Toast({ message, type, onClose }: ToastProps) {
     <div
       className="fixed top-6 right-6 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg max-w-md"
       style={{
-        backgroundColor: isSuccess
-          ? "rgba(16, 185, 129, 0.12)"
-          : "rgba(239, 68, 68, 0.12)",
-        border: `1px solid ${isSuccess ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+        backgroundColor: "var(--bg-elevated)",
+        border: `1px solid ${isSuccess ? "rgba(16, 185, 129, 0.35)" : "rgba(239, 68, 68, 0.35)"}`,
+        boxShadow: "0 12px 36px rgba(0, 0, 0, 0.25)",
         backdropFilter: "blur(16px)",
         opacity: visible ? 1 : 0,
         transform: visible ? "translateX(0)" : "translateX(40px)",

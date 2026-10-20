@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import type { NubankSnapshot, NubankMovement } from "@/constants/nubank";
 import CountUp from "@/components/ui/CountUp";
+import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
 import SpotlightCard from "@/components/ui/SpotlightCard";
 import MagnetButton from "@/components/ui/MagnetButton";
 import ShinyBadge from "@/components/ui/ShinyBadge";
@@ -278,16 +279,22 @@ export default function NubankCajuPage() {
   }, [snapshot?.movements, movementFilter, searchQuery]);
 
   // Totais do Extrato
-  const { totalEntradas, totalSaidas } = useMemo(() => {
+  const { totalEntradas, totalSaidas, totalReembolsos } = useMemo(() => {
     let ent = 0;
     let sai = 0;
+    let reemb = 0;
     if (snapshot?.movements) {
       for (const m of snapshot.movements) {
-        if (m.amount > 0) ent += m.amount;
-        else sai += Math.abs(m.amount);
+        if (m.type === "REEMBOLSO") {
+          reemb += Math.abs(m.amount);
+        } else if (m.type === "ENTRADA" || m.amount > 0) {
+          ent += m.amount;
+        } else if (m.type === "SAIDA" || m.amount < 0) {
+          sai += Math.abs(m.amount);
+        }
       }
     }
-    return { totalEntradas: ent, totalSaidas: sai };
+    return { totalEntradas: ent, totalSaidas: sai, totalReembolsos: reemb };
   }, [snapshot?.movements]);
 
   const currentBalance = snapshot?.balance ?? 609.74;
@@ -393,8 +400,8 @@ export default function NubankCajuPage() {
           </div>
         )}
 
-        {/* Saldo Principal + Cards de Visão Geral */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Saldo Principal + Cards de Visão Geral (4 Indicadores Executivos) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Card 1: Saldo Principal Nubank */}
           <SpotlightCard
@@ -417,13 +424,17 @@ export default function NubankCajuPage() {
                 {loading ? (
                   <div className="h-10 w-44 bg-white/5 rounded animate-pulse" />
                 ) : (
-                  <div className="text-3xl sm:text-4xl font-mono font-black text-white tracking-tight flex items-baseline gap-1">
-                    <span className="text-2xl text-[#d8b4fe]/80 font-normal">R$</span>
-                    <CountUp value={currentBalance} decimals={2} />
+                  <div className="text-3xl sm:text-4xl font-mono font-black text-white tracking-tight flex items-baseline">
+                    <AnimatedCurrency
+                      value={currentBalance}
+                      prefix="R$ "
+                      prefixClassName="text-2xl text-[#d8b4fe]/80 font-normal mr-1"
+                      className="text-3xl sm:text-4xl font-mono font-black text-white tracking-tight"
+                    />
                   </div>
                 )}
                 <p className="text-[11px] text-slate-400 mt-1 font-mono">
-                  Abatimento e liquidação automática atrelados ao Kanban.
+                  Abatimento e liquidação automática no Kanban.
                 </p>
               </div>
             </div>
@@ -436,7 +447,42 @@ export default function NubankCajuPage() {
             </div>
           </SpotlightCard>
 
-          {/* Card 2: Total Entradas / Recargas */}
+          {/* Card 2: Total Resgatado / Reembolsado */}
+          <SpotlightCard
+            spotlightColor="rgba(245, 158, 11, 0.18)"
+            className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
+                  Resgatado / Reembolsado
+                </span>
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center justify-center">
+                  <Plus size={16} />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <div className="text-2xl sm:text-3xl font-mono font-bold text-amber-300 flex items-baseline">
+                  <AnimatedCurrency
+                    value={totalReembolsos}
+                    prefix="R$ "
+                    prefixClassName="text-xl text-amber-300/80 font-normal mr-1"
+                    className="text-2xl sm:text-3xl font-mono font-bold text-amber-300"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1 font-mono">
+                  Estornos e reembolsos creditados ao Nubank.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-4 mt-4 border-t border-white/[0.06] text-[11px] font-mono text-slate-500">
+              <span>Histórico de reembolsos no Nubank</span>
+            </div>
+          </SpotlightCard>
+
+          {/* Card 3: Total Entradas / Recargas */}
           <SpotlightCard
             spotlightColor="rgba(16, 185, 129, 0.18)"
             className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
@@ -452,12 +498,16 @@ export default function NubankCajuPage() {
               </div>
 
               <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-mono font-bold text-emerald-400 flex items-baseline gap-1">
-                  <span className="text-xl text-emerald-400/80 font-normal">R$</span>
-                  <CountUp value={totalEntradas} decimals={2} />
+                <div className="text-2xl sm:text-3xl font-mono font-bold text-emerald-400 flex items-baseline">
+                  <AnimatedCurrency
+                    value={totalEntradas}
+                    prefix="R$ "
+                    prefixClassName="text-xl text-emerald-400/80 font-normal mr-1"
+                    className="text-2xl sm:text-3xl font-mono font-bold text-emerald-400"
+                  />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1 font-mono">
-                  Recargas aprovadas e reembolsos creditados.
+                  Recargas aprovadas e créditos em conta.
                 </p>
               </div>
             </div>
@@ -467,7 +517,7 @@ export default function NubankCajuPage() {
             </div>
           </SpotlightCard>
 
-          {/* Card 3: Total Saídas / Pagamentos */}
+          {/* Card 4: Total Saídas / Pagamentos */}
           <SpotlightCard
             spotlightColor="rgba(244, 63, 94, 0.18)"
             className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
@@ -483,9 +533,13 @@ export default function NubankCajuPage() {
               </div>
 
               <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-mono font-bold text-rose-400 flex items-baseline gap-1">
-                  <span className="text-xl text-rose-400/80 font-normal">R$</span>
-                  <CountUp value={totalSaidas} decimals={2} />
+                <div className="text-2xl sm:text-3xl font-mono font-bold text-rose-400 flex items-baseline">
+                  <AnimatedCurrency
+                    value={totalSaidas}
+                    prefix="R$ "
+                    prefixClassName="text-xl text-rose-400/80 font-normal mr-1"
+                    className="text-2xl sm:text-3xl font-mono font-bold text-rose-400"
+                  />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1 font-mono">
                   Total debitado por solicitações liquidadas.

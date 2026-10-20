@@ -21,38 +21,14 @@ export default function AuroraBackground({
 
   return (
     <div className={`overflow-hidden pointer-events-none ${className}`}>
-      {/* Aurora Ambient Mesh */}
+      {/* Quiet Ambient Depth - Zero Chromatic Noise */}
       <div
-        className={`pointer-events-none absolute -inset-[100px] ${opacityMap[intensity]} blur-[90px] mix-blend-screen transition-opacity duration-1000 -z-10`}
+        className="pointer-events-none absolute inset-0 -z-10"
         aria-hidden="true"
-      >
-        {/* Glow 1: Emerald Primary */}
-        <div
-          className="absolute top-1/4 left-1/4 w-[45vw] h-[45vw] rounded-full animate-pulse"
-          style={{
-            background: "radial-gradient(circle, rgba(16, 185, 129, 0.25) 0%, transparent 70%)",
-            animationDuration: "12s",
-          }}
-        />
-
-        {/* Glow 2: Deep Teal / Ocean */}
-        <div
-          className="absolute top-1/3 right-1/4 w-[40vw] h-[40vw] rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(14, 165, 233, 0.18) 0%, transparent 70%)",
-            animation: "aurora-float 22s ease-in-out infinite alternate",
-          }}
-        />
-
-        {/* Glow 3: Warm Amber Accent */}
-        <div
-          className="absolute bottom-1/4 left-1/3 w-[35vw] h-[35vw] rounded-full"
-          style={{
-            background: "radial-gradient(circle, rgba(245, 158, 11, 0.12) 0%, transparent 65%)",
-            animation: "aurora-float-reverse 18s ease-in-out infinite alternate",
-          }}
-        />
-      </div>
+        style={{
+          background: "radial-gradient(1200px circle at 50% 0%, rgba(255, 255, 255, 0.02) 0%, transparent 70%)",
+        }}
+      />
 
       {/* Film Grain Paper Noise Overlay */}
       <div

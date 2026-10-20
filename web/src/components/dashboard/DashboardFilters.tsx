@@ -30,7 +30,7 @@ export default function DashboardFilters() {
   return (
     <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 rounded-2xl border border-white/10 glass-panel items-center justify-between shadow-lg">
       <div className="flex items-center gap-2.5">
-        <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+        <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10 text-slate-300">
           <Filter size={16} />
         </div>
         <div>
@@ -43,7 +43,7 @@ export default function DashboardFilters() {
 
       <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-slate-950/60 backdrop-blur-md">
-          <Calendar size={15} className="text-emerald-400 shrink-0" />
+          <Calendar size={15} className="text-slate-400 shrink-0" />
           <input
             type="date"
             value={format(startDate, "yyyy-MM-dd")}

@@ -8,6 +8,7 @@ interface ShinyBadgeProps {
   size?: "sm" | "md" | "lg";
   className?: string;
   icon?: React.ReactNode;
+  shimmer?: boolean;
 }
 
 export default function ShinyBadge({
@@ -16,15 +17,16 @@ export default function ShinyBadge({
   size = "md",
   className = "",
   icon,
+  shimmer = false,
 }: ShinyBadgeProps) {
   const variantStyles: Record<string, string> = {
-    emerald: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
-    amber: "bg-amber-500/10 text-amber-300 border-amber-500/30",
-    purple: "bg-purple-500/10 text-purple-300 border-purple-500/30",
-    neutral: "bg-slate-800/80 text-slate-300 border-slate-700/60",
-    slate: "bg-slate-800/80 text-slate-300 border-slate-700/60",
-    rose: "bg-rose-500/10 text-rose-300 border-rose-500/30",
-    blue: "bg-blue-500/10 text-blue-300 border-blue-500/30",
+    emerald: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+    amber: "bg-amber-500/10 text-amber-300 border-amber-500/20",
+    purple: "bg-purple-500/10 text-purple-300 border-purple-500/20",
+    neutral: "bg-white/[0.05] text-slate-300 border-white/10",
+    slate: "bg-white/[0.05] text-slate-300 border-white/10",
+    rose: "bg-rose-500/10 text-rose-300 border-rose-500/20",
+    blue: "bg-blue-500/10 text-blue-300 border-blue-500/20",
   };
 
   const sizeStyles: Record<string, string> = {
@@ -38,13 +40,15 @@ export default function ShinyBadge({
 
   return (
     <span
-      className={`relative inline-flex items-center gap-1.5 rounded-full font-semibold border overflow-hidden backdrop-blur-sm select-none ${selectedSize} ${selectedVariant} ${className}`}
+      className={`relative inline-flex items-center gap-1.5 rounded-full font-medium border overflow-hidden backdrop-blur-sm select-none ${selectedSize} ${selectedVariant} ${className}`}
     >
-      {/* Metallic Shimmer Sweep */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/15 to-transparent"
-      />
+      {/* Optional Metallic Shimmer Sweep */}
+      {shimmer && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -translate-x-full animate-[shimmer_3s_infinite] bg-gradient-to-r from-transparent via-white/15 to-transparent"
+        />
+      )}
       {icon && <span className="shrink-0">{icon}</span>}
       <span className="relative z-10">{children}</span>
     </span>

@@ -47,7 +47,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
     <div>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+          <span className="w-2 h-2 rounded-full bg-emerald-500/80" />
           Fila de Ação Imediata
         </h2>
         <span className="text-[11px] font-mono text-slate-500">Pipeline em tempo real</span>
@@ -59,8 +59,8 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
             {/* Novas Solicitações */}
             <Link href="/kanban" className="block group">
               <SpotlightCard
-                spotlightColor="rgba(245, 158, 11, 0.18)"
-                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-amber-500/40 transition-all duration-300 flex flex-col justify-between"
+                spotlightColor="rgba(255, 255, 255, 0.05)"
+                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -68,13 +68,13 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
                       <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
                         <FileText size={16} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">Novas Solicitações</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Novas Solicitações</span>
                     </div>
-                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-amber-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                   </div>
 
                   <div className="mt-4">
-                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-amber-300 transition-colors">
+                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-slate-100 transition-colors">
                       <CountUp value={counts.novaSolicitacao} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -87,7 +87,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                 <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-500">
                   <span>Estágio 1 • Triagem</span>
-                  <span className="text-amber-400/80 group-hover:text-amber-300">Acessar Kanban →</span>
+                  <span className="text-slate-400 group-hover:text-slate-200">Acessar Kanban →</span>
                 </div>
               </SpotlightCard>
             </Link>
@@ -95,8 +95,8 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
             {/* Aprovação Final */}
             <Link href="/kanban" className="block group">
               <SpotlightCard
-                spotlightColor="rgba(59, 130, 246, 0.18)"
-                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-blue-500/40 transition-all duration-300 flex flex-col justify-between"
+                spotlightColor="rgba(255, 255, 255, 0.05)"
+                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -104,13 +104,13 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
                       <div className="p-2 rounded-xl bg-blue-500/10 border border-blue-500/20">
                         <CheckCircle size={16} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">Aprovação Final</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Aprovação Final</span>
                     </div>
-                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-blue-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                   </div>
 
                   <div className="mt-4">
-                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-blue-300 transition-colors">
+                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-slate-100 transition-colors">
                       <CountUp value={counts.emAprovacao} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -123,7 +123,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                 <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-500">
                   <span>Estágio 2 • Decisão</span>
-                  <span className="text-blue-400/80 group-hover:text-blue-300">Acessar Kanban →</span>
+                  <span className="text-slate-400 group-hover:text-slate-200">Acessar Kanban →</span>
                 </div>
               </SpotlightCard>
             </Link>
@@ -131,8 +131,8 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
             {/* Aguardando Pagamento */}
             <Link href="/kanban" className="block group">
               <SpotlightCard
-                spotlightColor="rgba(16, 185, 129, 0.18)"
-                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-emerald-500/40 transition-all duration-300 flex flex-col justify-between"
+                spotlightColor="rgba(255, 255, 255, 0.05)"
+                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -140,13 +140,13 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
                       <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                         <ClipboardCheck size={16} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">Aguardando Pagamento</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Aguardando Pagamento</span>
                     </div>
-                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                   </div>
 
                   <div className="mt-4">
-                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-emerald-300 transition-colors">
+                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-slate-100 transition-colors">
                       <CountUp value={counts.aguardandoPagamento} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -159,7 +159,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                 <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-500">
                   <span>Estágio 3 • Execução</span>
-                  <span className="text-emerald-400/80 group-hover:text-emerald-300">Liquidar Pagamentos →</span>
+                  <span className="text-slate-400 group-hover:text-slate-200">Liquidar Pagamentos →</span>
                 </div>
               </SpotlightCard>
             </Link>
@@ -169,8 +169,8 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
         {isGestor && (
           <Link href="/kanban" className="block group">
             <SpotlightCard
-              spotlightColor="rgba(168, 85, 247, 0.18)"
-              className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-purple-500/40 transition-all duration-300 flex flex-col justify-between"
+              spotlightColor="rgba(255, 255, 255, 0.05)"
+              className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all duration-300 flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between">
@@ -178,13 +178,13 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
                     <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20">
                       <ClipboardCheck size={16} />
                     </div>
-                    <span className="text-xs font-bold uppercase tracking-wider">Validação Setorial</span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Validação Setorial</span>
                   </div>
-                  <ArrowUpRight size={14} className="text-slate-500 group-hover:text-purple-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <ArrowUpRight size={14} className="text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                 </div>
 
                 <div className="mt-4">
-                  <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-purple-300 transition-colors">
+                  <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-slate-100 transition-colors">
                     <CountUp value={counts.validacaoGestor} currency={false} decimals={0} />
                   </div>
                   <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -197,7 +197,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
               <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-500">
                 <span>Gestão • Validação</span>
-                <span className="text-purple-400/80 group-hover:text-purple-300">Conferir Setor →</span>
+                <span className="text-slate-400 group-hover:text-slate-200">Conferir Setor →</span>
               </div>
             </SpotlightCard>
           </Link>
@@ -207,8 +207,8 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
           <>
             <Link href="/kanban" className="block group">
               <SpotlightCard
-                spotlightColor="rgba(249, 115, 22, 0.18)"
-                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-orange-500/40 transition-all duration-300 flex flex-col justify-between"
+                spotlightColor="rgba(255, 255, 255, 0.05)"
+                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -216,13 +216,13 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
                       <div className="p-2 rounded-xl bg-orange-500/10 border border-orange-500/20">
                         <AlertTriangle size={16} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">Aguardando Notas</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Aguardando Notas</span>
                     </div>
-                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-orange-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                   </div>
 
                   <div className="mt-4">
-                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-orange-300 transition-colors">
+                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-slate-100 transition-colors">
                       <CountUp value={counts.aguardandoPagamento} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -235,15 +235,15 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                 <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-500">
                   <span>Anexo • Comprovantes</span>
-                  <span className="text-orange-400/80 group-hover:text-orange-300">Anexar →</span>
+                  <span className="text-slate-400 group-hover:text-slate-200">Anexar →</span>
                 </div>
               </SpotlightCard>
             </Link>
 
             <Link href="/kanban" className="block group">
               <SpotlightCard
-                spotlightColor="rgba(239, 68, 68, 0.18)"
-                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-red-500/40 transition-all duration-300 flex flex-col justify-between"
+                spotlightColor="rgba(255, 255, 255, 0.05)"
+                className="h-full p-5 rounded-2xl bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] hover:border-white/20 transition-all duration-300 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between">
@@ -251,13 +251,13 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
                       <div className="p-2 rounded-xl bg-red-500/10 border border-red-500/20">
                         <XCircle size={16} />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">Recusadas / Correção</span>
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-200">Recusadas / Correção</span>
                     </div>
-                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-red-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                    <ArrowUpRight size={14} className="text-slate-500 group-hover:text-slate-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                   </div>
 
                   <div className="mt-4">
-                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-red-300 transition-colors">
+                    <div className="text-3xl font-black font-mono tracking-tight text-white group-hover:text-slate-100 transition-colors">
                       <CountUp value={counts.recusado} currency={false} decimals={0} />
                     </div>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
@@ -270,7 +270,7 @@ export default function HubPendingCards({ role, counts, isLoading }: HubPendingC
 
                 <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-500">
                   <span>Correções</span>
-                  <span className="text-red-400/80 group-hover:text-red-300">Verificar →</span>
+                  <span className="text-slate-400 group-hover:text-slate-200">Verificar →</span>
                 </div>
               </SpotlightCard>
             </Link>

@@ -7,6 +7,7 @@ import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import DashboardKPIs from "@/components/dashboard/DashboardKPIs";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import DashboardSla from "@/components/dashboard/DashboardSla";
+import NubankBalanceWidget from "@/components/dashboard/NubankBalanceWidget";
 import ShinyBadge from "@/components/ui/ShinyBadge";
 import { BarChart3, ShieldCheck } from "lucide-react";
 
@@ -54,13 +55,13 @@ function DashboardContent() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/5">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+              <div className="p-2 rounded-xl bg-white/[0.04] border border-white/10 text-slate-300">
                 <BarChart3 size={20} />
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
                 Inteligência Financeira
               </h1>
-              <ShinyBadge variant="emerald" className="hidden sm:inline-flex text-[10px]">
+              <ShinyBadge variant="neutral" className="hidden sm:inline-flex text-[10px] font-mono">
                 BI Operacional
               </ShinyBadge>
             </div>
@@ -70,10 +71,13 @@ function DashboardContent() {
           </div>
 
           <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80" />
             <span>Dados Sincronizados</span>
           </div>
         </div>
+
+        {/* Validador de Saldo Nubank (Exclusivo Master e Financeiro) */}
+        {(userRole === "MASTER" || userRole === "FINANCEIRO") && <NubankBalanceWidget />}
 
         <DashboardFilters />
 

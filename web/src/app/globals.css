@@ -581,23 +581,37 @@ body {
 }
 
 .glass-panel {
-  background: rgba(15, 20, 32, 0.72);
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border: 1px solid var(--surface-border);
+  box-shadow: var(--shadow-card);
 }
 
 .glass-panel-elevated {
-  background: rgba(18, 24, 38, 0.85);
+  background: color-mix(in srgb, var(--bg-elevated) 92%, transparent);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--surface-border);
 }
 
 .terminal-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-image: radial-gradient(color-mix(in srgb, var(--text-muted) 12%, transparent) 1px, transparent 1px);
   background-size: 24px 24px;
+}
+
+.light-theme .glass-panel,
+.theme-jeton .glass-panel {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.light-theme .glass-panel-elevated,
+.theme-jeton .glass-panel-elevated {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
