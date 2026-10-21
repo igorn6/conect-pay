@@ -2,48 +2,58 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/nubankBalance";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { v4 as uuidv4 } from "uuid";
 import { sendPushNotification } from "@/lib/pushNotifications";
 
-const RECHARGE_PIX_OWNER = "Lima e Trindade";
-const RECHARGE_CNPJ = "CNPJ 2";
-const RECHARGE_AMOUNT = 1500.00;
+const DEFAULT_RECHARGE_PIX_OWNER = "Lima e Trindade";
+const DEFAULT_RECHARGE_CNPJ = "CNPJ 2";
+const DEFAULT_RECHARGE_AMOUNT = 1500.00;
+
+function parseBRL(val: unknown): number {
+  if (typeof val === "number") return val;
+  if (typeof val !== "string") return NaN;
+  const clean = val.trim().replace(/^R\$\s*/i, "").trim();
+  if (!clean) return NaN;
+  if (clean.includes(",") && clean.includes(".")) {
+    return parseFloat(clean.replace(/\./g, "").replace(",", "."));
+  }
+  if (clean.includes(",")) {
+    return parseFloat(clean.replace(/\s/g, "").replace(",", "."));
+  }
+  return parseFloat(clean.replace(/\s/g, ""));
+}
 
 export async function POST(req: Request) {
   try {
-    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
+    const reqBody = await req.json().catch(() => ({}));
+    const rawAmount = reqBody?.amount;
+    const paymentType = ((reqBody?.payment_type || reqBody?.paymentType || "BOLETO") as string).toUpperCase();
+    const barcode = ((reqBody?.boleto_barcode || reqBody?.barcode || "") as string).trim();
+    const pixKey = ((reqBody?.pix_key || reqBody?.pixKey || "") as string).trim();
+    const pixOwner = ((reqBody?.pix_owner || reqBody?.pixOwner || DEFAULT_RECHARGE_PIX_OWNER) as string).trim();
+    const cnpj = ((reqBody?.cnpj || DEFAULT_RECHARGE_CNPJ) as string).trim();
+    const notes = ((reqBody?.notes || "Recarga saldo Nubank") as string).trim();
+    const providedUserId = reqBody?.userId || req.headers.get("x-user-id");
+    const providedName = ((reqBody?.requesterName || "") as string).trim();
+
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req, providedUserId);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          },
-        },
-      }
-    );
-
     // Identificar o nome do solicitante
-    let requesterName = "Solicitante";
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("name")
-      .eq("id", auth.userId)
-      .maybeSingle();
+    let requesterName = providedName;
+    if (!requesterName) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("name")
+        .eq("id", auth.userId)
+        .maybeSingle();
 
-    if (profile?.name) {
-      requesterName = profile.name;
+      if (profile?.name) {
+        requesterName = profile.name;
+      } else {
+        requesterName = auth.name || "Solicitante";
+      }
     }
 
     // Due date (D+3 úteis)
@@ -54,17 +64,29 @@ export async function POST(req: Request) {
       if (d.getDay() !== 0 && d.getDay() !== 6) added++;
     }
 
+    const parsedAmount = parseBRL(rawAmount);
+    const amountNum = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : DEFAULT_RECHARGE_AMOUNT;
+
+    const formattedAmount = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(amountNum);
+
+    const identifier = paymentType === "BOLETO" ? (barcode || "") : (pixKey || "");
+
     const splitId = uuidv4();
     const cardData = {
-      title: "Recarga Nubank",
-      notes: "Recarga de Saldo Nubank",
-      amount: RECHARGE_AMOUNT,
+      title: `Recarga Nubank - ${formattedAmount}`,
+      notes: notes,
+      amount: amountNum,
       category: "Recarga de Saldo",
-      cnpj: RECHARGE_CNPJ,
-      payment_method: "PIX",
-      payment_type: "PIX",
-      pix_name: RECHARGE_PIX_OWNER,
-      pix_key: "",
+      cnpj: cnpj,
+      payment_method: paymentType,
+      payment_type: paymentType,
+      pix_name: pixOwner,
+      pix_owner: pixOwner,
+      pix_key: paymentType === "PIX" ? pixKey : "",
+      barcode: paymentType === "BOLETO" ? (barcode || null) : null,
       status: "NOVA_SOLICITACAO",
       stage_history: [
         {
@@ -83,19 +105,19 @@ export async function POST(req: Request) {
       splits: [
         {
           id: splitId,
-          payment_type: "PIX",
-          amount: RECHARGE_AMOUNT,
-          pix_owner: RECHARGE_PIX_OWNER,
-          pix_key: "",
+          payment_type: paymentType,
+          amount: amountNum,
+          pix_owner: pixOwner,
+          pix_key: paymentType === "PIX" ? pixKey : "",
           caju_phone: null,
-          boleto_barcode: null,
+          boleto_barcode: paymentType === "BOLETO" ? (barcode || null) : null,
           boleto_due_date: null,
           boleto_notes: null,
         },
       ],
     };
 
-    const { data: inserted, error: insertError } = await supabase
+    const { data: inserted, error: insertError } = await supabaseAdmin
       .from("payment_requests")
       .insert([cardData])
       .select()
@@ -103,13 +125,13 @@ export async function POST(req: Request) {
 
     if (insertError) {
       console.error("[API request-recharge] Erro ao inserir card:", insertError);
-      return NextResponse.json({ error: "Falha ao criar solicitação no Kanban." }, { status: 500 });
+      return NextResponse.json({ error: "Falha ao criar solicitação no Kanban: " + insertError.message }, { status: 500 });
     }
 
     // Disparar Push Notification
     sendPushNotification({
       title: "Nova Solicitação de Recarga Nubank!",
-      body: `Recarga Nubank - R$ 1.500,00 por ${requesterName}`,
+      body: `Recarga Nubank - ${formattedAmount} por ${requesterName}`,
       url: "/kanban",
       targetRoles: ["MASTER", "FINANCEIRO"],
       excludeUserId: auth.userId,
@@ -118,8 +140,9 @@ export async function POST(req: Request) {
     // Formatar e-mail padronizado para Tássio
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
-    const subject = `Pagamento Ref. Recarga Nubank | ${RECHARGE_CNPJ}`;
-    const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: Recarga saldo Nubank\nValor: R$ 1.500,00\nChave pix / Linha digitável:\nTitular: ${RECHARGE_PIX_OWNER}\nSolicitante: ${requesterName}`;
+    const subject = `Pagamento Ref. Recarga Nubank | ${cnpj}`;
+    const displayIdentifier = identifier || "(não informada)";
+    const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${notes}\nValor: ${formattedAmount}\nChave pix / Linha digitável: ${displayIdentifier}\nTitular: ${pixOwner}\nSolicitante: ${requesterName}`;
 
     return NextResponse.json({
       ok: true,
@@ -137,3 +160,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err?.message || "Erro inesperado." }, { status: 500 });
   }
 }
+

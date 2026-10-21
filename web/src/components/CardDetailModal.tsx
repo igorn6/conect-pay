@@ -439,6 +439,7 @@ export default function CardDetailModal({
     resolvedRequesterName ||
     profilesMap[card.real_requester_id || ""] ||
     profilesMap[card.created_by] ||
+    (card.request_kind === "RECARGA_NUBANK" && (card.created_by === userId || card.real_requester_id === userId) ? (userName || "Solicitante") : "") ||
     "Desconhecido";
 
   // ========== HANDLERS ==========
@@ -446,9 +447,30 @@ export default function CardDetailModal({
   async function handleAdvance(targetStatus?: string) {
     if (!isMasterOrFinanceiro) return;
     let newStatus = targetStatus;
-    const isRechargeCard = card.request_kind === "RECARGA_NUBANK" || card.request_kind === "RECARGA_CAJU";
+    const isNubankRecharge = card.request_kind === "RECARGA_NUBANK";
+    const isRechargeCard = isNubankRecharge || card.request_kind === "RECARGA_CAJU";
 
-    if (!newStatus) {
+    if (isNubankRecharge) {
+      if (card.status === "NOVA_SOLICITACAO") {
+        newStatus = "EM_APROVACAO";
+      } else if (card.status === "EM_APROVACAO" || targetStatus === "FINALIZADO") {
+        const hasProof =
+          effectiveProofUrls.length > 0 ||
+          Boolean(paymentProofUrl) ||
+          Boolean(card.payment_proof_url) ||
+          Boolean((card as any).receipt_url) ||
+          receiptsHistory.length > 0;
+        if (!hasProof) {
+          alert("Para finalizar a recarga Nubank, é obrigatório anexar o comprovante de pagamento.");
+          return;
+        }
+        newStatus = "FINALIZADO";
+      } else if (targetStatus) {
+        newStatus = targetStatus;
+      } else {
+        newStatus = NEXT_STATUS[card.status] || "FINALIZADO";
+      }
+    } else if (!newStatus) {
       if (isRechargeCard) {
         if (card.status === "NOVA_SOLICITACAO" || card.status === "EM_APROVACAO") {
           newStatus = "AGUARDANDO_PAGAMENTO";
@@ -2240,31 +2262,68 @@ export default function CardDetailModal({
               {/* Botões quando Em Aprovação ou Correção Pendente */}
               {(isEmAprovacao || isCorrecaoPendente) && isMasterOrFinanceiro && !showRefuseForm && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => handleAdvance("VALIDACAO_GESTOR")}
-                    disabled={loading || isTransitionBlocked}
-                    className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
-                  >
-                    Validação do Gestor
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
-                    disabled={loading || isTransitionBlocked}
-                    className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
-                  >
-                    Aguardando Nota
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAdvance("FINALIZADO")}
-                    disabled={loading || isTransitionBlocked}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    <span>Finalizar Direto</span>
-                    <ArrowRight size={14} />
-                  </button>
+                  {card.request_kind === "RECARGA_NUBANK" ? (
+                    effectiveProofUrls.length === 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-500/25 whitespace-nowrap shadow-xs">
+                          <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                          Anexe o comprovante de pagamento para finalizar
+                        </span>
+                        <button
+                          type="button"
+                          disabled
+                          className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white/40 rounded-xl bg-slate-800 border border-white/10 opacity-50 cursor-not-allowed whitespace-nowrap"
+                        >
+                          <CheckCircle2 size={15} />
+                          <span>Finalizar Recarga</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleAdvance("FINALIZADO")}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-950/40 transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                      >
+                        {loading ? (
+                          <Loader2 size={15} className="animate-spin" />
+                        ) : (
+                          <>
+                            <CheckCircle2 size={15} />
+                            <span>Finalizar Recarga</span>
+                          </>
+                        )}
+                      </button>
+                    )
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleAdvance("VALIDACAO_GESTOR")}
+                        disabled={loading || isTransitionBlocked}
+                        className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                      >
+                        Validação do Gestor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAdvance("AGUARDANDO_PAGAMENTO")}
+                        disabled={loading || isTransitionBlocked}
+                        className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700/80 hover:border-slate-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm cursor-pointer"
+                      >
+                        Aguardando Nota
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAdvance("FINALIZADO")}
+                        disabled={loading || isTransitionBlocked}
+                        className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <span>Finalizar Direto</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 

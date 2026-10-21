@@ -7,7 +7,6 @@ import DashboardFilters from "@/components/dashboard/DashboardFilters";
 import DashboardKPIs from "@/components/dashboard/DashboardKPIs";
 import DashboardCharts from "@/components/dashboard/DashboardCharts";
 import DashboardSla from "@/components/dashboard/DashboardSla";
-import NubankBalanceWidget from "@/components/dashboard/NubankBalanceWidget";
 import ShinyBadge from "@/components/ui/ShinyBadge";
 import { BarChart3, ShieldCheck } from "lucide-react";
 
@@ -75,9 +74,6 @@ function DashboardContent() {
             <span>Dados Sincronizados</span>
           </div>
         </div>
-
-        {/* Validador de Saldo Nubank (Exclusivo Master e Financeiro) */}
-        {(userRole === "MASTER" || userRole === "FINANCEIRO") && <NubankBalanceWidget />}
 
         <DashboardFilters />
 

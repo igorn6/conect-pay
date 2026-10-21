@@ -308,7 +308,19 @@ export default function KanbanPage() {
       let hasError = false;
       for (const card of toUpdate) {
         if (!card) continue;
-        const next = NEXT_STATUS[card.status as keyof typeof NEXT_STATUS];
+        let next = NEXT_STATUS[card.status as keyof typeof NEXT_STATUS];
+        if (card.request_kind === "RECARGA_NUBANK") {
+          if (card.status === "NOVA_SOLICITACAO") {
+            next = "EM_APROVACAO";
+          } else if (card.status === "EM_APROVACAO") {
+            const hasProof = Boolean(card.payment_proof_url) || Boolean((card as any).receipt_url) || (Array.isArray(card.receipts_history) && card.receipts_history.length > 0);
+            if (!hasProof) {
+              alert(`A solicitação de recarga "${card.title}" precisa de comprovante anexado para finalizar.`);
+              continue;
+            }
+            next = "FINALIZADO";
+          }
+        }
         if (!next) continue;
         
         const nextHistory = computeNextStageHistory(

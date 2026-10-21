@@ -25,13 +25,15 @@ import {
   Search,
   FileCheck2,
   ShieldCheck,
+  Building2,
+  QrCode,
+  CreditCard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import type { NubankSnapshot, NubankMovement } from "@/constants/nubank";
 import CountUp from "@/components/ui/CountUp";
 import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
-import SpotlightCard from "@/components/ui/SpotlightCard";
 import MagnetButton from "@/components/ui/MagnetButton";
 import ShinyBadge from "@/components/ui/ShinyBadge";
 import NubankStatementValidatorModal from "@/components/nubank/NubankStatementValidatorModal";
@@ -60,7 +62,20 @@ export default function NubankCajuPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modais
-  const [isRecharging, setIsRecharging] = useState(false);
+  const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
+  const [rechargeForm, setRechargeForm] = useState({
+    amount: "1.500,00",
+    paymentType: "BOLETO" as "BOLETO" | "PIX",
+    barcode: "",
+    pixKey: "",
+    pixOwner: "Lima e Trindade",
+    cnpj: "CNPJ 2",
+    notes: "Recarga saldo Nubank",
+    requesterName: "",
+  });
+  const [isSubmittingRecharge, setIsSubmittingRecharge] = useState(false);
+  const [rechargeError, setRechargeError] = useState<string | null>(null);
+
   const [rechargeSuccessData, setRechargeSuccessData] = useState<{
     card: any;
     email: { to: string; subject: string; body: string; encodedSubject: string; encodedBody: string };
@@ -139,13 +154,54 @@ export default function NubankCajuPage() {
     return parseFloat(clean.replace(/\s/g, ""));
   };
 
-  // Ação: Solicitar Recarga Nubank
-  const handleRequestRecharge = async () => {
+  // Ação: Abrir Modal de Edição da Recarga Nubank
+  const handleOpenRechargeModal = () => {
+    setRechargeError(null);
+    setRechargeForm({
+      amount: "1.500,00",
+      paymentType: "BOLETO",
+      barcode: "",
+      pixKey: "",
+      pixOwner: "Lima e Trindade",
+      cnpj: "CNPJ 2",
+      notes: "Recarga saldo Nubank",
+      requesterName: userName || "Igor Nascimento",
+    });
+    setIsRechargeModalOpen(true);
+  };
+
+  // Submeter Recarga Nubank (cria card no Kanban com dados editados e gera e-mail)
+  const handleSubmitRecharge = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRechargeError(null);
+    const amountNum = parseCurrencyInput(rechargeForm.amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      setRechargeError("Informe um valor válido maior que zero.");
+      return;
+    }
+
     try {
-      setIsRecharging(true);
+      setIsSubmittingRecharge(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (userId) headers["x-user-id"] = userId;
+
       const res = await fetch("/api/nubank-balance/request-recharge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        body: JSON.stringify({
+          amount: amountNum,
+          payment_type: rechargeForm.paymentType,
+          boleto_barcode: rechargeForm.paymentType === "BOLETO" ? rechargeForm.barcode.trim() : null,
+          pix_key: rechargeForm.paymentType === "PIX" ? rechargeForm.pixKey.trim() : "",
+          pix_owner: rechargeForm.pixOwner.trim(),
+          cnpj: rechargeForm.cnpj.trim(),
+          notes: rechargeForm.notes.trim(),
+          userId,
+          requesterName: rechargeForm.requesterName.trim() || userName || "Igor Nascimento",
+        }),
       });
 
       if (!res.ok) {
@@ -154,12 +210,16 @@ export default function NubankCajuPage() {
       }
 
       const data = await res.json();
+      setIsRechargeModalOpen(false);
       setRechargeSuccessData(data);
       fetchBalance(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("nubank-balance-updated"));
+      }
     } catch (err: any) {
-      alert("Erro ao solicitar recarga: " + err.message);
+      setRechargeError(err.message || "Erro inesperado.");
     } finally {
-      setIsRecharging(false);
+      setIsSubmittingRecharge(false);
     }
   };
 
@@ -380,12 +440,11 @@ export default function NubankCajuPage() {
             </button>
 
             <MagnetButton
-              onClick={handleRequestRecharge}
-              disabled={isRecharging}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              onClick={handleOpenRechargeModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
             >
-              <Sparkles size={14} className="text-slate-950" />
-              <span>{isRecharging ? "Lançando..." : "Recarga (R$ 1.500)"}</span>
+              <Sparkles size={14} className="text-white" />
+              <span>Recarga (R$ 1.500)</span>
             </MagnetButton>
           </div>
         </div>
@@ -408,132 +467,180 @@ export default function NubankCajuPage() {
             </div>
 
             <MagnetButton
-              onClick={handleRequestRecharge}
-              disabled={isRecharging}
+              onClick={handleOpenRechargeModal}
               className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md shadow-amber-950/30 transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
             >
               <Sparkles size={14} />
-              <span>{isRecharging ? "Lançando..." : "Solicitar Recarga Imediata"}</span>
+              <span>Solicitar Recarga Imediata</span>
             </MagnetButton>
           </div>
         )}
 
-        {/* Saldo Principal + Cards de Visão Geral (3 Indicadores Executivos) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          
-          {/* Card 1: Saldo Principal Nubank */}
-          <SpotlightCard
-            spotlightColor="rgba(130, 10, 209, 0.25)"
-            className="rounded-2xl p-6 relative overflow-hidden shadow-2xl border border-[#820AD1]/40 bg-gradient-to-br from-slate-950 via-[#181126] to-slate-950 flex flex-col justify-between"
-          >
-            <div className="absolute top-0 right-0 -mr-12 -mt-12 w-48 h-48 bg-[#820AD1]/20 rounded-full blur-3xl pointer-events-none" />
-            
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#d8b4fe]">
-                  Saldo em Conta Nubank
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-[#820AD1]/30 border border-[#820AD1]/50 text-[#d8b4fe] flex items-center justify-center shadow-[0_0_12px_rgba(130,10,209,0.4)]">
-                  <Wallet size={16} />
-                </div>
+        {/* Card Principal Corporativo Nubank (Design unificado conforme Dashboard) */}
+        <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-[#1a1329] to-slate-900 border border-[#820AD1]/30 p-5 md:p-6 shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
+          {/* Glow de fundo Nubank roxo sutil */}
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-[#820AD1]/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-1/3 -mb-16 w-48 h-48 bg-purple-600/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10">
+            {/* Saldo em Destaque */}
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#820AD1] to-[#5a0594] flex items-center justify-center text-white shadow-lg shadow-purple-950/50 shrink-0">
+                <Wallet size={26} className="text-white drop-shadow-sm" />
               </div>
 
-              <div className="mt-3">
-                {loading ? (
-                  <div className="h-10 w-44 bg-white/5 rounded animate-pulse" />
-                ) : (
-                  <div className="text-3xl sm:text-4xl font-mono font-black text-white tracking-tight flex items-baseline">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#d8b4fe] bg-[#820AD1]/20 px-2.5 py-0.5 rounded-full border border-[#820AD1]/40">
+                    Nubank 02 • Saldo Corporativo
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
+                    (Trava anti-duplicidade ativa)
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-3 mt-1.5">
+                  {loading ? (
+                    <div className="h-9 w-40 bg-slate-800 rounded animate-pulse" />
+                  ) : error ? (
+                    <div className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
+                      <AlertCircle size={16} />
+                      <span>Erro ao consultar</span>
+                    </div>
+                  ) : (
                     <AnimatedCurrency
                       value={currentBalance}
                       prefix="R$ "
-                      prefixClassName="text-2xl text-[#d8b4fe]/80 font-normal mr-1"
-                      className="text-3xl sm:text-4xl font-mono font-black text-white tracking-tight"
+                      prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-normal mr-1"
+                      className="text-3xl md:text-4xl font-black text-white tracking-tight"
                     />
-                  </div>
-                )}
-                <p className="text-[11px] text-slate-400 mt-1 font-mono">
-                  Abatimento e liquidação automática no Kanban.
+                  )}
+
+                  <button
+                    onClick={() => fetchBalance(false)}
+                    disabled={refreshing}
+                    title="Atualizar saldo agora"
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw size={14} className={refreshing ? "animate-spin text-[#c084fc]" : ""} />
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-400 mt-1">
+                  Atualização em tempo real sincronizada com o fluxo do Kanban.
                 </p>
+
+                {/* Micro Indicadores Financeiros (Reembolsado, Entradas, Saídas) */}
+                <div className="flex flex-wrap items-center gap-2.5 mt-3 pt-3 border-t border-slate-800/60 text-xs">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                    <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-amber-400/80">Reembolsado:</span>
+                    <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                    <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-emerald-400/80">Entradas:</span>
+                    <AnimatedCurrency value={totalEntradas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-emerald-400" />
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                    <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-rose-400/80">Saídas:</span>
+                    <AnimatedCurrency value={totalSaidas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-rose-400" />
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
 
-            <div className="pt-4 mt-4 border-t border-white/[0.08] flex items-center justify-between text-[11px] font-mono text-slate-400">
-              <span>Trava anti-duplicidade: <strong className="text-emerald-400">Ativa</strong></span>
+          {/* Mini-Lista de Movimentações Recentes (Últimas 5) */}
+          <div className="mt-6 pt-5 border-t border-slate-800/80">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Últimas Movimentações Nubank
+                </span>
+                <span className="text-[10px] text-slate-500 font-semibold bg-slate-800 px-2 py-0.5 rounded-full">
+                  {snapshot?.movements?.length || 0} de 5
+                </span>
+              </div>
               {snapshot?.updatedAt && (
-                <span>{new Date(snapshot.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="text-[11px] text-slate-500">
+                  Última sincronização: {new Date(snapshot.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                </span>
               )}
             </div>
-          </SpotlightCard>
 
-          {/* Card 3: Total Entradas / Recargas */}
-          <SpotlightCard
-            spotlightColor="rgba(16, 185, 129, 0.18)"
-            className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
-                  Entradas / Recargas
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-                  <ArrowDownLeft size={16} />
-                </div>
+            {loading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-10 bg-slate-800/40 rounded-xl animate-pulse" />
+                ))}
               </div>
-
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-mono font-bold text-emerald-400 flex items-baseline">
-                  <AnimatedCurrency
-                    value={totalEntradas}
-                    prefix="R$ "
-                    prefixClassName="text-xl text-emerald-400/80 font-normal mr-1"
-                    className="text-2xl sm:text-3xl font-mono font-bold text-emerald-400"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1 font-mono">
-                  Recargas aprovadas e créditos em conta.
-                </p>
+            ) : !snapshot?.movements || snapshot.movements.length === 0 ? (
+              <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/60 text-center text-xs text-slate-400">
+                Nenhuma movimentação registrada no histórico recente.
               </div>
-            </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5">
+                {snapshot.movements.slice(0, 5).map((mov: NubankMovement) => {
+                  const isPositive = mov.amount > 0;
+                  const isRefund = mov.type === "REEMBOLSO";
+                  const isRecharge = mov.type === "ENTRADA";
+                  const isAdjustment = mov.type === "AJUSTE";
 
-            <div className="pt-4 mt-4 border-t border-white/[0.06] text-[11px] font-mono text-slate-500">
-              <span>Conciliação histórica Nubank 02</span>
-            </div>
-          </SpotlightCard>
+                  return (
+                    <div
+                      key={mov.id}
+                      className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 hover:border-purple-500/40 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 ease-out flex flex-col justify-between gap-2 text-xs group"
+                    >
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                              isPositive
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : "bg-rose-500/20 text-rose-400"
+                            }`}
+                          >
+                            {isPositive ? <ArrowDownLeft size={13} /> : <ArrowUpRight size={13} />}
+                          </div>
+                          <AnimatedCurrency
+                            value={Math.abs(mov.amount)}
+                            prefix={isPositive ? "+R$ " : "-R$ "}
+                            prefixClassName="font-normal opacity-90 mr-0.5"
+                            className={`font-black text-xs ${
+                              isPositive ? "text-emerald-400" : "text-rose-400"
+                            }`}
+                          />
+                        </div>
 
-          {/* Card 4: Total Saídas / Pagamentos */}
-          <SpotlightCard
-            spotlightColor="rgba(244, 63, 94, 0.18)"
-            className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
-                  Saídas / Pagamentos
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center">
-                  <ArrowUpRight size={16} />
-                </div>
+                        <span className="text-[10px] text-slate-500 shrink-0">
+                          {new Date(mov.created_at).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "2-digit",
+                          })}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-slate-300 font-medium truncate" title={mov.description || undefined}>
+                        {mov.description}
+                      </p>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-slate-800/60">
+                        <span className="uppercase tracking-wider font-semibold">
+                          {isRefund
+                            ? "Reembolso"
+                            : isRecharge
+                            ? "Recarga"
+                            : isAdjustment
+                            ? "Ajuste"
+                            : "Saída"}
+                        </span>
+                        <span>Após: {formatBRL(mov.balance_after)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-mono font-bold text-rose-400 flex items-baseline">
-                  <AnimatedCurrency
-                    value={totalSaidas}
-                    prefix="R$ "
-                    prefixClassName="text-xl text-rose-400/80 font-normal mr-1"
-                    className="text-2xl sm:text-3xl font-mono font-bold text-rose-400"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1 font-mono">
-                  Total debitado por solicitações liquidadas.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-4 mt-4 border-t border-white/[0.06] text-[11px] font-mono text-slate-500">
-              <span>Total de saídas registradas</span>
-            </div>
-          </SpotlightCard>
+            )}
+          </div>
         </div>
 
         {/* Seletor de visualização: Extrato vs Auditoria e Fechamentos */}
@@ -736,6 +843,246 @@ export default function NubankCajuPage() {
       </div>
 
       {/* ========================================================
+          MODAL DE CONFIGURAÇÃO / EDIÇÃO DE RECARGA (PRÉ-ENVIO)
+          ======================================================== */}
+      {isRechargeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in">
+          <div 
+            className="w-full max-w-2xl rounded-2xl border p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
+            style={{ backgroundColor: "var(--bg-secondary)", borderColor: "var(--surface-border)" }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 mb-4 border-b" style={{ borderColor: "var(--surface-border)" }}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold" style={{ color: "var(--text-primary)" }}>
+                    Solicitar Recarga de Saldo Nubank
+                  </h3>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
+                    Edite as informações antes de lançar o card no Kanban e gerar o e-mail para Tássio.
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsRechargeModalOpen(false)} 
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {rechargeError && (
+              <div className="p-3 mb-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle size={14} className="shrink-0" />
+                <span>{rechargeError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitRecharge} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* Motivo */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Motivo da Solicitação *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rechargeForm.notes}
+                    onChange={(e) => setRechargeForm((prev) => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Recarga saldo Nubank"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-emerald-500 font-medium"
+                    style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                  />
+                </div>
+
+                {/* Valor */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Valor da Recarga (R$) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rechargeForm.amount}
+                    onChange={(e) => handleAmountInput(e.target.value, (val) => setRechargeForm((prev) => ({ ...prev, amount: val })))}
+                    placeholder="1.500,00"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-emerald-500 font-bold font-mono"
+                    style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                  />
+                </div>
+
+                {/* Titular */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Titular / Favorecido *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rechargeForm.pixOwner}
+                    onChange={(e) => setRechargeForm((prev) => ({ ...prev, pixOwner: e.target.value }))}
+                    placeholder="Lima e Trindade"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-emerald-500 font-medium"
+                    style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                  />
+                </div>
+
+                {/* Conta Pagadora / CNPJ */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Conta Pagadora / CNPJ *
+                  </label>
+                  <select
+                    value={rechargeForm.cnpj}
+                    onChange={(e) => setRechargeForm((prev) => ({ ...prev, cnpj: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-emerald-500 font-medium cursor-pointer"
+                    style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                  >
+                    <option value="CNPJ 2" style={{ backgroundColor: "var(--bg-secondary)" }}>CNPJ 2 (Padrão)</option>
+                    <option value="CNPJ 1" style={{ backgroundColor: "var(--bg-secondary)" }}>CNPJ 1</option>
+                    <option value="Conect Solucoes" style={{ backgroundColor: "var(--bg-secondary)" }}>Conect Soluções</option>
+                  </select>
+                </div>
+
+                {/* Solicitante */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Solicitante (Identificação no Kanban e E-mail) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={rechargeForm.requesterName}
+                    onChange={(e) => setRechargeForm((prev) => ({ ...prev, requesterName: e.target.value }))}
+                    placeholder={userName || "Igor Nascimento"}
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-emerald-500 font-medium"
+                    style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Seu nome será registrado como autor do card no Kanban e no texto enviado a Tássio.
+                  </span>
+                </div>
+
+                {/* Forma de Pagamento */}
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
+                    Forma de Pagamento da Recarga
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRechargeForm((prev) => ({ ...prev, paymentType: "BOLETO" }))}
+                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        rechargeForm.paymentType === "BOLETO"
+                          ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                          : "border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <FileText size={15} />
+                      <span>Boleto Bancário (Linha Digitável)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setRechargeForm((prev) => ({ ...prev, paymentType: "PIX" }))}
+                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                        rechargeForm.paymentType === "PIX"
+                          ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                          : "border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <QrCode size={15} />
+                      <span>Chave Pix</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Campo Dinâmico: Linha digitável ou Chave Pix */}
+                <div className="md:col-span-2">
+                  {rechargeForm.paymentType === "BOLETO" ? (
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                        Linha Digitável / Código de Barras do Boleto
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={rechargeForm.barcode}
+                        onChange={(e) => setRechargeForm((prev) => ({ ...prev, barcode: e.target.value }))}
+                        placeholder="Cole aqui a linha digitável do boleto de recarga Nubank..."
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-emerald-500"
+                        style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                        Chave Pix de Recarga
+                      </label>
+                      <input
+                        type="text"
+                        value={rechargeForm.pixKey}
+                        onChange={(e) => setRechargeForm((prev) => ({ ...prev, pixKey: e.target.value }))}
+                        placeholder="Informe a chave Pix (CNPJ, e-mail, telefone ou chave aleatória)..."
+                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-emerald-500"
+                        style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Prévia ao vivo do E-mail Padronizado */}
+              <div className="pt-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Mail size={13} className="text-emerald-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Prévia do E-mail Padronizado para Tássio:
+                  </span>
+                </div>
+                <div 
+                  className="p-3.5 rounded-xl border font-mono text-xs whitespace-pre-wrap leading-relaxed select-text"
+                  style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                >
+                  {`--\n${new Date().getHours() < 12 ? "Bom dia" : "Boa tarde"}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${rechargeForm.notes.trim() || "Recarga saldo Nubank"}\nValor: R$ ${rechargeForm.amount || "1.500,00"}\nChave pix / Linha digitável: ${
+                    rechargeForm.paymentType === "BOLETO"
+                      ? (rechargeForm.barcode.trim() || "(informe a linha digitável acima)")
+                      : (rechargeForm.pixKey.trim() || "(informe a chave pix acima)")
+                  }\nTitular: ${rechargeForm.pixOwner.trim() || "Lima e Trindade"}\nSolicitante: ${rechargeForm.requesterName.trim() || userName || "Igor Nascimento"}`}
+                </div>
+              </div>
+
+              {/* Botões de Ação do Modal */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t" style={{ borderColor: "var(--surface-border)" }}>
+                <button
+                  type="button"
+                  onClick={() => setIsRechargeModalOpen(false)}
+                  disabled={isSubmittingRecharge}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={isSubmittingRecharge}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  <Sparkles size={14} className="text-slate-950" />
+                  <span>{isSubmittingRecharge ? "Lançando no Kanban..." : "Lançar no Kanban"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
           MODAL DE RECARGA CONCLUÍDA (E-mail para Tássio)
           ======================================================== */}
       {rechargeSuccessData && (
@@ -753,7 +1100,7 @@ export default function NubankCajuPage() {
                   Solicitação de Recarga Lançada no Kanban!
                 </h3>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                  O card de R$ 1.500,00 foi inserido no Kanban. Envie o e-mail padronizado para Tássio:
+                  O card de {formatBRL(rechargeSuccessData.card?.amount || 1500)} foi inserido no Kanban. Envie o e-mail padronizado para Tássio:
                 </p>
               </div>
             </div>
