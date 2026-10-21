@@ -195,19 +195,19 @@ export async function revertMovement(args: {
   };
 }
 
-/** Status onde a despesa já foi validada pelo gestor ou finalizada (deve estar debitada do Nubank). */
+/** Status onde a despesa já foi paga/avançada pelo financeiro e deve estar debitada do Nubank. */
 export const NUBANK_ACTIVE_STATUSES = [
+  "VALIDACAO_GESTOR",
+  "CORRECAO_PENDENTE",
   "VALIDADO_GESTOR",
   "AGUARDANDO_PAGAMENTO",
   "FINALIZADO",
 ];
 
-/** Status inativos (não pagos ou que voltaram para correção/análise) onde o saldo Nubank não deve estar descontado. */
+/** Status inativos (não pagos pelo financeiro ou recusados) onde o saldo Nubank não deve estar descontado. */
 export const NUBANK_IDLE_STATUSES = [
   "NOVA_SOLICITACAO",
   "EM_APROVACAO",
-  "VALIDACAO_GESTOR",
-  "CORRECAO_PENDENTE",
   "RECUSADO",
 ];
 
@@ -257,11 +257,11 @@ export function decideCardMovement(
       };
     }
 
-    // 1.3 Se o cartão retornou para status inativo/anterior (Nova Solicitação, Pendente, Validação Gestor ou Correção)
+    // 1.3 Se o cartão retornou para status inativo/anterior (Nova Solicitação, Pendente ou Recusado)
     if (NUBANK_IDLE_STATUSES.includes(card.status)) {
       return {
         action: "REVERT",
-        reason: "Cartão retornou para status anterior/correção.",
+        reason: "Cartão retornou para status anterior/recusado.",
         description: `Estorno por retorno de status: ${title}`,
       };
     }
@@ -313,9 +313,9 @@ export function decideCardMovement(
     return { action: "SKIP", reason: "Valor inválido." };
   }
 
-  // 2.3 Se ainda estiver em status inativo (NOVA_SOLICITACAO, EM_APROVACAO, VALIDACAO_GESTOR, CORRECAO_PENDENTE, RECUSADO)
+  // 2.3 Se ainda estiver em status inativo (NOVA_SOLICITACAO, EM_APROVACAO, RECUSADO)
   if (NUBANK_IDLE_STATUSES.includes(card.status)) {
-    return { action: "SKIP", reason: "Cartão ainda não atingiu Validado pelo Gestor." };
+    return { action: "SKIP", reason: "Cartão ainda não atingiu Validação do Gestor." };
   }
 
   // 2.4 Se for Recarga de Saldo Nubank

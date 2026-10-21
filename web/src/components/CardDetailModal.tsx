@@ -321,6 +321,67 @@ export default function CardDetailModal({
     setReceiptsHistory((card.receipts_history as ReceiptHistoryItem[] | null) || []);
   }, [card.receipts_history]);
 
+  useEffect(() => {
+    setPaymentProofUrl(card.payment_proof_url || null);
+  }, [card.payment_proof_url, card.id]);
+
+  useEffect(() => {
+    setInvoiceUrl(card.invoice_url || null);
+  }, [card.invoice_url, card.id]);
+
+  // Re-hidratação atômica: garante que o modal sempre tenha os anexos mais recentes do banco
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFreshCardData() {
+      if (!card.id) return;
+      try {
+        const { data, error } = await supabase
+          .from("payment_requests")
+          .select("payment_proof_url, invoice_url, receipts_history, receipt_url, cnpj")
+          .eq("id", card.id)
+          .maybeSingle();
+
+        if (!error && data && isMounted) {
+          if (data.payment_proof_url !== undefined && data.payment_proof_url !== null) {
+            setPaymentProofUrl(data.payment_proof_url);
+          }
+          if (data.invoice_url !== undefined && data.invoice_url !== null) {
+            setInvoiceUrl(data.invoice_url);
+          }
+          if (Array.isArray(data.receipts_history) && data.receipts_history.length > 0) {
+            setReceiptsHistory(data.receipts_history as ReceiptHistoryItem[]);
+          }
+          if (data.cnpj !== undefined && data.cnpj !== null) {
+            setLocalCnpj(data.cnpj);
+          }
+        }
+      } catch (err) {
+        console.warn("[CardDetailModal] Falha ao recarregar dados do card:", err);
+      }
+    }
+    loadFreshCardData();
+    return () => { isMounted = false; };
+  }, [card.id]);
+
+  // Agrega todas as URLs de comprovante para garantir que o solicitante sempre veja tudo o que foi anexado
+  const effectiveProofUrls = useMemo(() => {
+    const urls = new Set<string>();
+    const addUrlString = (str?: string | null) => {
+      if (!str) return;
+      str.split(",").map((s) => s.trim()).filter(Boolean).forEach((u) => urls.add(u));
+    };
+    addUrlString(paymentProofUrl);
+    addUrlString(card.payment_proof_url);
+    addUrlString((card as any).receipt_url);
+    if (Array.isArray(receiptsHistory)) {
+      receiptsHistory.forEach((r) => { if (r?.url) urls.add(r.url.trim()); });
+    }
+    if (Array.isArray(card.receipts_history)) {
+      (card.receipts_history as any[]).forEach((r) => { if (r?.url) urls.add(r.url.trim()); });
+    }
+    return Array.from(urls);
+  }, [paymentProofUrl, card.payment_proof_url, (card as any).receipt_url, receiptsHistory, card.receipts_history]);
+
   const latestReceipt = receiptsHistory.length > 0 ? receiptsHistory[receiptsHistory.length - 1] : null;
 
   // Stage history & SLA
@@ -1457,7 +1518,7 @@ export default function CardDetailModal({
               </div>
 
               {/* Comprovante de Pagamento (Visível para Gestor, Solicitante e Financeiro) */}
-              {paymentProofUrl ? (
+              {effectiveProofUrls.length > 0 ? (
                 <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 flex flex-col gap-2.5 shadow-xs">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -1477,7 +1538,7 @@ export default function CardDetailModal({
                   </div>
 
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {paymentProofUrl.split(',').map((u) => u.trim()).filter(Boolean).map((url, i) => (
+                    {effectiveProofUrls.map((url, i) => (
                       <div
                         key={i}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 text-xs font-bold shadow-xs hover:bg-emerald-500/20 transition-all"
@@ -1490,7 +1551,7 @@ export default function CardDetailModal({
                         >
                           <FileText size={14} className="text-emerald-400" />
                           <span>
-                            Visualizar Comprovante {paymentProofUrl.split(',').filter(Boolean).length > 1 ? i + 1 : ""}
+                            Visualizar Comprovante {effectiveProofUrls.length > 1 ? i + 1 : ""}
                           </span>
                           <ExternalLink size={12} className="opacity-70" />
                         </a>
@@ -1522,7 +1583,7 @@ export default function CardDetailModal({
                   )}
                 </div>
               ) : (
-                !isNovaSolicitacao && isMasterOrFinanceiro && !isCorrecaoPendente && !isValidacaoGestor && (
+                !isNovaSolicitacao && isMasterOrFinanceiro && !isCorrecaoPendente && !isValidacaoGestor ? (
                   <div className="p-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 hover:opacity-90 transition-all"
                        style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
                     {isUploading ? (
@@ -1547,6 +1608,16 @@ export default function CardDetailModal({
                       </>
                     )}
                   </div>
+                ) : (
+                  (!isNovaSolicitacao && (card.status === "VALIDACAO_GESTOR" || card.status === "VALIDADO_GESTOR" || card.status === "AGUARDANDO_PAGAMENTO" || card.status === "FINALIZADO")) ? (
+                    <div className="p-3.5 rounded-xl border border-slate-700/60 bg-slate-800/40 flex items-center gap-3">
+                      <Clock size={16} className="text-slate-400 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-300">Comprovante de Pagamento</p>
+                        <p className="text-[11px] text-slate-400">Aguardando envio pelo setor Financeiro.</p>
+                      </div>
+                    </div>
+                  ) : null
                 )
               )}
 

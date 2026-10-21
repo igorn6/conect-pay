@@ -23,6 +23,8 @@ import {
   Sparkles,
   ArrowRight,
   Search,
+  FileCheck2,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -32,6 +34,8 @@ import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
 import SpotlightCard from "@/components/ui/SpotlightCard";
 import MagnetButton from "@/components/ui/MagnetButton";
 import ShinyBadge from "@/components/ui/ShinyBadge";
+import NubankStatementValidatorModal from "@/components/nubank/NubankStatementValidatorModal";
+import NubankDailyReconciliationHistory from "@/components/nubank/NubankDailyReconciliationHistory";
 
 export default function NubankCajuPage() {
   const router = useRouter();
@@ -74,6 +78,11 @@ export default function NubankCajuPage() {
   const [adjustReason, setAdjustReason] = useState("");
   const [isSubmittingAdjust, setIsSubmittingAdjust] = useState(false);
   const [adjustError, setAdjustError] = useState<string | null>(null);
+
+  // Validador de Extrato e Conciliação Diária
+  const [isValidatorModalOpen, setIsValidatorModalOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<"MOVEMENTS" | "RECONCILIATION">("MOVEMENTS");
+  const [reconcileRefreshTrigger, setReconcileRefreshTrigger] = useState(0);
 
   // Buscar dados
   const fetchBalance = useCallback(async (isSilent = false) => {
@@ -361,13 +370,22 @@ export default function NubankCajuPage() {
               <span>Registrar Reembolso</span>
             </button>
 
+            <button
+              onClick={() => setIsValidatorModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-purple-500/30 bg-purple-950/40 hover:bg-purple-900/50 text-xs font-semibold text-purple-200 hover:text-white transition-all cursor-pointer backdrop-blur-md shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+              title="Importar e validar extrato Nubank (7 dias)"
+            >
+              <FileCheck2 size={13} className="text-purple-400" />
+              <span>Validar Extrato</span>
+            </button>
+
             <MagnetButton
               onClick={handleRequestRecharge}
               disabled={isRecharging}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95 disabled:opacity-50"
             >
               <Sparkles size={14} className="text-slate-950" />
-              <span>{isRecharging ? "Lançando..." : "⚡ Recarga (R$ 1.500)"}</span>
+              <span>{isRecharging ? "Lançando..." : "Recarga (R$ 1.500)"}</span>
             </MagnetButton>
           </div>
         </div>
@@ -400,8 +418,8 @@ export default function NubankCajuPage() {
           </div>
         )}
 
-        {/* Saldo Principal + Cards de Visão Geral (4 Indicadores Executivos) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Saldo Principal + Cards de Visão Geral (3 Indicadores Executivos) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
           {/* Card 1: Saldo Principal Nubank */}
           <SpotlightCard
@@ -444,41 +462,6 @@ export default function NubankCajuPage() {
               {snapshot?.updatedAt && (
                 <span>{new Date(snapshot.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>
               )}
-            </div>
-          </SpotlightCard>
-
-          {/* Card 2: Total Resgatado / Reembolsado */}
-          <SpotlightCard
-            spotlightColor="rgba(245, 158, 11, 0.18)"
-            className="rounded-2xl p-6 shadow-xl border border-white/[0.08] bg-slate-950/60 backdrop-blur-xl flex flex-col justify-between"
-          >
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-mono font-semibold uppercase tracking-wider text-slate-400">
-                  Resgatado / Reembolsado
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center justify-center">
-                  <Plus size={16} />
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <div className="text-2xl sm:text-3xl font-mono font-bold text-amber-300 flex items-baseline">
-                  <AnimatedCurrency
-                    value={totalReembolsos}
-                    prefix="R$ "
-                    prefixClassName="text-xl text-amber-300/80 font-normal mr-1"
-                    className="text-2xl sm:text-3xl font-mono font-bold text-amber-300"
-                  />
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1 font-mono">
-                  Estornos e reembolsos creditados ao Nubank.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-4 mt-4 border-t border-white/[0.06] text-[11px] font-mono text-slate-500">
-              <span>Histórico de reembolsos no Nubank</span>
             </div>
           </SpotlightCard>
 
@@ -553,158 +536,202 @@ export default function NubankCajuPage() {
           </SpotlightCard>
         </div>
 
-        {/* Extrato Bancário Completo */}
-        <div 
-          className="rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden bg-slate-950/60 backdrop-blur-xl"
-        >
-          {/* Header do Extrato com Filtros */}
-          <div className="p-4 sm:p-5 border-b border-white/[0.08] bg-white/[0.02] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
-                <span>Extrato de Movimentações Nubank</span>
-              </h2>
-              <p className="text-xs mt-0.5 text-slate-400 font-mono">
-                Registro contínuo e auditável de cada débito e crédito realizado.
-              </p>
-            </div>
-
-            {/* Controles de Filtro e Busca */}
-            <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
-              <div className="relative flex-1 md:w-56">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar no extrato..."
-                  className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none border border-white/10 bg-slate-900/80 text-white placeholder-slate-500 focus:border-white/20 transition-all font-mono"
-                />
-              </div>
-
-              <div className="flex items-center gap-1 p-1 rounded-xl border border-white/10 bg-slate-900/80 backdrop-blur-md">
-                {(
-                  [
-                    { id: "ALL", label: "Todas" },
-                    { id: "ENTRADA", label: "Entradas" },
-                    { id: "SAIDA", label: "Saídas" },
-                    { id: "REEMBOLSO", label: "Reembolsos" },
-                    { id: "AJUSTE", label: "Ajustes" },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setMovementFilter(tab.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold transition-all cursor-pointer ${
-                      movementFilter === tab.id
-                        ? "bg-white/10 text-white shadow-xs"
-                        : "text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* Seletor de visualização: Extrato vs Auditoria e Fechamentos */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
+          <div className="inline-flex p-1 rounded-2xl border border-white/10 bg-slate-900/70 backdrop-blur-xl">
+            <button
+              onClick={() => setActiveSection("MOVEMENTS")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeSection === "MOVEMENTS"
+                  ? "bg-gradient-to-r from-[#820AD1] to-purple-600 text-white shadow-lg shadow-purple-950/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <FileText size={14} />
+              <span>Extrato de Movimentações ({filteredMovements.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveSection("RECONCILIATION")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeSection === "RECONCILIATION"
+                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-950/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <ShieldCheck size={14} />
+              <span>Fechamentos Diários & Conciliação</span>
+            </button>
           </div>
 
-          {/* Tabela do Extrato */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-white/[0.08] text-[10px] uppercase tracking-wider font-mono font-bold bg-white/[0.03] text-slate-400">
-                  <th className="px-5 py-3.5">Data / Hora</th>
-                  <th className="px-4 py-3.5">Tipo</th>
-                  <th className="px-4 py-3.5">Descrição / Motivo</th>
-                  <th className="px-4 py-3.5 text-right">Valor</th>
-                  <th className="px-5 py-3.5 text-right">Saldo Resultante</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.06]">
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                      <RefreshCw size={20} className="animate-spin mx-auto mb-2 text-[#c084fc]" />
-                      <span>Carregando extrato bancário...</span>
-                    </td>
-                  </tr>
-                ) : filteredMovements.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-xs" style={{ color: "var(--text-muted)" }}>
-                      <FileText size={28} className="mx-auto mb-2 opacity-40" />
-                      <span>Nenhuma movimentação encontrada para os filtros selecionados.</span>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredMovements.map((mov) => {
-                    const isPositive = mov.amount > 0;
-                    return (
-                      <tr 
-                        key={mov.id} 
-                        className="transition-colors hover:bg-white/[0.02]"
-                      >
-                        <td className="px-5 py-3.5 whitespace-nowrap font-mono" style={{ color: "var(--text-secondary)" }}>
-                          {new Date(mov.created_at).toLocaleDateString("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })}{" "}
-                          <span className="opacity-70 text-[10px]">
-                            {new Date(mov.created_at).toLocaleTimeString("pt-BR", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        </td>
-
-                        <td className="px-4 py-3.5 whitespace-nowrap">
-                          {mov.type === "ENTRADA" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                              <ArrowDownLeft size={10} />
-                              <span>Recarga / Entrada</span>
-                            </span>
-                          )}
-                          {mov.type === "SAIDA" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
-                              <ArrowUpRight size={10} />
-                              <span>Pagamento Débito</span>
-                            </span>
-                          )}
-                          {mov.type === "REEMBOLSO" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                              <Plus size={10} />
-                              <span>Reembolso</span>
-                            </span>
-                          )}
-                          {mov.type === "AJUSTE" && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
-                              <SlidersHorizontal size={10} />
-                              <span>Ajuste Manual</span>
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="px-4 py-3.5 font-medium max-w-md truncate" title={mov.description || undefined} style={{ color: "var(--text-primary)" }}>
-                          {mov.description || "Movimentação Nubank"}
-                        </td>
-
-                        <td className="px-4 py-3.5 text-right font-bold font-mono whitespace-nowrap">
-                          <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
-                            {isPositive ? "+" : ""}
-                            {formatBRL(mov.amount)}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
-                          {formatBRL(mov.balance_after)}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+          <button
+            onClick={() => setIsValidatorModalOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-purple-500/30 bg-purple-950/40 hover:bg-purple-900/60 text-xs font-bold text-purple-200 hover:text-white transition-all cursor-pointer backdrop-blur-md shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+          >
+            <FileCheck2 size={14} className="text-purple-400" />
+            <span>Validar Extrato Nubank (CSV / PDF)</span>
+          </button>
         </div>
+
+        {activeSection === "MOVEMENTS" ? (
+          /* Extrato Bancário Completo */
+          <div 
+            className="rounded-2xl border border-white/[0.08] shadow-2xl overflow-hidden bg-slate-950/60 backdrop-blur-xl"
+          >
+            {/* Header do Extrato com Filtros */}
+            <div className="p-4 sm:p-5 border-b border-white/[0.08] bg-white/[0.02] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-base font-bold tracking-tight text-white flex items-center gap-2">
+                  <span>Extrato de Movimentações Nubank</span>
+                </h2>
+                <p className="text-xs mt-0.5 text-slate-400 font-mono">
+                  Registro contínuo e auditável de cada débito e crédito realizado.
+                </p>
+              </div>
+
+              {/* Controles de Filtro e Busca */}
+              <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto">
+                <div className="relative flex-1 md:w-56">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar no extrato..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none border border-white/10 bg-slate-900/80 text-white placeholder-slate-500 focus:border-white/20 transition-all font-mono"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 p-1 rounded-xl border border-white/10 bg-slate-900/80 backdrop-blur-md">
+                  {(
+                    [
+                      { id: "ALL", label: "Todas" },
+                      { id: "ENTRADA", label: "Entradas" },
+                      { id: "SAIDA", label: "Saídas" },
+                      { id: "REEMBOLSO", label: "Reembolsos" },
+                      { id: "AJUSTE", label: "Ajustes" },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setMovementFilter(tab.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-semibold transition-all cursor-pointer ${
+                        movementFilter === tab.id
+                          ? "bg-white/10 text-white shadow-xs"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Tabela do Extrato */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-white/[0.08] text-[10px] uppercase tracking-wider font-mono font-bold bg-white/[0.03] text-slate-400">
+                    <th className="px-5 py-3.5">Data / Hora</th>
+                    <th className="px-4 py-3.5">Tipo</th>
+                    <th className="px-4 py-3.5">Descrição / Motivo</th>
+                    <th className="px-4 py-3.5 text-right">Valor</th>
+                    <th className="px-5 py-3.5 text-right">Saldo Resultante</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.06]">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                        <RefreshCw size={20} className="animate-spin mx-auto mb-2 text-[#c084fc]" />
+                        <span>Carregando extrato bancário...</span>
+                      </td>
+                    </tr>
+                  ) : filteredMovements.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-12 text-center text-xs" style={{ color: "var(--text-muted)" }}>
+                        <FileText size={28} className="mx-auto mb-2 opacity-40" />
+                        <span>Nenhuma movimentação encontrada para os filtros selecionados.</span>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredMovements.map((mov) => {
+                      const isPositive = mov.amount > 0;
+                      return (
+                        <tr 
+                          key={mov.id} 
+                          className="transition-colors hover:bg-white/[0.02]"
+                        >
+                          <td className="px-5 py-3.5 whitespace-nowrap font-mono" style={{ color: "var(--text-secondary)" }}>
+                            {new Date(mov.created_at).toLocaleDateString("pt-BR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })}{" "}
+                            <span className="opacity-70 text-[10px]">
+                              {new Date(mov.created_at).toLocaleTimeString("pt-BR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            {mov.type === "ENTRADA" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                <ArrowDownLeft size={10} />
+                                <span>Recarga / Entrada</span>
+                              </span>
+                            )}
+                            {mov.type === "SAIDA" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                                <ArrowUpRight size={10} />
+                                <span>Pagamento Débito</span>
+                              </span>
+                            )}
+                            {mov.type === "REEMBOLSO" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                <Plus size={10} />
+                                <span>Reembolso</span>
+                              </span>
+                            )}
+                            {mov.type === "AJUSTE" && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                                <SlidersHorizontal size={10} />
+                                <span>Ajuste Manual</span>
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3.5 font-medium max-w-md truncate" title={mov.description || undefined} style={{ color: "var(--text-primary)" }}>
+                            {mov.description || "Movimentação Nubank"}
+                          </td>
+
+                          <td className="px-4 py-3.5 text-right font-bold font-mono whitespace-nowrap">
+                            <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
+                              {isPositive ? "+" : ""}
+                              {formatBRL(mov.amount)}
+                            </span>
+                          </td>
+
+                          <td className="px-5 py-3.5 text-right font-mono font-semibold whitespace-nowrap" style={{ color: "var(--text-primary)" }}>
+                            {formatBRL(mov.balance_after)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <NubankDailyReconciliationHistory
+            userId={userId}
+            refreshTrigger={reconcileRefreshTrigger}
+            onOpenValidator={() => setIsValidatorModalOpen(true)}
+          />
+        )}
 
       </div>
 
@@ -895,6 +922,17 @@ export default function NubankCajuPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE VALIDAÇÃO DE EXTRATO NUBANK */}
+      <NubankStatementValidatorModal
+        isOpen={isValidatorModalOpen}
+        onClose={() => setIsValidatorModalOpen(false)}
+        userId={userId}
+        onReconciliationSaved={() => {
+          fetchBalance(true);
+          setReconcileRefreshTrigger((prev) => prev + 1);
+        }}
+      />
 
     </div>
   );

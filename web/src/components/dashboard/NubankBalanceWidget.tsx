@@ -299,10 +299,12 @@ export default function NubankBalanceWidget() {
 
               {/* Micro Indicadores Financeiros (Reembolsado, Entradas, Saídas) */}
               <div className="flex flex-wrap items-center gap-2.5 mt-3 pt-3 border-t border-slate-800/60 text-xs">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-amber-400/80">Reembolsado:</span>
-                  <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
-                </div>
+                {totalReembolsos > 0 && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                    <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-amber-400/80">Reembolsado:</span>
+                    <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
+                  </div>
+                )}
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                   <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-emerald-400/80">Entradas:</span>
                   <AnimatedCurrency value={totalEntradas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-emerald-400" />

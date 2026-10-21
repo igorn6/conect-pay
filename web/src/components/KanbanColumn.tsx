@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw, Zap } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw, Zap, FileText } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
 
 interface KanbanColumnProps {
@@ -146,7 +146,19 @@ export default function KanbanColumn({
           </div>
         ) : (
           <div className="flex flex-col gap-2.5 pb-2">
-            {cards.map((card) => (
+            {cards.map((card) => {
+              const invoiceUrls = (card.invoice_url || "")
+                .split(",")
+                .map((u) => u.trim())
+                .filter(Boolean);
+              const invoiceCount = invoiceUrls.length;
+              const showInvoiceBadge =
+                card.status !== "FINALIZADO" &&
+                card.status !== "RECUSADO" &&
+                (card.status === "AGUARDANDO_PAGAMENTO" || config.key === "AGUARDANDO_PAGAMENTO") &&
+                invoiceCount > 0;
+
+              return (
               <div
                 key={card.id}
                 id={`kanban-card-${card.id}`}
@@ -161,42 +173,55 @@ export default function KanbanColumn({
                   className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" 
                 />
 
-                {/* Status Badges & Flags */}
-                <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                  {card.status === "VALIDACAO_GESTOR" && (
-                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider">
-                      <ShieldCheck size={11} className="text-purple-400" />
-                      <span>Validação</span>
-                    </div>
-                  )}
+                {/* Status Badges & Flags + Bolinha Azul de Notas Anexadas */}
+                <div className="flex items-center justify-between gap-1.5 mb-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {card.status === "VALIDACAO_GESTOR" && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider">
+                        <ShieldCheck size={11} className="text-purple-400" />
+                        <span>Validação</span>
+                      </div>
+                    )}
 
-                  {card.payment_conversion_log && (
-                    <div
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-200 text-[10px] font-bold uppercase tracking-wider animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.35)] motion-reduce:animate-none"
-                      title={`Convertido de Caju para Pix em ${new Date(card.payment_conversion_log.convertedAt).toLocaleString("pt-BR")}`}
-                    >
-                      <RefreshCw size={10} className="text-purple-300 animate-spin" style={{ animationDuration: "5s" }} />
-                      <span>Caju ➔ Pix</span>
-                    </div>
-                  )}
+                    {card.payment_conversion_log && (
+                      <div
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-200 text-[10px] font-bold uppercase tracking-wider animate-pulse shadow-[0_0_12px_rgba(168,85,247,0.35)] motion-reduce:animate-none"
+                        title={`Convertido de Caju para Pix em ${new Date(card.payment_conversion_log.convertedAt).toLocaleString("pt-BR")}`}
+                      >
+                        <RefreshCw size={10} className="text-purple-300 animate-spin" style={{ animationDuration: "5s" }} />
+                        <span>Caju ➔ Pix</span>
+                      </div>
+                    )}
 
-                  {card.request_kind === "RECARGA_NUBANK" && (
-                    <div
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#820AD1]/25 border border-[#820AD1]/40 text-[#d8b4fe] text-[10px] font-bold uppercase tracking-wider"
-                      title="Recarga de Saldo Nubank"
-                    >
-                      <Zap size={10} className="text-[#c084fc]" />
-                      <span>Recarga Nubank</span>
-                    </div>
-                  )}
+                    {card.request_kind === "RECARGA_NUBANK" && (
+                      <div
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#820AD1]/25 border border-[#820AD1]/40 text-[#d8b4fe] text-[10px] font-bold uppercase tracking-wider"
+                        title="Recarga de Saldo Nubank"
+                      >
+                        <Zap size={10} className="text-[#c084fc]" />
+                        <span>Recarga Nubank</span>
+                      </div>
+                    )}
 
-                  {card.request_kind === "RECARGA_CAJU" && (
+                    {card.request_kind === "RECARGA_CAJU" && (
+                      <div
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#e11d48]/25 border border-[#e11d48]/40 text-[#fda4af] text-[10px] font-bold uppercase tracking-wider"
+                        title="Recarga de Saldo Caju"
+                      >
+                        <Zap size={10} className="text-[#fb7185]" />
+                        <span>Recarga Caju</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bolinha azul na ponta do card: quantidade de notas/anexos anexados pelo solicitante em Aguardando Nota */}
+                  {showInvoiceBadge && (
                     <div
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#e11d48]/25 border border-[#e11d48]/40 text-[#fda4af] text-[10px] font-bold uppercase tracking-wider"
-                      title="Recarga de Saldo Caju"
+                      className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-black shadow-[0_0_10px_rgba(59,130,246,0.65)] border border-blue-300/40 shrink-0"
+                      title={`${invoiceCount} ${invoiceCount === 1 ? "nota fiscal / notinha anexada" : "notas fiscais / notinhas anexadas"}`}
                     >
-                      <Zap size={10} className="text-[#fb7185]" />
-                      <span>Recarga Caju</span>
+                      <FileText size={10} className="text-white" />
+                      <span className="font-mono leading-none">{invoiceCount}</span>
                     </div>
                   )}
                 </div>
@@ -300,7 +325,8 @@ export default function KanbanColumn({
                   </span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
