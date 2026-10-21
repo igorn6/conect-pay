@@ -222,7 +222,7 @@ export default function KanbanPage() {
         return;
       }
       // Sincroniza saldo Nubank para estornar qualquer card debitado que foi para a lixeira
-      await Promise.all(idsArray.map((id) => syncNubankBalance(id)));
+      await Promise.all(idsArray.map((id) => syncNubankBalance(id, userId)));
 
       setToast({ message: selectedIds.size + " solicitações removidas", type: "success" });
       setSelectedIds(new Set());
@@ -253,7 +253,7 @@ export default function KanbanPage() {
         if (error) {
           hasError = true;
         } else {
-          syncNubankBalance(card.id);
+          syncNubankBalance(card.id, userId);
         }
       }
         
@@ -339,7 +339,7 @@ export default function KanbanPage() {
         if (error) {
           hasError = true;
         } else {
-          await syncNubankBalance(card.id);
+          await syncNubankBalance(card.id, userId);
         }
       }
       

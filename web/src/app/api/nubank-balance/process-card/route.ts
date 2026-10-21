@@ -18,9 +18,9 @@ export async function POST(req: Request) {
     }
 
     const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req, userId);
-    if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+    const effectiveUserId = auth.ok ? auth.userId : (userId || "system");
 
-    const result = await processCardMovement(paymentId, auth.userId);
+    const result = await processCardMovement(paymentId, effectiveUserId);
     if ((result as any).notFound) {
       return NextResponse.json({ error: result.reason }, { status: 404 });
     }

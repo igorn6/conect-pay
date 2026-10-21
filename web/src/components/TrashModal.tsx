@@ -56,7 +56,7 @@ export default function TrashModal({ simulatedUserName, userId, userRole, onClos
     }
 
     // Sincroniza saldo Nubank caso o card restaurado seja Nubank e esteja em status ativo
-    await syncNubankBalance(card.id);
+    await syncNubankBalance(card.id, userId);
 
     // Log de auditoria silencioso
     await supabase.from("audit_logs").insert({

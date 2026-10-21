@@ -3,12 +3,12 @@ import { supabase } from "@/lib/supabase";
 /** Gatilho do Cofre Nubank: chamar após qualquer transição de status feita por Financeiro/Master/Gestor. */
 export const NUBANK_BALANCE_EVENT = "nubank-balance-updated";
 
-export async function syncNubankBalance(paymentId: string): Promise<void> {
+export async function syncNubankBalance(paymentId: string, explicitUserId?: string | null): Promise<void> {
   try {
     const { data } = await supabase.auth.getSession();
     const session = data?.session;
     const token = session?.access_token;
-    const userId = session?.user?.id;
+    const userId = explicitUserId || session?.user?.id;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",

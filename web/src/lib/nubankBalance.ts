@@ -113,6 +113,7 @@ export async function ensureNubankBalance(): Promise<void> {
 
 export async function getNubankSnapshot(limit = 5): Promise<NubankSnapshot> {
   await ensureNubankBalance();
+  await reconcileUnprocessedCards();
 
   const [{ data: bal, error: balError }, { data: movs, error: movError }] = await Promise.all([
     supabaseAdmin.from("nubank_balance").select("balance, updated_at").eq("id", "nubank").single(),
@@ -424,3 +425,41 @@ export async function processCardMovement(paymentId: string, userId: string) {
     balance: result.balance,
   };
 }
+
+/**
+ * Auto-conciliação resiliente: varre cartões que deveriam ter debitado/estornado
+ * e que por qualquer oscilação de rede ou fechamento de aba não foram processados.
+ */
+export async function reconcileUnprocessedCards(): Promise<void> {
+  try {
+    // 1. Busca cartões não processados que já atingiram status ativo com conta Nubank
+    const { data: unprocessed } = await supabaseAdmin
+      .from("payment_requests")
+      .select("id, created_by")
+      .eq("balance_processed", false)
+      .eq("is_deleted", false)
+      .in("status", NUBANK_ACTIVE_STATUSES);
+
+    if (unprocessed && unprocessed.length > 0) {
+      for (const c of unprocessed) {
+        await processCardMovement(c.id, c.created_by || "system");
+      }
+    }
+
+    // 2. Busca cartões marcados como processados que foram cancelados, recusados ou enviados à lixeira
+    const { data: shouldRevert } = await supabaseAdmin
+      .from("payment_requests")
+      .select("id, created_by")
+      .eq("balance_processed", true)
+      .or("is_deleted.eq.true,status.eq.RECUSADO,status.eq.NOVA_SOLICITACAO,status.eq.EM_APROVACAO");
+
+    if (shouldRevert && shouldRevert.length > 0) {
+      for (const c of shouldRevert) {
+        await processCardMovement(c.id, c.created_by || "system");
+      }
+    }
+  } catch (err) {
+    console.warn("[reconcileUnprocessedCards] Erro ao sincronizar cartões:", err);
+  }
+}
+
