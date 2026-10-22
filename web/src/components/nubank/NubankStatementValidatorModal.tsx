@@ -156,6 +156,8 @@ export default function NubankStatementValidatorModal({
       }
 
       setReport(json.report);
+      setSaveSuccessMsg(`Extrato oficial registrado no histórico com sucesso (${json.report.totalItems} lançamentos e ${json.report.dailyResults.length} dia(s))!`);
+      if (onReconciliationSaved) onReconciliationSaved();
     } catch (err: any) {
       setErrorMsg(err.message || "Erro inesperado.");
     } finally {

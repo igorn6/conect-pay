@@ -105,8 +105,8 @@ export async function POST(req: Request) {
     // 2. Conciliação e cruzamento de saldos
     const report = await reconcileStatement(parsed, manualBalance);
 
-    // 3. Se solicitado persistir automaticamente
-    if (saveImmediately && report.dailyResults.length > 0) {
+    // 3. Persistência automática no banco de dados para registrar todas as entradas e saídas do extrato oficial
+    if (report.dailyResults.length > 0) {
       await saveDailyReconciliations({
         dailyResults: report.dailyResults,
         userId: auth.userId,

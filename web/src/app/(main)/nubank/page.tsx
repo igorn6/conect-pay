@@ -666,7 +666,7 @@ export default function NubankCajuPage() {
               }`}
             >
               <ShieldCheck size={14} />
-              <span>Fechamentos Diários & Conciliação</span>
+              <span>Extrato Oficial Bancário & Fechamentos</span>
             </button>
           </div>
 
