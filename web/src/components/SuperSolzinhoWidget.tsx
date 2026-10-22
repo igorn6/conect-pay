@@ -50,21 +50,21 @@ export default function SuperSolzinhoWidget() {
         onClick={toggle}
         aria-label={isOpen ? "Fechar Super Solzinho" : "Abrir Super Solzinho"}
         title="Super Solzinho - IA da Conectsol"
-        className="fixed bottom-6 right-6 z-50 w-13 h-13 sm:w-14 sm:h-14 rounded-full border border-white/15 bg-slate-900/90 shadow-2xl hover:border-amber-400/40 hover:scale-105 active:scale-95 hover:shadow-[0_0_24px_rgba(251,191,36,0.35)] transition-all duration-200 ease-out flex items-center justify-center cursor-pointer overflow-hidden group backdrop-blur-md motion-reduce:transition-none motion-reduce:hover:scale-100"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 sm:w-15 sm:h-15 rounded-full border border-amber-400/40 bg-slate-900/95 shadow-2xl hover:border-amber-400 hover:scale-105 active:scale-95 hover:shadow-[0_0_28px_rgba(251,191,36,0.45)] transition-all duration-200 ease-out flex items-center justify-center cursor-pointer overflow-hidden group backdrop-blur-md motion-reduce:transition-none motion-reduce:hover:scale-100 p-1"
       >
         {isOpen ? (
           <div className="w-full h-full rounded-full text-slate-300 flex items-center justify-center transition-transform duration-200 rotate-0">
             <X size={22} />
           </div>
         ) : (
-          <div className="w-full h-full rounded-full overflow-hidden p-1.5 relative flex items-center justify-center">
+          <div className="w-full h-full rounded-full overflow-hidden relative flex items-center justify-center">
             <img
               src="/images/solzinho/solzinho-smart.png"
               alt="Super Solzinho"
-              className="w-full h-full object-contain scale-105 group-hover:scale-115 group-hover:drop-shadow-[0_0_8px_rgba(251,191,36,0.6)] transition-all duration-200 ease-out"
+              className="w-full h-full object-contain scale-110 group-hover:scale-120 group-hover:drop-shadow-[0_0_10px_rgba(251,191,36,0.7)] transition-all duration-200 ease-out"
             />
             {/* Indicador de presença / online sutil */}
-            <span className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-slate-950 shadow-xs" />
+            <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950 shadow-xs ring-2 ring-emerald-500/30 animate-pulse" />
           </div>
         )}
       </button>

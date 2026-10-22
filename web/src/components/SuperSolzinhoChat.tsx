@@ -452,7 +452,7 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
             )}
 
             <div className="relative">
-              <div className="w-10 h-10 rounded-xl overflow-hidden border border-emerald-500/40 shadow-md shadow-emerald-950/40 shrink-0 bg-slate-900/90 flex items-center justify-center p-0.5">
+              <div className="w-10 h-10 rounded-full overflow-hidden border border-emerald-500/40 shadow-md shadow-emerald-950/40 shrink-0 bg-slate-900/90 flex items-center justify-center p-0.5">
                 <img
                   src="/images/solzinho/solzinho-smart.png"
                   alt="Super Solzinho"
@@ -497,11 +497,11 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
                 
                 {/* Avatar Destaque */}
                 <div className="inline-block relative">
-                  <div className="w-20 h-20 rounded-2xl p-1 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-amber-500/20 border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)] mx-auto">
+                  <div className="w-20 h-20 rounded-full p-1.5 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-amber-500/20 border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)] mx-auto flex items-center justify-center overflow-hidden">
                     <img
                       src="/images/solzinho/solzinho-wave.png"
                       alt="Super Solzinho"
-                      className="w-full h-full object-contain hover:scale-105 transition-transform"
+                      className="w-full h-full object-contain hover:scale-110 transition-transform"
                     />
                   </div>
                 </div>
@@ -571,7 +571,7 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
               // Resposta do Super Solzinho
               return (
                 <div key={m.id || idx} className="flex items-start gap-3 group">
-                  <div className="w-8 h-8 rounded-xl overflow-hidden border border-emerald-500/30 shadow-sm shrink-0 bg-slate-900/80 p-0.5 mt-0.5">
+                  <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/30 shadow-sm shrink-0 bg-slate-900/80 p-0.5 mt-0.5 flex items-center justify-center">
                     <img
                       src="/images/solzinho/solzinho-thumbs.png"
                       alt="Super Solzinho"
@@ -624,7 +624,7 @@ export default function SuperSolzinhoChat({ variant = "floating", onReset }: Sup
             {/* Indicador de Resposta / Pensando */}
             {isBusy && (
               <div className="flex items-center gap-3 animate-pulse">
-                <div className="w-8 h-8 rounded-xl overflow-hidden border border-amber-500/40 bg-slate-900/80 p-0.5 shrink-0">
+                <div className="w-8 h-8 rounded-full overflow-hidden border border-amber-500/40 bg-slate-900/80 p-0.5 shrink-0 flex items-center justify-center">
                   <img
                     src="/images/solzinho/solzinho-smart.png"
                     alt="Pensando..."
