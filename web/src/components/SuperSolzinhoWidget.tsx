@@ -50,21 +50,21 @@ export default function SuperSolzinhoWidget() {
         onClick={toggle}
         aria-label={isOpen ? "Fechar Super Solzinho" : "Abrir Super Solzinho"}
         title="Super Solzinho - IA da Conectsol"
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 sm:w-15 sm:h-15 rounded-full border border-amber-400/40 bg-slate-900/95 shadow-2xl hover:border-amber-400 hover:scale-105 active:scale-95 hover:shadow-[0_0_28px_rgba(251,191,36,0.45)] transition-all duration-200 ease-out flex items-center justify-center cursor-pointer overflow-hidden group backdrop-blur-md motion-reduce:transition-none motion-reduce:hover:scale-100 p-1"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 sm:w-15 sm:h-15 rounded-full p-0.5 border-2 border-amber-400/90 shadow-2xl hover:border-amber-300 hover:scale-105 active:scale-95 hover:shadow-[0_0_28px_rgba(251,191,36,0.5)] transition-all duration-200 ease-out flex items-center justify-center cursor-pointer overflow-hidden group bg-gradient-to-br from-amber-400 to-orange-500 motion-reduce:transition-none motion-reduce:hover:scale-100"
       >
         {isOpen ? (
-          <div className="w-full h-full rounded-full text-slate-300 flex items-center justify-center transition-transform duration-200 rotate-0">
+          <div className="w-full h-full rounded-full bg-slate-900 text-white flex items-center justify-center transition-transform duration-200">
             <X size={22} />
           </div>
         ) : (
-          <div className="w-full h-full rounded-full overflow-hidden relative flex items-center justify-center">
+          <div className="w-full h-full rounded-full overflow-hidden bg-white relative flex items-center justify-center">
             <img
               src="/images/solzinho/solzinho-smart.png"
               alt="Super Solzinho"
-              className="w-full h-full object-contain scale-110 group-hover:scale-120 group-hover:drop-shadow-[0_0_10px_rgba(251,191,36,0.7)] transition-all duration-200 ease-out"
+              className="w-full h-full object-cover object-center scale-110 group-hover:scale-120 transition-transform duration-300"
             />
-            {/* Indicador de presença / online sutil */}
-            <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950 shadow-xs ring-2 ring-emerald-500/30 animate-pulse" />
+            {/* Indicador de presença / online */}
+            <span className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white shadow-sm ring-2 ring-emerald-400/50 animate-pulse" />
           </div>
         )}
       </button>

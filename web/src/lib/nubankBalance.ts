@@ -112,11 +112,8 @@ export async function ensureNubankBalance(): Promise<void> {
 }
 
 export async function getNubankSnapshot(limit = 5): Promise<NubankSnapshot> {
-  await ensureNubankBalance();
-  await reconcileUnprocessedCards();
-
   const [{ data: bal, error: balError }, { data: movs, error: movError }] = await Promise.all([
-    supabaseAdmin.from("nubank_balance").select("balance, updated_at").eq("id", "nubank").single(),
+    supabaseAdmin.from("nubank_balance").select("balance, updated_at").eq("id", "nubank").maybeSingle(),
     supabaseAdmin
       .from("nubank_movements")
       .select("id, type, amount, balance_after, description, payment_request_id, created_by, created_at")
