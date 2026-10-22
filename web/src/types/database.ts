@@ -70,7 +70,7 @@ export interface PaymentRequest {
   category_id: string;
   status: RequestStatus;
   invoice_url: string | null;
-  barcode: string | null;
+  barcode?: string | null;
   payment_method: string | null;
   pix_key: string | null;
   pix_name?: string | null;

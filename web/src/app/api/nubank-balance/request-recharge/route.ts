@@ -86,7 +86,6 @@ export async function POST(req: Request) {
       pix_name: pixOwner,
       pix_owner: pixOwner,
       pix_key: paymentType === "PIX" ? pixKey : "",
-      barcode: paymentType === "BOLETO" ? (barcode || null) : null,
       status: "NOVA_SOLICITACAO",
       stage_history: [
         {
