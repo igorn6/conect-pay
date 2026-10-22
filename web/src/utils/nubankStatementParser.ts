@@ -81,20 +81,35 @@ export function parseMonth(name: string): string {
   return MONTH_MAP[n] || "01";
 }
 
-/** Extrai nome limpo de quem pagou ou recebeu da descrição Pix do Nubank */
+/** Extrai nome limpo de quem pagou ou recebeu da descrição Pix ou boleto do Nubank */
 export function extractPersonName(desc: string): string {
   if (!desc) return "";
-  // Padrão Nubank: "Transferência enviada pelo Pix - NOME - CPF..." ou "Transferência recebida pelo Pix - NOME - ..."
-  const pixMatch = desc.match(/Transferência\s+(?:enviada|recebida)\s+pelo\s+Pix\s*[-–]\s*([^-–\n]+)/i);
-  if (pixMatch && pixMatch[1]) {
+  
+  // Limpa ruídos frequentes de cabeçalho/rodapé colados de PDFs
+  let clean = desc
+    .replace(/Tem alguma dúvida\?[\s\S]*?(?:Transferência|Pagamento)/gi, "")
+    .replace(/Extrato gerado dia[\s\S]*?(?:Transferência|Pagamento)/gi, "")
+    .trim();
+
+  // Padrão Nubank Pix com ou sem hífen, incluindo casos onde "Pix" junta ao nome (ex: "PixJESSICA" ou "Pix LIMA T C G F M E LTDA")
+  const pixMatch = clean.match(/Transferência\s+(?:enviada|recebida)\s+pelo\s+Pix\s*[-–]?\s*([^-–\n]+?)(?:\s*[-–]\s*|\s*•••|\s*\d{2}\.\d{3}|\s*Agência|\s*Conta|$)/i);
+  if (pixMatch && pixMatch[1] && pixMatch[1].trim().length > 1) {
     return pixMatch[1].trim();
   }
+
+  // Padrão de boleto efetuado (ex: "Pagamento de boleto efetuadoCONS REGIONAL DE ENGENHARIA...")
+  const boletoMatch = clean.match(/Pagamento\s+de\s+boleto\s+(?:efetuado)?\s*[-–]?\s*([^-–\n\d]+?)(?:\s*[-–]\s*|\s*\d{2}\.|\s*Agência|$)/i);
+  if (boletoMatch && boletoMatch[1] && boletoMatch[1].trim().length > 1) {
+    return boletoMatch[1].trim();
+  }
+
   // Padrão alternativo: "Pagamento: NOME"
-  const payMatch = desc.match(/Pagamento:\s*([^-–\n]+)/i);
-  if (payMatch && payMatch[1]) {
+  const payMatch = clean.match(/Pagamento:\s*([^-–\n]+)/i);
+  if (payMatch && payMatch[1] && payMatch[1].trim().length > 1) {
     return payMatch[1].trim();
   }
-  return desc.slice(0, 60);
+
+  return clean.slice(0, 60).trim();
 }
 
 /** Parser para CSV padrão exportado pelo Nubank */

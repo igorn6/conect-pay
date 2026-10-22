@@ -94,7 +94,14 @@ const DOMAIN_KNOWLEDGE =
   "1. Gastos com equipes terceirizadas de instalação de placas solares, instaladores e prestadores externos estão registrados sob a categoria 'Prestador de serviços avulsos' ou com o termo 'TERCERIZADA' / 'TERCEIRIZADA' no título e nas observações.\n" +
   "2. Principais instaladores/terceirizados da empresa: Anderson Santos Silva, André Santos de Oliveira, Jeová Silva Rocha, Patric De Lima Silva, etc.\n" +
   "3. Quando o usuário perguntar por 'terceirizadas', 'prestadores', 'instalação' ou 'mão de obra', use a ferramenta de busca pesquisando por categoria 'Prestador de serviços avulsos' ou termo 'terceirizada'.\n" +
-  "4. REGRA DE OURO DAS FERRAMENTAS: Chame a ferramenta de busca NO MÁXIMO 1 VEZ por pergunta. Assim que a ferramenta retornar os dados, GERE IMEDIATAMENTE a resposta final completa em tabela Markdown (com Titular, Quantidade de Contas, Valor Total e Detalhamento das Solicitações). NUNCA faça chamadas repetitivas de ferramentas sem responder.";
+  "4. CONCILIAÇÃO BANCÁRIA E EXTRATOS NUBANK:\n" +
+  "   - 'Recarga Caju' / 'Caju': No extrato bancário oficial do Nubank, transferências para o cartão Caju aparecem com a razão social 'EMPRESA BRASILEIRA DE BENEFÍCIOS E TECNOLOGIA LTDA' (ou 'EMPRESA BRASILEIRA DE BEN', via gateway pix.bpp.com.br). No Conect Pay estão sob título 'Recarga caju' ou categoria 'Transferência entre Contas'.\n" +
+  "   - 'Recarga Nubank' / 'Conectsol': No extrato aparecem em nome de 'LIMA T C G F M E LTDA' (CNPJ 45.983.838/0001-80, Lima e Trindade Comércio de Gerador Fotovoltaico e Material Elétrico LTDA).\n" +
+  "   - 'Google Ads': No extrato aparecem como 'GOOGLE BRASIL INTERNET' ou processadora 'EBANX'.\n" +
+  "   - 'Claro / Chips': No extrato aparecem como 'MULTIDISPLAY COMERCIO E SERVICOS'.\n" +
+  "   - 'CREA': No extrato aparecem como 'CONS REGIONAL DE ENGENHARIA'.\n" +
+  "   - Se o usuário perguntar sobre divergência no saldo do Nubank ou validação de extrato, explique que o saldo de referência mais confiável é o do extrato bancário oficial, e que o sistema possui o recurso de Validador de Extrato em /nubank que permite comparar e alinhar o saldo mediante confirmação expressa do usuário.\n" +
+  "5. REGRA DE OURO DAS FERRAMENTAS: Chame a ferramenta de busca NO MÁXIMO 1 VEZ por pergunta. Assim que a ferramenta retornar os dados, GERE IMEDIATAMENTE a resposta final completa em tabela Markdown (com Titular, Quantidade de Contas, Valor Total e Detalhamento das Solicitações). NUNCA faça chamadas repetitivas de ferramentas sem responder.";
 
 const HIGH_MANAGEMENT_PROMPT =
   "O usuário é da alta gestão (MASTER/FINANCEIRO) e possui acesso irrestrito a todas as informações financeiras. " +

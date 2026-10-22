@@ -50,6 +50,57 @@ export default function NubankStatementValidatorModal({
   const [report, setReport] = useState<FullReconciliationReport | null>(null);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
+  // Estados de confirmação e ajuste de saldo oficial
+  const [isConfirmAdjustOpen, setIsConfirmAdjustOpen] = useState(false);
+  const [isAdjustingBalance, setIsAdjustingBalance] = useState(false);
+  const [adjustFeedbackMsg, setAdjustFeedbackMsg] = useState<string | null>(null);
+  const [adjustErrorMsg, setAdjustErrorMsg] = useState<string | null>(null);
+
+  const handleConfirmAdjustBalance = async () => {
+    if (!report) return;
+    setIsAdjustingBalance(true);
+    setAdjustErrorMsg(null);
+    setAdjustFeedbackMsg(null);
+
+    try {
+      const res = await fetch("/api/nubank-balance/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetBalance: report.statementBalance,
+          reason: `Ajuste oficial de conciliação bancária conforme extrato Nubank (${report.periodStart} a ${report.periodEnd})`,
+          userId,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Falha ao ajustar saldo.");
+
+      setAdjustFeedbackMsg(`Saldo do cofre atualizado com sucesso para ${formatBRL(json.balance)}!`);
+
+      // Atualiza o relatório local para marcar como 100% conciliado
+      setReport({
+        ...report,
+        systemBalance: json.balance,
+        balanceDivergence: 0,
+        isBalanceDivergent: false,
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("nubank-balance-updated"));
+      }
+
+      setTimeout(() => {
+        setIsConfirmAdjustOpen(false);
+        setAdjustFeedbackMsg(null);
+      }, 3000);
+    } catch (err: any) {
+      setAdjustErrorMsg(err.message || "Erro ao ajustar saldo.");
+    } finally {
+      setIsAdjustingBalance(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -377,7 +428,18 @@ export default function NubankStatementValidatorModal({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end md:self-center">
+                <div className="flex flex-wrap items-center gap-2 self-end md:self-center">
+                  {report.isBalanceDivergent && (
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmAdjustOpen(true)}
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-md hover:shadow-amber-500/30 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      title="Comparar e ajustar o saldo do Conect Pay para o saldo oficial do extrato com sua validação"
+                    >
+                      <Sparkles size={13} />
+                      <span>Alinhar Saldo com Extrato</span>
+                    </button>
+                  )}
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-mono font-bold uppercase ${
                       !report.isBalanceDivergent
@@ -389,6 +451,95 @@ export default function NubankStatementValidatorModal({
                   </span>
                 </div>
               </div>
+
+              {/* Card Interativo: Validação do Usuário para Ajuste do Saldo */}
+              {isConfirmAdjustOpen && (
+                <div className="p-4 sm:p-5 rounded-2xl bg-amber-950/40 border-2 border-amber-500/50 shadow-2xl space-y-3.5 animate-in zoom-in-95 backdrop-blur-md">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 text-amber-300 font-bold text-sm">
+                      <Sparkles size={16} />
+                      <span>Validação do Usuário: Alinhar Saldo do Cofre com o Extrato Oficial</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmAdjustOpen(false)}
+                      className="text-slate-400 hover:text-white p-1 rounded-lg"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    O extrato bancário oficial do Nubank apurou um saldo final de{" "}
+                    <strong className="text-emerald-400">{formatBRL(report.statementBalance)}</strong>, enquanto o Conect Pay registra{" "}
+                    <strong className="text-white">{formatBRL(report.systemBalance)}</strong>. Confirme abaixo se deseja gravar o ajuste oficial de saldo no sistema:
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 py-1 text-xs font-mono">
+                    <div className="p-3 rounded-xl bg-slate-900/80 border border-white/10">
+                      <span className="text-[10px] text-slate-400 block uppercase">Saldo Atual Conect Pay</span>
+                      <strong className="text-sm text-slate-200 mt-0.5 block">{formatBRL(report.systemBalance)}</strong>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-900/80 border border-emerald-500/30">
+                      <span className="text-[10px] text-emerald-400/80 block uppercase">Saldo Oficial no Extrato</span>
+                      <strong className="text-sm text-emerald-400 mt-0.5 block">{formatBRL(report.statementBalance)}</strong>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-900/80 border border-white/10">
+                      <span className="text-[10px] text-slate-400 block uppercase">Diferença a Ajustar</span>
+                      <strong
+                        className={`text-sm mt-0.5 block ${
+                          report.balanceDivergence > 0 ? "text-emerald-400" : "text-rose-400"
+                        }`}
+                      >
+                        {report.balanceDivergence > 0 ? "+" : ""}
+                        {formatBRL(report.balanceDivergence)}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {adjustFeedbackMsg && (
+                    <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-medium flex items-center gap-2 animate-in fade-in">
+                      <CheckCircle2 size={16} />
+                      <span>{adjustFeedbackMsg}</span>
+                    </div>
+                  )}
+
+                  {adjustErrorMsg && (
+                    <div className="p-3 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-medium flex items-center gap-2 animate-in fade-in">
+                      <AlertTriangle size={16} />
+                      <span>{adjustErrorMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmAdjustOpen(false)}
+                      className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmAdjustBalance}
+                      disabled={isAdjustingBalance}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg shadow-amber-950/40 transition-all cursor-pointer disabled:opacity-50 active:scale-95 flex items-center gap-2"
+                    >
+                      {isAdjustingBalance ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin text-slate-950" />
+                          <span>Atualizando Saldo...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 size={14} />
+                          <span>Confirmar e Ajustar Saldo para {formatBRL(report.statementBalance)}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 4 KPIs de Auditoria */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
