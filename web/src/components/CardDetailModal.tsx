@@ -14,6 +14,7 @@ import type { PaymentRequest, ReceiptHistoryItem, StageHistoryItem, PaymentConve
 import { getStatusLabel } from "@/constants/kanban";
 import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@/utils/sla";
 import { syncNubankBalance } from "@/lib/nubankClient";
+import { sendPushNotification } from "@/lib/pushNotifications";
 
 const NEXT_STATUS: Record<string, string> = {
   NOVA_SOLICITACAO: "EM_APROVACAO",
@@ -893,6 +894,21 @@ export default function CardDetailModal({
       setInvoiceUrl(newCombinedUrl);
       await supabase.from("payment_requests").update({ invoice_url: newCombinedUrl }).eq("id", card.id);
       onUpdate("Notinha(s) anexada(s) com sucesso.");
+
+      // Dispara notificação push para Master e Financeiro
+      try {
+        const count = uploadedUrls.length;
+        const totalCount = newCombinedUrl.split(",").map((u) => u.trim()).filter(Boolean).length;
+        await sendPushNotification({
+          title: "📄 Nova Notinha Anexada!",
+          body: `${count === 1 ? "Uma notinha foi anexada" : `${count} notinhas foram anexadas`} na solicitação "${card.title}" em Aguardando Nota (Total: ${totalCount} ${totalCount === 1 ? "nota" : "notas"}).`,
+          url: "/kanban",
+          targetRoles: ["MASTER", "FINANCEIRO"],
+          excludeUserId: userId || undefined,
+        });
+      } catch (pushErr) {
+        console.warn("[CardDetailModal] Erro ao disparar push de notinha:", pushErr);
+      }
     }
     setIsUploadingInvoice(false);
   };

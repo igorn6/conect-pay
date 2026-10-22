@@ -144,9 +144,30 @@ export default function KanbanPage() {
 
           if (payload.eventType === "UPDATE") {
             const updatedRequest = payload.new as PaymentRequest;
-            setCards((prev) =>
-              prev.map((c) => (c.id === updatedRequest.id ? updatedRequest : c))
-            );
+            setCards((prev) => {
+              const prevCard = prev.find((c) => c.id === updatedRequest.id);
+              const prevInvoices = (prevCard?.invoice_url || "").split(",").map((u) => u.trim()).filter(Boolean).length;
+              const newInvoices = (updatedRequest.invoice_url || "").split(",").map((u) => u.trim()).filter(Boolean).length;
+
+              if (newInvoices > prevInvoices && (userRole === "MASTER" || userRole === "FINANCEIRO")) {
+                setToast({
+                  message: `📄 Nova notinha anexada em "${updatedRequest.title}" (${newInvoices} ${newInvoices === 1 ? "nota" : "notas"})!`,
+                  type: "success",
+                });
+                if ("Notification" in window && Notification.permission === "granted") {
+                  try {
+                    new Notification("📄 Nova Notinha Anexada!", {
+                      body: `Foi anexada uma notinha fiscal na solicitação "${updatedRequest.title}".`,
+                      icon: "/icon.png",
+                    });
+                  } catch (e) {
+                    // ignorar
+                  }
+                }
+              }
+
+              return prev.map((c) => (c.id === updatedRequest.id ? updatedRequest : c));
+            });
             setSelectedCard((prev) =>
               prev && prev.id === updatedRequest.id ? updatedRequest : prev
             );

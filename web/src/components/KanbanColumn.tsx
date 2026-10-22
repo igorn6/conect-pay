@@ -152,30 +152,61 @@ export default function KanbanColumn({
                 .map((u) => u.trim())
                 .filter(Boolean);
               const invoiceCount = invoiceUrls.length;
-              const showInvoiceBadge =
+              const isAguardandoNota =
                 card.status !== "FINALIZADO" &&
                 card.status !== "RECUSADO" &&
-                (card.status === "AGUARDANDO_PAGAMENTO" || config.key === "AGUARDANDO_PAGAMENTO") &&
-                invoiceCount > 0;
+                (card.status === "AGUARDANDO_PAGAMENTO" || config.key === "AGUARDANDO_PAGAMENTO");
 
               return (
               <div
                 key={card.id}
                 id={`kanban-card-${card.id}`}
                 onClick={() => onCardClick(card)}
-                className="group p-3 rounded-xl cursor-pointer bg-slate-900/80 hover:bg-slate-900 border border-white/[0.08] hover:border-white/20 transition-all duration-200 ease-out shadow-md hover:shadow-xl hover:-translate-y-0.5 relative overflow-hidden motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                className="group p-3 rounded-xl cursor-pointer bg-slate-900/80 hover:bg-slate-900 border border-white/[0.08] hover:border-white/20 transition-all duration-200 ease-out shadow-md hover:shadow-xl hover:-translate-y-0.5 relative motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                 style={{
                   borderLeft: `2.5px solid ${config.color || 'rgba(255,255,255,0.12)'}`,
                 }}
               >
+                {/* Balãozinho no canto superior esquerdo para cartões com notinhas */}
+                {isAguardandoNota && invoiceCount > 0 && (
+                  <div
+                    className="absolute -top-2.5 -left-2.5 z-30 flex items-center justify-center gap-1 min-w-[24px] h-6 px-1.5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-black text-[11px] shadow-[0_0_15px_rgba(59,130,246,0.95)] border-2 border-slate-950 animate-pulse"
+                    title={`${invoiceCount} ${invoiceCount === 1 ? "notinha anexada" : "notinhas anexadas"}`}
+                  >
+                    <FileText size={10} className="text-white" />
+                    <span className="font-mono leading-none">{invoiceCount}</span>
+                  </div>
+                )}
+
                 {/* Luminous hover sheen */}
                 <div 
-                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-r from-transparent via-white/[0.03] to-transparent" 
+                  className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-gradient-to-r from-transparent via-white/[0.03] to-transparent rounded-xl overflow-hidden" 
                 />
 
-                {/* Status Badges & Flags + Bolinha Azul de Notas Anexadas */}
+                {/* Status Badges & Flags + Indicador de Notinhas */}
                 <div className="flex items-center justify-between gap-1.5 mb-2">
                   <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Indicador visual de Notinhas em Aguardando Nota */}
+                    {isAguardandoNota && (
+                      invoiceCount > 0 ? (
+                        <div
+                          className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-blue-500/25 border border-blue-400/50 text-blue-200 text-[10px] font-black uppercase tracking-wider shadow-[0_0_12px_rgba(59,130,246,0.4)]"
+                          title={`${invoiceCount} ${invoiceCount === 1 ? "notinha fiscal anexada" : "notinhas fiscais anexadas"}`}
+                        >
+                          <FileText size={11} className="text-blue-300" />
+                          <span>{invoiceCount} {invoiceCount === 1 ? "Notinha" : "Notinhas"}</span>
+                        </div>
+                      ) : (
+                        <div
+                          className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800/60 border border-dashed border-white/10 text-slate-400 text-[10px] font-semibold tracking-wider"
+                          title="Aguardando o solicitante anexar a nota fiscal / notinha"
+                        >
+                          <FileText size={10} className="text-slate-500" />
+                          <span>Sem notinha</span>
+                        </div>
+                      )
+                    )}
+
                     {card.status === "VALIDACAO_GESTOR" && (
                       <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 text-[10px] font-bold uppercase tracking-wider">
                         <ShieldCheck size={11} className="text-purple-400" />
@@ -213,17 +244,6 @@ export default function KanbanColumn({
                       </div>
                     )}
                   </div>
-
-                  {/* Bolinha azul na ponta do card: quantidade de notas/anexos anexados pelo solicitante em Aguardando Nota */}
-                  {showInvoiceBadge && (
-                    <div
-                      className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-black shadow-[0_0_10px_rgba(59,130,246,0.65)] border border-blue-300/40 shrink-0"
-                      title={`${invoiceCount} ${invoiceCount === 1 ? "nota fiscal / notinha anexada" : "notas fiscais / notinhas anexadas"}`}
-                    >
-                      <FileText size={10} className="text-white" />
-                      <span className="font-mono leading-none">{invoiceCount}</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Título & Checkbox */}
