@@ -67,7 +67,7 @@ export default function NubankCajuPage() {
   const [isCajuModalOpen, setIsCajuModalOpen] = useState(false);
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
   const [rechargeForm, setRechargeForm] = useState({
-    amount: "1.500,00",
+    amount: "2.500,00",
     paymentType: "BOLETO" as "BOLETO" | "PIX",
     barcode: "",
     pixKey: "",
@@ -161,7 +161,7 @@ export default function NubankCajuPage() {
   const handleOpenRechargeModal = () => {
     setRechargeError(null);
     setRechargeForm({
-      amount: "1.500,00",
+      amount: "2.500,00",
       paymentType: "BOLETO",
       barcode: "",
       pixKey: "",
@@ -379,31 +379,36 @@ export default function NubankCajuPage() {
       <div className="max-w-[1360px] mx-auto space-y-6">
         
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight text-white">Nubank / Caju</h1>
-              <ShinyBadge variant="purple" size="sm">
-                Nubank 02 • Ativo
-              </ShinyBadge>
-              <ShinyBadge variant="purple" size="sm">
-                Caju • Ativo
-              </ShinyBadge>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-2xl font-extrabold tracking-tight text-white">Hub Contas & Benefícios</h1>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#820AD1]/20 border border-[#820AD1]/40 text-[#d8b4fe]">
+                  Nubank 02
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300">
+                  Caju
+                </span>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 mt-1 font-mono">
-              Liquidação em tempo real, extrato bancário corporativo e recargas centralizadas.
+            <p className="text-xs text-slate-400 font-normal">
+              Gestão de liquidação em tempo real, auditoria de extratos bancários e solicitações de recarga.
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Barra de Ações Operacionais (Glass Toolbar Unificada) */}
+          <div className="inline-flex items-center gap-1.5 p-1 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-xl shadow-lg shrink-0">
             <button
               onClick={() => fetchBalance(false)}
               disabled={refreshing}
-              className="p-2.5 rounded-xl border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer backdrop-blur-md"
-              title="Atualizar saldo e extrato"
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer disabled:opacity-50"
+              title="Atualizar saldo e movimentações"
             >
               <RefreshCw size={14} className={refreshing ? "animate-spin text-[#c084fc]" : ""} />
             </button>
+
+            <div className="h-4 w-px bg-white/10" />
 
             {isMaster && (
               <button
@@ -413,9 +418,9 @@ export default function NubankCajuPage() {
                   setAdjustReason("");
                   setIsAdjustModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer backdrop-blur-md"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
               >
-                <SlidersHorizontal size={13} />
+                <SlidersHorizontal size={13} className="text-slate-400" />
                 <span>Ajustar Saldo</span>
               </button>
             )}
@@ -427,38 +432,22 @@ export default function NubankCajuPage() {
                 setRefundDescription("");
                 setIsRefundModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/10 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition-all cursor-pointer backdrop-blur-md"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
             >
-              <Plus size={13} />
+              <Plus size={13} className="text-emerald-400" />
               <span>Registrar Reembolso</span>
             </button>
 
+            <div className="h-4 w-px bg-white/10" />
+
             <button
               onClick={() => setIsValidatorModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-purple-500/30 bg-purple-950/40 hover:bg-purple-900/50 text-xs font-semibold text-purple-200 hover:text-white transition-all cursor-pointer backdrop-blur-md shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-purple-200 hover:text-white bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 transition-all cursor-pointer shadow-[0_0_12px_rgba(168,85,247,0.15)]"
               title="Importar e validar extrato Nubank (7 dias)"
             >
               <FileCheck2 size={13} className="text-purple-400" />
               <span>Validar Extrato</span>
             </button>
-
-            <MagnetButton
-              onClick={() => setIsCajuModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 via-rose-600 to-pink-700 hover:from-rose-400 hover:to-pink-600 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(244,63,94,0.35)] transition-all cursor-pointer active:scale-95"
-              title="Solicitar Recarga Caju de R$ 3.000,00 no CNPJ 2"
-            >
-              <Sparkles size={14} className="text-white" />
-              <span>Recarga Caju (R$ 3.000)</span>
-            </MagnetButton>
-
-            <MagnetButton
-              onClick={handleOpenRechargeModal}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
-              title="Solicitar Recarga Nubank de R$ 1.500,00"
-            >
-              <Zap size={14} className="text-white" />
-              <span>Recarga Nubank (R$ 1.500)</span>
-            </MagnetButton>
           </div>
         </div>
 
@@ -474,7 +463,7 @@ export default function NubankCajuPage() {
                   Atenção: Saldo Nubank Atingiu o Limite Crítico ({formatBRL(currentBalance)})
                 </h3>
                 <p className="text-xs text-amber-200/90 leading-relaxed mt-0.5">
-                  O saldo está em R$ 350,00 ou menos. Solicite a recarga de R$ 1.500,00 para garantir liquidações contínuas no Kanban.
+                  O saldo está em R$ 350,00 ou menos. Solicite a recarga de R$ 2.500,00 para garantir liquidações contínuas no Kanban.
                 </p>
               </div>
             </div>
@@ -489,82 +478,143 @@ export default function NubankCajuPage() {
           </div>
         )}
 
-        {/* Card Principal Corporativo Nubank (Design unificado conforme Dashboard) */}
-        <div className="rounded-2xl bg-gradient-to-r from-slate-900 via-[#1a1329] to-slate-900 border border-[#820AD1]/30 p-5 md:p-6 shadow-xl relative overflow-hidden animate-in fade-in slide-in-from-bottom-1 duration-200">
-          {/* Glow de fundo Nubank roxo sutil */}
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-[#820AD1]/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute bottom-0 left-1/3 -mb-16 w-48 h-48 bg-purple-600/10 rounded-full blur-2xl pointer-events-none" />
+        {/* ========================================================
+            DECK DOS DOIS CANAIS CORPORATIVOS: NUBANK 02 E CAJU
+            ======================================================== */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          
+          {/* Card 1: Nubank 02 (Saldo Corporativo em Tempo Real) */}
+          <div className="lg:col-span-2 rounded-2xl bg-gradient-to-br from-slate-900/95 via-[#181126] to-slate-900/95 border border-[#820AD1]/30 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between group hover:border-[#820AD1]/50 transition-all duration-300">
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-72 h-72 bg-[#820AD1]/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10">
+              
+              {/* Header do Card Nubank */}
+              <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-nowrap">
+                <div className="flex items-start gap-4">
+                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#820AD1] to-[#5a0594] flex items-center justify-center text-white shadow-lg shadow-purple-950/60 shrink-0 border border-purple-400/20">
+                    <Wallet size={24} className="text-white drop-shadow-sm" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#d8b4fe] bg-[#820AD1]/25 px-2.5 py-0.5 rounded-full border border-[#820AD1]/40">
+                        Nubank 02 • Saldo Corporativo
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Anti-duplicidade Ativa
+                      </span>
+                    </div>
 
-          <div className="relative z-10">
-            {/* Saldo em Destaque */}
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#820AD1] to-[#5a0594] flex items-center justify-center text-white shadow-lg shadow-purple-950/50 shrink-0">
-                <Wallet size={26} className="text-white drop-shadow-sm" />
-              </div>
+                    <div className="flex items-baseline gap-3 mt-2">
+                      {loading ? (
+                        <div className="h-10 w-44 bg-slate-800 rounded animate-pulse" />
+                      ) : error ? (
+                        <div className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
+                          <AlertCircle size={16} />
+                          <span>Erro ao consultar</span>
+                        </div>
+                      ) : (
+                        <AnimatedCurrency
+                          value={currentBalance}
+                          prefix="R$ "
+                          prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-medium mr-1"
+                          className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-mono"
+                        />
+                      )}
+                    </div>
 
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#d8b4fe] bg-[#820AD1]/20 px-2.5 py-0.5 rounded-full border border-[#820AD1]/40">
-                    Nubank 02 • Saldo Corporativo
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">
-                    (Trava anti-duplicidade ativa)
-                  </span>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Liquidação automática em tempo real para pagamentos no Kanban.
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex items-baseline gap-3 mt-1.5">
-                  {loading ? (
-                    <div className="h-9 w-40 bg-slate-800 rounded animate-pulse" />
-                  ) : error ? (
-                    <div className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
-                      <AlertCircle size={16} />
-                      <span>Erro ao consultar</span>
-                    </div>
-                  ) : (
-                    <AnimatedCurrency
-                      value={currentBalance}
-                      prefix="R$ "
-                      prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-normal mr-1"
-                      className="text-3xl md:text-4xl font-black text-white tracking-tight"
-                    />
-                  )}
-
+                {/* Botão Recarga Nubank (Canto Superior Direito) */}
+                <div className="self-start shrink-0">
                   <button
-                    onClick={() => fetchBalance(false)}
-                    disabled={refreshing}
-                    title="Atualizar saldo agora"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors disabled:opacity-50 cursor-pointer"
+                    onClick={handleOpenRechargeModal}
+                    className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-200 border border-purple-500/30 hover:border-purple-400/60 shadow-[0_0_15px_rgba(168,85,247,0.12)] hover:shadow-[0_0_20px_rgba(168,85,247,0.25)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                    title="Solicitar Recarga Nubank de R$ 2.500,00"
                   >
-                    <RefreshCw size={14} className={refreshing ? "animate-spin text-[#c084fc]" : ""} />
+                    <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Recarga Nubank (R$ 2.500)</span>
                   </button>
                 </div>
+              </div>
 
-                <p className="text-xs text-slate-400 mt-1">
-                  Atualização em tempo real sincronizada com o fluxo do Kanban.
-                </p>
-
-                {/* Micro Indicadores Financeiros (Reembolsado, Entradas, Saídas) */}
-                <div className="flex flex-wrap items-center gap-2.5 mt-3 pt-3 border-t border-slate-800/60 text-xs">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                    <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-amber-400/80">Reembolsado:</span>
-                    <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                    <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-emerald-400/80">Entradas:</span>
-                    <AnimatedCurrency value={totalEntradas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-emerald-400" />
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400">
-                    <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-rose-400/80">Saídas:</span>
-                    <AnimatedCurrency value={totalSaidas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-rose-400" />
-                  </div>
+              {/* Micro Indicadores Financeiros */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-white/[0.08]">
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/50 border border-slate-800/80">
+                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-amber-400/80">Reembolsado:</span>
+                  <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/50 border border-slate-800/80">
+                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-emerald-400/80">Entradas:</span>
+                  <AnimatedCurrency value={totalEntradas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-emerald-400" />
+                </div>
+                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/50 border border-slate-800/80">
+                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-rose-400/80">Saídas:</span>
+                  <AnimatedCurrency value={totalSaidas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-rose-400" />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Mini-Lista de Movimentações Recentes (Últimas 5) */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80">
-            <div className="flex items-center justify-between mb-3">
+          {/* Card 2: Caju Benefícios (Cartões Corporativos) */}
+          <div className="rounded-2xl bg-gradient-to-br from-slate-900/95 via-[#22101b] to-slate-900/95 border border-rose-500/30 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between group hover:border-rose-500/50 transition-all duration-300">
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative z-10 flex flex-col h-full justify-between">
+              
+              <div>
+                {/* Header do Card Caju com Botão no Canto Superior Direito (Simétrico) */}
+                <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white shadow-lg shadow-rose-950/60 shrink-0 border border-rose-400/30">
+                      <Sparkles size={22} className="text-white drop-shadow-sm" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-rose-300 bg-rose-500/25 px-2.5 py-0.5 rounded-full border border-rose-500/40">
+                        Caju • Benefícios
+                      </span>
+                      <p className="text-[11px] text-slate-400 mt-1 font-mono font-medium">Conta: CNPJ 2 (Padrão)</p>
+                    </div>
+                  </div>
+
+                  {/* Botão Recarga Caju (Canto Superior Direito) */}
+                  <div className="self-start shrink-0">
+                    <button
+                      onClick={() => setIsCajuModalOpen(true)}
+                      className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-200 border border-rose-500/30 hover:border-rose-400/60 shadow-[0_0_15px_rgba(244,63,94,0.12)] hover:shadow-[0_0_20px_rgba(244,63,94,0.25)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                      title="Solicitar Recarga Caju de R$ 3.000,00"
+                    >
+                      <Sparkles className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      <span>Recarga Caju (R$ 3.000)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Conteúdo Preservado do Card Caju */}
+                <div className="mt-5 pt-4 border-t border-rose-500/20">
+                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-rose-300/80">
+                    Valor Padrão por Solicitação:
+                  </span>
+                  <div className="text-3xl font-extrabold text-white font-mono mt-1 tracking-tight">
+                    R$ 3.000,00
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    Lança o card no Kanban e gera e-mail pronto para aprovação de Tássio.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        {/* Mini-Lista de Movimentações Recentes (Últimas 5) */}
+        <div className="rounded-2xl bg-slate-900/60 border border-white/[0.08] p-5 shadow-lg relative overflow-hidden">
+          <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                   Últimas Movimentações Nubank
@@ -654,7 +704,6 @@ export default function NubankCajuPage() {
               </div>
             )}
           </div>
-        </div>
 
         {/* Seletor de visualização: Extrato vs Auditoria e Fechamentos */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
@@ -923,7 +972,7 @@ export default function NubankCajuPage() {
                     required
                     value={rechargeForm.amount}
                     onChange={(e) => handleAmountInput(e.target.value, (val) => setRechargeForm((prev) => ({ ...prev, amount: val })))}
-                    placeholder="1.500,00"
+                    placeholder="2.500,00"
                     className="w-full px-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-emerald-500 font-bold font-mono"
                     style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
                   />
@@ -1062,7 +1111,7 @@ export default function NubankCajuPage() {
                   className="p-3.5 rounded-xl border font-mono text-xs whitespace-pre-wrap leading-relaxed select-text"
                   style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
                 >
-                  {`--\n${new Date().getHours() < 12 ? "Bom dia" : "Boa tarde"}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${rechargeForm.notes.trim() || "Recarga saldo Nubank"}\nValor: R$ ${rechargeForm.amount || "1.500,00"}\nChave pix / Linha digitável: ${
+                  {`--\n${new Date().getHours() < 12 ? "Bom dia" : "Boa tarde"}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${rechargeForm.notes.trim() || "Recarga saldo Nubank"}\nValor: R$ ${rechargeForm.amount || "2.500,00"}\nChave pix / Linha digitável: ${
                     rechargeForm.paymentType === "BOLETO"
                       ? (rechargeForm.barcode.trim() || "(informe a linha digitável acima)")
                       : (rechargeForm.pixKey.trim() || "(informe a chave pix acima)")
@@ -1113,7 +1162,7 @@ export default function NubankCajuPage() {
                   Solicitação de Recarga Lançada no Kanban!
                 </h3>
                 <p className="text-xs mt-0.5" style={{ color: "var(--text-secondary)" }}>
-                  O card de {formatBRL(rechargeSuccessData.card?.amount || 1500)} foi inserido no Kanban. Envie o e-mail padronizado para Tássio:
+                  O card de {formatBRL(rechargeSuccessData.card?.amount || 2500)} foi inserido no Kanban. Envie o e-mail padronizado para Tássio:
                 </p>
               </div>
             </div>

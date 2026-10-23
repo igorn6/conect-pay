@@ -8,7 +8,7 @@ import { sendPushNotification } from "@/lib/pushNotifications";
 
 const DEFAULT_RECHARGE_PIX_OWNER = "Lima e Trindade";
 const DEFAULT_RECHARGE_CNPJ = "CNPJ 2";
-const DEFAULT_RECHARGE_AMOUNT = 1500.00;
+const DEFAULT_RECHARGE_AMOUNT = 2500.00;
 
 function parseBRL(val: unknown): number {
   if (typeof val === "number") return val;
