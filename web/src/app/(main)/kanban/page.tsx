@@ -11,11 +11,10 @@ import { supabase } from "@/lib/supabase";
 import type { PaymentRequest, Category } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Plus, Filter, Calendar, Tag, User, X, Layers, TrendingUp, Sparkles } from "lucide-react";
+import { Plus, Filter, Calendar, Tag, User, X, Layers, TrendingUp } from "lucide-react";
 import { computeNextStageHistory } from "@/utils/sla";
 import { syncNubankBalance } from "@/lib/nubankClient";
 import MagnetButton from "@/components/ui/MagnetButton";
-import CajuRechargeModal from "@/components/caju/CajuRechargeModal";
 
 export default function KanbanPage() {
   const { userRole, userId, userName: simulatedUserName, sectorId } = useAuth();
@@ -23,7 +22,6 @@ export default function KanbanPage() {
   const [cards, setCards] = useState<PaymentRequest[]>([]);
   const cardsRef = useRef<PaymentRequest[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isCajuModalOpen, setIsCajuModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<PaymentRequest | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
@@ -483,17 +481,6 @@ export default function KanbanPage() {
             </div>
           </div>
 
-          {(userRole === "MASTER" || userRole === "FINANCEIRO") && (
-            <button
-              onClick={() => setIsCajuModalOpen(true)}
-              className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-gradient-to-r from-rose-500 via-rose-600 to-pink-700 hover:from-rose-400 hover:to-pink-600 text-white shadow-md shadow-rose-950/40 transition-all cursor-pointer active:scale-95"
-              title="Criar solicitação de Recarga Caju (R$ 3.000,00 no CNPJ 2)"
-            >
-              <Sparkles size={14} className="text-white" />
-              <span>Recarga Caju (3k)</span>
-            </button>
-          )}
-
           <MagnetButton
             onClick={() => setIsModalOpen(true)}
             className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-950/40 transition-all cursor-pointer active:scale-95"
@@ -529,17 +516,6 @@ export default function KanbanPage() {
         <NewRequestModal
           onClose={() => setIsModalOpen(false)}
           onSave={() => handleSuccess("Solicitação criada com sucesso!")}
-        />
-      )}
-
-      {isCajuModalOpen && (
-        <CajuRechargeModal
-          isOpen={isCajuModalOpen}
-          onClose={() => setIsCajuModalOpen(false)}
-          onSuccess={() => {
-            fetchCards();
-            setToast({ message: "Solicitação de Recarga Caju lançada com sucesso!", type: "success" });
-          }}
         />
       )}
 
