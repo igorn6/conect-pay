@@ -28,6 +28,7 @@ import {
   Building2,
   QrCode,
   CreditCard,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -38,6 +39,7 @@ import MagnetButton from "@/components/ui/MagnetButton";
 import ShinyBadge from "@/components/ui/ShinyBadge";
 import NubankStatementValidatorModal from "@/components/nubank/NubankStatementValidatorModal";
 import NubankDailyReconciliationHistory from "@/components/nubank/NubankDailyReconciliationHistory";
+import CajuRechargeModal from "@/components/caju/CajuRechargeModal";
 
 export default function NubankCajuPage() {
   const router = useRouter();
@@ -62,6 +64,7 @@ export default function NubankCajuPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modais
+  const [isCajuModalOpen, setIsCajuModalOpen] = useState(false);
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
   const [rechargeForm, setRechargeForm] = useState({
     amount: "1.500,00",
@@ -383,9 +386,9 @@ export default function NubankCajuPage() {
               <ShinyBadge variant="purple" size="sm">
                 Nubank 02 • Ativo
               </ShinyBadge>
-              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-900/60 text-slate-400 border border-white/10">
-                Caju • Em breve
-              </span>
+              <ShinyBadge variant="purple" size="sm">
+                Caju • Ativo
+              </ShinyBadge>
             </div>
             <p className="text-xs text-slate-400 mt-1 font-mono">
               Liquidação em tempo real, extrato bancário corporativo e recargas centralizadas.
@@ -440,11 +443,21 @@ export default function NubankCajuPage() {
             </button>
 
             <MagnetButton
-              onClick={handleOpenRechargeModal}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
+              onClick={() => setIsCajuModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 via-rose-600 to-pink-700 hover:from-rose-400 hover:to-pink-600 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(244,63,94,0.35)] transition-all cursor-pointer active:scale-95"
+              title="Solicitar Recarga Caju de R$ 3.000,00 no CNPJ 2"
             >
               <Sparkles size={14} className="text-white" />
-              <span>Recarga (R$ 1.500)</span>
+              <span>Recarga Caju (R$ 3.000)</span>
+            </MagnetButton>
+
+            <MagnetButton
+              onClick={handleOpenRechargeModal}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-700 hover:from-emerald-400 hover:to-teal-600 text-white font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.35)] transition-all cursor-pointer active:scale-95"
+              title="Solicitar Recarga Nubank de R$ 1.500,00"
+            >
+              <Zap size={14} className="text-white" />
+              <span>Recarga Nubank (R$ 1.500)</span>
             </MagnetButton>
           </div>
         </div>
@@ -1279,6 +1292,13 @@ export default function NubankCajuPage() {
           fetchBalance(true);
           setReconcileRefreshTrigger((prev) => prev + 1);
         }}
+      />
+
+      {/* MODAL DE SOLICITAÇÃO RECARGA CAJU */}
+      <CajuRechargeModal
+        isOpen={isCajuModalOpen}
+        onClose={() => setIsCajuModalOpen(false)}
+        onSuccess={() => fetchBalance(true)}
       />
 
     </div>

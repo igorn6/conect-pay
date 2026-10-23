@@ -27,13 +27,22 @@ function parseBRL(val: unknown): number {
 export async function POST(req: Request) {
   try {
     const reqBody = await req.json().catch(() => ({}));
+    const requestKind = ((reqBody?.request_kind || reqBody?.requestKind || "RECARGA_NUBANK") as string).toUpperCase() === "RECARGA_CAJU"
+      ? "RECARGA_CAJU"
+      : "RECARGA_NUBANK";
+    const isCaju = requestKind === "RECARGA_CAJU";
+
+    const defaultOwner = isCaju ? "Caju" : DEFAULT_RECHARGE_PIX_OWNER;
+    const defaultAmount = isCaju ? 3000.00 : DEFAULT_RECHARGE_AMOUNT;
+    const defaultNotes = isCaju ? "Recarga Caju" : "Recarga saldo Nubank";
+
     const rawAmount = reqBody?.amount;
     const paymentType = ((reqBody?.payment_type || reqBody?.paymentType || "BOLETO") as string).toUpperCase();
     const barcode = ((reqBody?.boleto_barcode || reqBody?.barcode || "") as string).trim();
     const pixKey = ((reqBody?.pix_key || reqBody?.pixKey || "") as string).trim();
-    const pixOwner = ((reqBody?.pix_owner || reqBody?.pixOwner || DEFAULT_RECHARGE_PIX_OWNER) as string).trim();
+    const pixOwner = ((reqBody?.pix_owner || reqBody?.pixOwner || defaultOwner) as string).trim();
     const cnpj = ((reqBody?.cnpj || DEFAULT_RECHARGE_CNPJ) as string).trim();
-    const notes = ((reqBody?.notes || "Recarga saldo Nubank") as string).trim();
+    const notes = ((reqBody?.notes || defaultNotes) as string).trim();
     const providedUserId = reqBody?.userId || req.headers.get("x-user-id");
     const providedName = ((reqBody?.requesterName || "") as string).trim();
 
@@ -65,7 +74,7 @@ export async function POST(req: Request) {
     }
 
     const parsedAmount = parseBRL(rawAmount);
-    const amountNum = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : DEFAULT_RECHARGE_AMOUNT;
+    const amountNum = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : defaultAmount;
 
     const formattedAmount = new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -75,8 +84,9 @@ export async function POST(req: Request) {
     const identifier = paymentType === "BOLETO" ? (barcode || "") : (pixKey || "");
 
     const splitId = uuidv4();
+    const cardTitle = isCaju ? `Recarga Caju - ${formattedAmount}` : `Recarga Nubank - ${formattedAmount}`;
     const cardData = {
-      title: `Recarga Nubank - ${formattedAmount}`,
+      title: cardTitle,
       notes: notes,
       amount: amountNum,
       category: "Recarga de Saldo",
@@ -99,7 +109,7 @@ export async function POST(req: Request) {
       created_by: auth.userId,
       real_requester_id: auth.userId,
       due_date: d.toISOString(),
-      request_kind: "RECARGA_NUBANK",
+      request_kind: requestKind,
       balance_processed: false,
       splits: [
         {
@@ -128,9 +138,10 @@ export async function POST(req: Request) {
     }
 
     // Disparar Push Notification
+    const pushTitle = isCaju ? "Nova Solicitação de Recarga Caju!" : "Nova Solicitação de Recarga Nubank!";
     sendPushNotification({
-      title: "Nova Solicitação de Recarga Nubank!",
-      body: `Recarga Nubank - ${formattedAmount} por ${requesterName}`,
+      title: pushTitle,
+      body: `${isCaju ? "Recarga Caju" : "Recarga Nubank"} - ${formattedAmount} por ${requesterName}`,
       url: "/kanban",
       targetRoles: ["MASTER", "FINANCEIRO"],
       excludeUserId: auth.userId,
@@ -139,8 +150,8 @@ export async function POST(req: Request) {
     // Formatar e-mail padronizado para Tássio
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
-    const subject = `Pagamento Ref. Recarga Nubank | ${cnpj}`;
-    const displayIdentifier = identifier || "(não informada)";
+    const subject = `Pagamento Ref. ${isCaju ? "Recarga Caju" : "Recarga Nubank"} | ${cnpj}`;
+    const displayIdentifier = identifier || "";
     const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${notes}\nValor: ${formattedAmount}\nChave pix / Linha digitável: ${displayIdentifier}\nTitular: ${pixOwner}\nSolicitante: ${requesterName}`;
 
     return NextResponse.json({

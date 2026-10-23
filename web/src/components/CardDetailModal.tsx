@@ -752,18 +752,24 @@ export default function CardDetailModal({
     }
 
     // Tipo REQUEST (Solicitar pagamento a Tassio)
-    const cnpjDisplay = localCnpj || card.cnpj || (isCajuOnly ? "Caju" : "(Selecione o CNPJ)");
-    const rawSubject = `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
-
+    const isRecargaCaju = card.request_kind === "RECARGA_CAJU" || card.title?.includes("Recarga Caju");
     const isRecargaNubank = card.request_kind === "RECARGA_NUBANK" || card.title === "Recarga Nubank";
+    const cnpjDisplay = localCnpj || card.cnpj || (isCajuOnly ? "Caju" : "(Selecione o CNPJ)");
+    const rawSubject = isRecargaCaju
+      ? `Pagamento Ref. Recarga Caju | ${cnpjDisplay}`
+      : `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
+
     const boletoSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "BOLETO");
     const paymentKey = isRecargaNubank
       ? ""
-      : (pixKey && pixKey !== "Não informado" ? pixKey : (boletoSplit?.boleto_barcode || "Não informado"));
-    const paymentOwner = pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado");
+      : (boletoSplit?.boleto_barcode || (pixKey && pixKey !== "Não informado" ? pixKey : ""));
+    const paymentOwner = isRecargaCaju
+      ? (card.pix_owner || "Caju")
+      : (pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado"));
     const paymentKeyDisplay = paymentKey ? ` ${paymentKey}` : "";
+    const displayMotivo = isRecargaCaju ? (card.notes || "Recarga Caju") : motivo;
 
-    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
+    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${displayMotivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
 
     if (invoicesText) {
       rawBody += `\n\n${invoicesText}`;
