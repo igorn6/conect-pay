@@ -4,7 +4,7 @@ import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
   ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles,
-  AlertCircle, Info, RefreshCw
+  AlertCircle, Info, RefreshCw, RotateCcw, Undo2
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -122,11 +122,18 @@ export default function CardDetailModal({
   const [descriptionCopied, setDescriptionCopied] = useState(false);
   const [stageHistoryOpen, setStageHistoryOpen] = useState(false);
 
-  // Conversão de Caju para Pix Pós-Fechamento
-  const [showCajuToPixForm, setShowCajuToPixForm] = useState(false);
+  // Conversão de Caju para Pix Pós-Fechamento / Reabertura
+  const [showCajuToPixModal, setShowCajuToPixModal] = useState(false);
   const [cajuPixKey, setCajuPixKey] = useState(
-    card.payment_conversion_log?.collaboratorPixKey || card.pix_name || card.pix_owner || card.caju_phone || ""
+    card.payment_conversion_log?.collaboratorPixKey || card.pix_key || card.caju_phone || ""
   );
+  const [cajuPixOwner, setCajuPixOwner] = useState(
+    card.pix_owner || card.pix_name || ""
+  );
+  const [cajuAmount, setCajuAmount] = useState(
+    Number(card.amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  );
+  const [cajuTargetStatus, setCajuTargetStatus] = useState<"CORRECAO_PENDENTE" | "FINALIZADO" | "AGUARDANDO_PAGAMENTO">("CORRECAO_PENDENTE");
   const [cajuReason, setCajuReason] = useState(
     card.payment_conversion_log?.reason || "Local não aceita Caju / Falha no cartão"
   );
@@ -137,6 +144,34 @@ export default function CardDetailModal({
   const [isConvertingCajuPix, setIsConvertingCajuPix] = useState(false);
   const [cajuPixError, setCajuPixError] = useState("");
   const cajuPixFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Modal de Reabertura e Mudança de Status para Cards Finalizados
+  const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
+  const [reopenTargetStatus, setReopenTargetStatus] = useState<"AGUARDANDO_PAGAMENTO" | "CORRECAO_PENDENTE" | "EM_APROVACAO">("AGUARDANDO_PAGAMENTO");
+  const [reopenReason, setReopenReason] = useState("");
+  const [isReopening, setIsReopening] = useState(false);
+
+  function parseBRLInput(val: string): number {
+    if (!val) return NaN;
+    const clean = val.replace(/[R$\s]/g, "");
+    if (clean.includes(",") && clean.includes(".")) {
+      return parseFloat(clean.replace(/\./g, "").replace(",", "."));
+    }
+    if (clean.includes(",")) {
+      return parseFloat(clean.replace(/\s/g, "").replace(",", "."));
+    }
+    return parseFloat(clean.replace(/\s/g, ""));
+  }
+
+  function handleCurrencyFieldChange(val: string, setter: (v: string) => void) {
+    let clean = val.replace(/\D/g, "");
+    if (!clean) {
+      setter("");
+      return;
+    }
+    const num = parseInt(clean, 10) / 100;
+    setter(num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  }
 
   const isCajuMealRequest = useMemo(() => {
     if (card.payment_conversion_log) return true;
@@ -629,11 +664,15 @@ export default function CardDetailModal({
 
   async function handleConfirmCajuToPix() {
     if (!cajuPixKey.trim()) {
-      setCajuPixError("A Chave Pix ou nome do colaborador recebedor é obrigatória.");
+      setCajuPixError("A Chave Pix do colaborador recebedor é obrigatória.");
       return;
     }
-    if (!cajuPixFile) {
-      setCajuPixError("O comprovante do Pix anexado é obrigatório.");
+    if (!cajuPixOwner.trim()) {
+      setCajuPixError("O Nome do Titular / Favorecido é obrigatório.");
+      return;
+    }
+    if (cajuTargetStatus === "FINALIZADO" && !cajuPixFile && !paymentProofUrl) {
+      setCajuPixError("O comprovante do Pix anexado é obrigatório para manter a solicitação como Finalizada.");
       return;
     }
 
@@ -641,27 +680,33 @@ export default function CardDetailModal({
       setIsConvertingCajuPix(true);
       setCajuPixError("");
 
-      // 1. Upload do comprovante no storage (bucket attachments)
-      const fileExt = cajuPixFile.name.split(".").pop() || "png";
-      const fileName = `cajupix_${card.id}_${Date.now()}.${fileExt}`;
-      const filePath = `receipts/${fileName}`;
-      const { error: uploadError } = await supabase.storage.from("attachments").upload(filePath, cajuPixFile);
-      if (uploadError) {
-        throw new Error("Falha ao fazer upload do comprovante do Pix: " + uploadError.message);
+      let receiptUrl = paymentProofUrl || "";
+      if (cajuPixFile) {
+        const fileExt = cajuPixFile.name.split(".").pop() || "png";
+        const fileName = `cajupix_${card.id}_${Date.now()}.${fileExt}`;
+        const filePath = `receipts/${fileName}`;
+        const { error: uploadError } = await supabase.storage.from("attachments").upload(filePath, cajuPixFile);
+        if (uploadError) {
+          throw new Error("Falha ao fazer upload do comprovante do Pix: " + uploadError.message);
+        }
+        const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(filePath);
+        receiptUrl = urlData.publicUrl;
       }
-      const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(filePath);
-      const receiptUrl = urlData.publicUrl;
 
-      // 2. Chamar a rota de API segura de conversão
+      const parsedAmount = parseBRLInput(cajuAmount);
+
       const res = await fetch("/api/payments/convert-caju-pix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentId: card.id,
           collaboratorPixKey: cajuPixKey.trim(),
+          pixOwner: cajuPixOwner.trim(),
+          amount: !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : Number(card.amount),
+          targetStatus: cajuTargetStatus,
           reason: cajuReason.trim() || "Local não aceita Caju / Falha no cartão",
           cajuBalanceWithdrawn: Boolean(cajuBalanceWithdrawn),
-          newReceiptUrl: receiptUrl,
+          newReceiptUrl: receiptUrl || undefined,
         }),
       });
 
@@ -670,26 +715,82 @@ export default function CardDetailModal({
         throw new Error(data.error || "Erro ao processar conversão de Caju para Pix.");
       }
 
-      // 3. Atualizar estado local
-      setPaymentProofUrl(receiptUrl);
+      // Atualizar estado local do card
       if (data.card) {
         card.payment_conversion_log = data.card.payment_conversion_log;
         card.payment_method = data.card.payment_method;
         card.payment_type = data.card.payment_type;
         card.pix_key = data.card.pix_key;
         card.pix_owner = data.card.pix_owner;
+        card.pix_name = data.card.pix_name;
+        card.amount = data.card.amount;
+        card.status = data.card.status;
         card.receipts_history = data.card.receipts_history;
+        if (data.card.rejection_reason) {
+          card.rejection_reason = data.card.rejection_reason;
+        }
         setReceiptsHistory(data.card.receipts_history || []);
       }
+      if (receiptUrl) setPaymentProofUrl(receiptUrl);
 
-      setShowCajuToPixForm(false);
+      setShowCajuToPixModal(false);
       setCajuPixFile(null);
-      onUpdate("Solicitação convertida de Caju para Pix com sucesso!");
+      onUpdate(`Conversão para Pix realizada com sucesso! (Status: ${getStatusLabel(data.card?.status || cajuTargetStatus)})`);
     } catch (err: any) {
       console.error("Erro na conversão Caju->Pix:", err);
       setCajuPixError(err.message || "Erro desconhecido ao converter.");
     } finally {
       setIsConvertingCajuPix(false);
+    }
+  }
+
+  async function handleReopenStatus(target: "AGUARDANDO_PAGAMENTO" | "CORRECAO_PENDENTE" | "EM_APROVACAO", reasonText?: string) {
+    if (!isMasterOrFinanceiro) return;
+    try {
+      setIsReopening(true);
+
+      const nextStageHistory = computeNextStageHistory(
+        card.stage_history,
+        card.status,
+        target,
+        userId,
+        card.created_at
+      );
+
+      const updateData: Record<string, any> = {
+        status: target,
+        stage_history: nextStageHistory,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (target === "CORRECAO_PENDENTE") {
+        updateData.rejection_reason = reasonText && reasonText.trim()
+          ? reasonText.trim()
+          : "Exigida correção pelo Financeiro";
+      }
+
+      const { error } = await supabase
+        .from("payment_requests")
+        .update(updateData)
+        .eq("id", card.id);
+
+      if (error) throw error;
+
+      await syncNubankBalance(card.id, userId);
+
+      card.status = target;
+      if (target === "CORRECAO_PENDENTE") {
+        card.rejection_reason = updateData.rejection_reason;
+      }
+      card.stage_history = nextStageHistory;
+
+      setIsReopenModalOpen(false);
+      setReopenReason("");
+      onUpdate(`Solicitação reaberta com sucesso para "${getStatusLabel(target)}"!`);
+    } catch (err: any) {
+      alert("Erro ao reabrir solicitação: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setIsReopening(false);
     }
   }
 
@@ -880,28 +981,32 @@ export default function CardDetailModal({
     onUpdate("Comprovante corrigido. Aguardando nova validacao do Gestor.");
   };
 
-  const handleInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
+  const processInvoiceFiles = async (files: File[]) => {
+    if (!files || files.length === 0) return;
     setIsUploadingInvoice(true);
     const uploadedUrls: string[] = [];
-    for (const file of Array.from(e.target.files)) {
-      if (file.size > 5 * 1024 * 1024) continue;
-      const fileExt = file.name.split('.').pop();
+    for (const file of files) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`O arquivo "${file.name}" excede o tamanho máximo de 5MB.`);
+        continue;
+      }
+      const fileExt = file.name.split('.').pop() || "png";
       const fileName = `invoice_${card.id}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `receipts/${fileName}`;
       const { error: uploadError } = await supabase.storage.from("attachments").upload(filePath, file);
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(filePath);
         uploadedUrls.push(urlData.publicUrl);
+      } else {
+        console.error("Erro no upload de notinha:", uploadError);
       }
     }
     if (uploadedUrls.length > 0) {
       const newCombinedUrl = invoiceUrl ? `${invoiceUrl},${uploadedUrls.join(',')}` : uploadedUrls.join(',');
       setInvoiceUrl(newCombinedUrl);
       await supabase.from("payment_requests").update({ invoice_url: newCombinedUrl }).eq("id", card.id);
-      onUpdate("Notinha(s) anexada(s) com sucesso.");
+      onUpdate("Notinha(s) anexada(s) com sucesso!");
 
-      // Dispara notificação push para Master e Financeiro
       try {
         const count = uploadedUrls.length;
         const totalCount = newCombinedUrl.split(",").map((u) => u.trim()).filter(Boolean).length;
@@ -919,23 +1024,123 @@ export default function CardDetailModal({
     setIsUploadingInvoice(false);
   };
 
+  const handleInvoiceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    await processInvoiceFiles(Array.from(e.target.files));
+  };
+
+  const handleCajuPixPaste = (e: React.ClipboardEvent | ClipboardEvent) => {
+    const items = (e as any).clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items) as any[]) {
+      if (item.type && item.type.indexOf("image") !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          if (file.size > 5 * 1024 * 1024) {
+            setCajuPixError("Tamanho máximo de 5MB.");
+            return;
+          }
+          const renamed = new File([file], `comprovante_pix_${Date.now()}.png`, { type: file.type || "image/png" });
+          setCajuPixFile(renamed);
+          setCajuPixError("");
+        }
+        break;
+      }
+    }
+  };
+
   const handlePaste = async (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items;
+    // 1. Se o modal de Caju para Pix estiver aberto, prioriza o comprovante Pix
+    if (showCajuToPixModal) {
+      handleCajuPixPaste(e);
+      return;
+    }
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
     for (const item of Array.from(items)) {
-      if (item.type.indexOf("image") !== -1) {
+      if (item.type && item.type.indexOf("image") !== -1) {
         const file = item.getAsFile();
         if (file) {
           const fakeEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+          
+          // Se o status for AGUARDANDO_PAGAMENTO (Aguardando Nota), o paste DEVE anexar a NOTINHA!
+          if (
+            card.status === "AGUARDANDO_PAGAMENTO" || 
+            (card.status as string) === "AGUARDANDO_NOTINHA"
+          ) {
+            await processInvoiceFiles([file]);
+            return;
+          }
+
           if (isCorrecaoPendente && isMasterOrFinanceiro) {
             handleCorrectionUpload(fakeEvent);
-          } else if (isMasterOrFinanceiro) {
-            handleFileUpload(fakeEvent);
+            return;
+          }
+
+          if (isMasterOrFinanceiro) {
+            // Se já possui comprovante mas falta notinha, anexa como notinha
+            if (paymentProofUrl && !invoiceUrl) {
+              await processInvoiceFiles([file]);
+            } else {
+              handleFileUpload(fakeEvent);
+            }
           } else {
-            handleInvoiceUpload(fakeEvent);
+            await processInvoiceFiles([file]);
           }
         }
         break;
       }
+    }
+  };
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        alert("Pressione as teclas Ctrl + V para colar a imagem diretamente nesta janela.");
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((t) => t.startsWith("image/"));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], `notinha_colada_${Date.now()}.${imageType.split("/")[1] || "png"}`, { type: imageType });
+          await processInvoiceFiles([file]);
+          return;
+        }
+      }
+      alert("Nenhuma imagem encontrada na área de transferência. Tire um print ou copie uma imagem antes.");
+    } catch {
+      alert("Para colar a notinha, basta clicar nesta tela e pressionar Ctrl + V.");
+    }
+  };
+
+  const handlePasteCajuPixFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        alert("Pressione Ctrl + V para colar a imagem do comprovante diretamente.");
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((t) => t.startsWith("image/"));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const file = new File([blob], `comprovante_pix_colado_${Date.now()}.${imageType.split("/")[1] || "png"}`, { type: imageType });
+          if (file.size > 5 * 1024 * 1024) {
+            setCajuPixError("Tamanho máximo de 5MB.");
+            return;
+          }
+          setCajuPixFile(file);
+          setCajuPixError("");
+          return;
+        }
+      }
+      alert("Nenhuma imagem encontrada na área de transferência. Tire um print ou copie a imagem antes.");
+    } catch {
+      alert("Pressione Ctrl + V com este modal aberto para colar o print do comprovante.");
     }
   };
 
@@ -1056,154 +1261,6 @@ export default function CardDetailModal({
                     Saldo antigo foi retirado do cartão Caju
                   </p>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* FORMULÁRIO DE CONVERSÃO CAJU -> PIX (Expansível) */}
-          {showCajuToPixForm && (
-            <div className="mb-5 p-4 rounded-xl border-2 border-purple-500/40 bg-purple-500/5 shadow-md flex flex-col gap-3.5 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between border-b border-purple-500/20 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400">
-                    <RefreshCw size={15} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Converter Caju para Pix (Pós-Fechamento)</h4>
-                    <p className="text-[10px] text-slate-300">
-                      Transfira diretamente para o colaborador e registre a retirada do saldo do Caju.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCajuToPixForm(false);
-                    setCajuPixError("");
-                  }}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Fechar formulário"
-                >
-                  <X size={15} />
-                </button>
-              </div>
-
-              {cajuPixError && (
-                <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  <span>{cajuPixError}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                    Chave Pix ou Nome do Colaborador Recebedor *
-                  </label>
-                  <input
-                    type="text"
-                    value={cajuPixKey}
-                    onChange={(e) => {
-                      setCajuPixKey(e.target.value);
-                      setCajuPixError("");
-                    }}
-                    placeholder="Ex: 11999999999 ou email@exemplo.com"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-700 bg-slate-900 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                    Motivo da Conversão *
-                  </label>
-                  <input
-                    type="text"
-                    value={cajuReason}
-                    onChange={(e) => setCajuReason(e.target.value)}
-                    placeholder="Ex: Local não aceita Caju / Falha no cartão"
-                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-700 bg-slate-900 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-medium"
-                  />
-                </div>
-              </div>
-
-              {/* Checkbox de controle financeiro */}
-              <label className="flex items-center gap-2.5 p-2.5 rounded-lg border border-purple-500/20 bg-purple-500/10 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={cajuBalanceWithdrawn}
-                  onChange={(e) => setCajuBalanceWithdrawn(e.target.checked)}
-                  className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 bg-slate-800 border-slate-700 cursor-pointer"
-                />
-                <span className="text-xs font-bold text-purple-200">
-                  ✅ Saldo antigo já foi retirado do cartão Caju
-                </span>
-              </label>
-
-              {/* Campo de Upload do Comprovante do Pix */}
-              <div className="flex flex-col gap-1.5">
-                <label className="block text-[11px] font-bold text-slate-300">
-                  Anexar Comprovante do Pix *
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => cajuPixFileInputRef.current?.click()}
-                    className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    <UploadCloud size={15} />
-                    <span>{cajuPixFile ? "Trocar Comprovante" : "Selecionar Comprovante do Pix"}</span>
-                  </button>
-                  <input
-                    type="file"
-                    ref={cajuPixFileInputRef}
-                    className="hidden"
-                    accept="image/*,.pdf"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) {
-                        if (f.size > 5 * 1024 * 1024) {
-                          setCajuPixError("Tamanho máximo de 5MB.");
-                          return;
-                        }
-                        setCajuPixFile(f);
-                        setCajuPixError("");
-                      }
-                    }}
-                  />
-                  {cajuPixFile && (
-                    <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 truncate">
-                      <CheckCircle2 size={13} className="shrink-0" />
-                      {cajuPixFile.name}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Botões de Ação do formulário */}
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-purple-500/20">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCajuToPixForm(false);
-                    setCajuPixError("");
-                  }}
-                  className="px-3.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmCajuToPix}
-                  disabled={isConvertingCajuPix}
-                  className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-lg bg-purple-600 hover:bg-purple-500 shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {isConvertingCajuPix ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <RefreshCw size={14} />
-                  )}
-                  <span>Confirmar Conversão e Salvar Pix</span>
-                </button>
               </div>
             </div>
           )}
@@ -1665,20 +1722,45 @@ export default function CardDetailModal({
                 )
               )}
 
-              {/* Notinha */}
-              <div className={`p-4 rounded-xl border ${isValidacaoGestor && !invoiceUrl ? "border-amber-500/50 bg-amber-500/10" : ""} flex flex-col gap-2`}
-                   style={!(isValidacaoGestor && !invoiceUrl) ? { backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" } : undefined}>
-                <div className="flex items-center gap-3">
-                  <FileText size={20} className={invoiceUrl ? "text-blue-500" : "text-amber-500"} />
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>Notinha ou Nota Fiscal</p>
-                    <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Comprovante de compra/gasto real</p>
+              {/* Notinha ou Nota Fiscal com Suporte a Ctrl+V e Drag-and-Drop */}
+              <div 
+                className={`p-4 rounded-xl border ${isValidacaoGestor && !invoiceUrl ? "border-amber-500/50 bg-amber-500/10" : ""} flex flex-col gap-2 transition-all`}
+                style={!(isValidacaoGestor && !invoiceUrl) ? { backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" } : undefined}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    await processInvoiceFiles(Array.from(e.dataTransfer.files));
+                  }
+                }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <FileText size={20} className={invoiceUrl ? "text-blue-500" : "text-amber-500"} />
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--text-primary)" }}>Notinha ou Nota Fiscal</p>
+                      <p className="text-[10px]" style={{ color: "var(--text-muted)" }}>Comprovante de compra/gasto real</p>
+                    </div>
                   </div>
+
+                  {/* Botão Rápido de Colar da Área de Transferência */}
+                  <button
+                    type="button"
+                    onClick={handlePasteFromClipboard}
+                    disabled={isUploadingInvoice}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Colar imagem copiada da área de transferência (ou aperte Ctrl+V)"
+                  >
+                    <Copy size={12} />
+                    <span>Colar Notinha (Ctrl+V)</span>
+                  </button>
                 </div>
+
                 {isUploadingInvoice ? (
                   <div className="flex items-center justify-center gap-2 py-3 text-blue-500">
                     <Loader2 size={16} className="animate-spin" />
-                    <span className="text-xs font-semibold">Enviando nota...</span>
+                    <span className="text-xs font-semibold">Enviando notinha...</span>
                   </div>
                 ) : invoiceUrl ? (
                   <div className="flex flex-col gap-2 mt-2 pt-2 border-t" style={{ borderColor: "var(--surface-border)" }}>
@@ -1704,14 +1786,32 @@ export default function CardDetailModal({
                         </div>
                       ))}
                     </div>
-                    <button onClick={() => invoiceInputRef.current?.click()} className="text-[10px] hover:underline self-start cursor-pointer" style={{ color: "var(--text-muted)" }}>+ Adicionar Mais</button>
+                    <div className="flex items-center gap-3 mt-1">
+                      <button onClick={() => invoiceInputRef.current?.click()} className="text-[10px] text-blue-400 hover:underline cursor-pointer">+ Adicionar Mais Arquivo</button>
+                      <span className="text-[10px] text-slate-500">ou pressione <strong>Ctrl+V</strong> para colar</span>
+                    </div>
                   </div>
                 ) : (
-                  <div className="mt-2">
-                    <button onClick={() => invoiceInputRef.current?.click()} disabled={isUploadingInvoice} 
-                      className="px-3 py-2 text-xs font-medium border border-dashed rounded-lg transition-colors w-full flex items-center justify-center gap-2 hover:opacity-80 cursor-pointer"
-                      style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)", backgroundColor: "var(--surface-hover)" }}>
-                      + Anexar Nota / Recibo
+                  <div className="mt-2 flex flex-col sm:flex-row items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={() => invoiceInputRef.current?.click()} 
+                      disabled={isUploadingInvoice} 
+                      className="px-3 py-2 text-xs font-medium border border-dashed rounded-lg transition-colors flex-1 w-full flex items-center justify-center gap-2 hover:opacity-80 cursor-pointer"
+                      style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)", backgroundColor: "var(--surface-hover)" }}
+                    >
+                      <UploadCloud size={14} />
+                      <span>Selecionar Arquivo</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePasteFromClipboard}
+                      disabled={isUploadingInvoice}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 transition-colors w-full sm:w-auto flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Pressione Ctrl+V ou clique para colar imagem da notinha"
+                    >
+                      <Copy size={13} />
+                      <span>Colar Imagem (Ctrl+V)</span>
                     </button>
                   </div>
                 )}
@@ -2431,23 +2531,87 @@ export default function CardDetailModal({
                 </div>
               )}
 
-              {/* Botão de Converter Caju em Pix (Status FINALIZADO + Master/Financeiro + Refeição/Caju) */}
-              {isFinalizado && isMasterOrFinanceiro && isCajuMealRequest && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCajuToPixForm((prev) => !prev);
-                  }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl border transition-all cursor-pointer whitespace-nowrap shadow-xs ${
-                    showCajuToPixForm
-                      ? "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 shadow-purple-500/20"
-                      : "bg-purple-500/15 text-purple-400 hover:bg-purple-500/25 border-purple-500/30 hover:border-purple-500/50"
-                  }`}
-                  title="Converter modalidade de Caju para Pix pós-fechamento"
-                >
-                  <RefreshCw size={13} className={showCajuToPixForm ? "rotate-180 transition-transform" : ""} />
-                  <span>{card.payment_conversion_log ? "Ver / Editar Conversão Pix" : "🔄 Converter Caju p/ Pix"}</span>
-                </button>
+              {/* Ações para Cards FINALIZADOS (Master / Financeiro) */}
+              {isFinalizado && isMasterOrFinanceiro && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Reabrir para Aguardando Nota */}
+                  <button
+                    type="button"
+                    onClick={() => handleReopenStatus("AGUARDANDO_PAGAMENTO")}
+                    disabled={isReopening}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/50 shadow-xs transition-all cursor-pointer disabled:opacity-40"
+                    title="Tirar de Finalizado e mover para Aguardando Nota"
+                  >
+                    {isReopening ? (
+                      <Loader2 size={13} className="animate-spin" />
+                    ) : (
+                      <RotateCcw size={13} />
+                    )}
+                    <span>Reabrir p/ Aguardando Nota</span>
+                  </button>
+
+                  {/* Exigir Correção (Mover para Correção Pendente) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReopenTargetStatus("CORRECAO_PENDENTE");
+                      setReopenReason("");
+                      setIsReopenModalOpen(true);
+                    }}
+                    disabled={isReopening}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-red-500/15 text-red-300 hover:bg-red-500/25 border border-red-500/30 hover:border-red-500/50 shadow-xs transition-all cursor-pointer disabled:opacity-40"
+                    title="Exigir correção mesmo com o card finalizado"
+                  >
+                    <AlertTriangle size={13} />
+                    <span>Exigir Correção</span>
+                  </button>
+
+                  {/* Reabrir para Pendente / Em Aprovação */}
+                  <button
+                    type="button"
+                    onClick={() => handleReopenStatus("EM_APROVACAO")}
+                    disabled={isReopening}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700 hover:border-slate-600 shadow-xs transition-all cursor-pointer disabled:opacity-40"
+                    title="Tirar de Finalizado e retornar para Pendente"
+                  >
+                    <Undo2 size={13} />
+                    <span>Reabrir p/ Pendente</span>
+                  </button>
+
+                  {/* Converter Caju para Pix */}
+                  {isCajuMealRequest && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCajuPixKey(
+                          card.payment_conversion_log?.collaboratorPixKey ||
+                            card.pix_key ||
+                            card.caju_phone ||
+                            ""
+                        );
+                        setCajuPixOwner(card.pix_owner || card.pix_name || "");
+                        setCajuAmount(
+                          Number(card.amount || 0).toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        );
+                        setCajuTargetStatus("CORRECAO_PENDENTE");
+                        setCajuPixError("");
+                        setShowCajuToPixModal(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-500/40 hover:border-purple-500/70 shadow-xs transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                      title="Abrir assistente para converter Caju em Pix"
+                    >
+                      <RefreshCw size={13} />
+                      <span>
+                        {card.payment_conversion_log
+                          ? "Editar Conversão Pix"
+                          : "🔄 Converter Caju p/ Pix"}
+                      </span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -2724,6 +2888,428 @@ export default function CardDetailModal({
                   Fechar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Exigir Correção em Card Finalizado */}
+      {isReopenModalOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => {
+            if (!isReopening) setIsReopenModalOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden flex flex-col bg-slate-900 border-slate-800 text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-800 bg-slate-900/90">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border bg-red-500/10 border-red-500/30 text-red-400">
+                  <AlertTriangle size={19} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Exigir Correção (Reabrir Solicitação)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    O card sairá de <strong className="text-emerald-400">Finalizado</strong> e irá para <strong className="text-red-400">Correção Pendente</strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isReopening) setIsReopenModalOpen(false);
+                }}
+                disabled={isReopening}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Motivo da Correção / O que precisa ser ajustado? *
+                </label>
+                <textarea
+                  value={reopenReason}
+                  onChange={(e) => setReopenReason(e.target.value)}
+                  placeholder="Descreva detalhadamente o que o colaborador precisa corrigir (ex: nota fiscal ilegível, valor divergente, etc.)..."
+                  rows={4}
+                  className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-700 bg-slate-950 text-white outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/30 resize-none font-medium leading-relaxed placeholder:text-slate-500"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5">
+                <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-200 leading-normal">
+                  Ao confirmar, o solicitante verá este motivo com destaque e poderá reenviar a nota ou ajustar as informações.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsReopenModalOpen(false)}
+                disabled={isReopening}
+                className="px-4 py-2 text-xs font-medium text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleReopenStatus("CORRECAO_PENDENTE")}
+                disabled={isReopening || !reopenReason.trim()}
+                className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-red-600 hover:bg-red-500 transition-all cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isReopening ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <AlertTriangle size={14} />
+                )}
+                <span>Confirmar e Exigir Correção</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Redesenhado: Converter Caju para Pix */}
+      {showCajuToPixModal && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => {
+            if (!isConvertingCajuPix) setShowCajuToPixModal(false);
+          }}
+        >
+          <div
+            className="w-full max-w-xl rounded-2xl border shadow-2xl overflow-hidden flex flex-col bg-slate-900 border-purple-500/30 text-slate-100"
+            onClick={(e) => e.stopPropagation()}
+            onPaste={handleCajuPixPaste}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-purple-500/20 bg-gradient-to-r from-purple-950/50 to-slate-900">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border bg-purple-500/20 border-purple-500/40 text-purple-300 shadow-xs">
+                  <RefreshCw size={19} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Converter Caju para Pix
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      Pós-Fechamento
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Ajuste o titular, a chave Pix e escolha para onde a solicitação deve ir.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isConvertingCajuPix) setShowCajuToPixModal(false);
+                }}
+                disabled={isConvertingCajuPix}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+              {cajuPixError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center gap-2.5">
+                  <AlertTriangle size={15} className="shrink-0 text-red-400" />
+                  <span className="font-medium">{cajuPixError}</span>
+                </div>
+              )}
+
+              {/* Grid: Titular e Chave Pix */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    Nome do Titular / Favorecido *
+                  </label>
+                  <input
+                    type="text"
+                    value={cajuPixOwner}
+                    onChange={(e) => {
+                      setCajuPixOwner(e.target.value);
+                      setCajuPixError("");
+                    }}
+                    placeholder="Ex: João da Silva"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-700 bg-slate-950 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-medium"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Nome completo da pessoa que vai receber
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    Chave Pix *
+                  </label>
+                  <input
+                    type="text"
+                    value={cajuPixKey}
+                    onChange={(e) => {
+                      setCajuPixKey(e.target.value);
+                      setCajuPixError("");
+                    }}
+                    placeholder="CPF, CNPJ, Celular, E-mail ou Aleatória"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-700 bg-slate-950 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-mono text-emerald-400"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Chave para transferência bancária
+                  </span>
+                </div>
+              </div>
+
+              {/* Grid: Valor e Motivo */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    Valor a Pagar (R$) *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-bold">
+                      R$
+                    </span>
+                    <input
+                      type="text"
+                      value={cajuAmount}
+                      onChange={(e) => handleCurrencyFieldChange(e.target.value, setCajuAmount)}
+                      placeholder="0,00"
+                      className="w-full pl-9 pr-3.5 py-2 text-xs rounded-xl border border-slate-700 bg-slate-950 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-bold"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Pode ajustar caso o valor no Pix seja diferente
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                    Motivo da Conversão *
+                  </label>
+                  <input
+                    type="text"
+                    value={cajuReason}
+                    onChange={(e) => {
+                      setCajuReason(e.target.value);
+                      setCajuPixError("");
+                    }}
+                    placeholder="Ex: Estabelecimento não aceita Caju"
+                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-700 bg-slate-950 text-white outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 font-medium"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-1 block">
+                    Justificativa para conciliação contábil
+                  </span>
+                </div>
+              </div>
+
+              {/* Seletor de Destino da Solicitação */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-2">
+                  Destino da Solicitação após a conversão:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setCajuTargetStatus("CORRECAO_PENDENTE")}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      cajuTargetStatus === "CORRECAO_PENDENTE"
+                        ? "bg-red-500/15 border-red-500 text-white ring-1 ring-red-500/40"
+                        : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-red-400">Correção Pendente</span>
+                      {cajuTargetStatus === "CORRECAO_PENDENTE" && (
+                        <CheckCircle2 size={13} className="text-red-400" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Recomendado p/ conferência ou pagamento posterior.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCajuTargetStatus("AGUARDANDO_PAGAMENTO")}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      cajuTargetStatus === "AGUARDANDO_PAGAMENTO"
+                        ? "bg-amber-500/15 border-amber-500 text-white ring-1 ring-amber-500/40"
+                        : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-400">Aguardando Nota</span>
+                      {cajuTargetStatus === "AGUARDANDO_PAGAMENTO" && (
+                        <CheckCircle2 size={13} className="text-amber-400" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Pronto para pagamento via Pix aguardando comprovante fiscal.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCajuTargetStatus("FINALIZADO")}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                      cajuTargetStatus === "FINALIZADO"
+                        ? "bg-emerald-500/15 border-emerald-500 text-white ring-1 ring-emerald-500/40"
+                        : "bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-emerald-400">Manter Finalizado</span>
+                      {cajuTargetStatus === "FINALIZADO" && (
+                        <CheckCircle2 size={13} className="text-emerald-400" />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400 leading-tight">
+                      Pix já foi pago de imediato (exige comprovante).
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Checkbox Saldo Caju */}
+              <label className="flex items-center gap-2.5 p-3 rounded-xl border border-purple-500/20 bg-purple-950/20 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={cajuBalanceWithdrawn}
+                  onChange={(e) => setCajuBalanceWithdrawn(e.target.checked)}
+                  className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 bg-slate-900 border-slate-700 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-bold text-purple-200 block">
+                    Saldo antigo já foi retirado / cancelado no Caju
+                  </span>
+                  <span className="text-[10px] text-purple-400/80 block">
+                    Garante que não haverá duplicidade de pagamento no cartão benefício.
+                  </span>
+                </div>
+              </label>
+
+              {/* Upload Comprovante Pix com suporte a Colar / Paste e Drop */}
+              <div 
+                className="p-3.5 rounded-xl border border-slate-800 bg-slate-950/60 space-y-2.5 transition-all"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                      setCajuPixError("Tamanho máximo de 5MB.");
+                      return;
+                    }
+                    setCajuPixFile(file);
+                    setCajuPixError("");
+                  }
+                }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <label className="block text-xs font-bold text-slate-300">
+                    Comprovante do Pix
+                    {cajuTargetStatus === "FINALIZADO" ? (
+                      <span className="text-red-400 font-bold ml-1">* (Obrigatório se mantiver Finalizado)</span>
+                    ) : (
+                      <span className="text-slate-500 font-normal ml-1">(Opcional agora)</span>
+                    )}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handlePasteCajuPixFromClipboard}
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-purple-300 hover:text-purple-200 bg-purple-500/15 hover:bg-purple-500/25 px-2.5 py-1 rounded-lg border border-purple-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Colar print da área de transferência (ou aperte Ctrl+V)"
+                  >
+                    <Copy size={12} />
+                    <span>Colar Print (Ctrl+V)</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => cajuPixFileInputRef.current?.click()}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 transition-colors flex items-center gap-2 cursor-pointer"
+                  >
+                    <UploadCloud size={15} />
+                    <span>{cajuPixFile ? "Trocar Arquivo" : "Selecionar Arquivo"}</span>
+                  </button>
+                  <input
+                    type="file"
+                    ref={cajuPixFileInputRef}
+                    className="hidden"
+                    accept="image/*,.pdf"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        if (f.size > 5 * 1024 * 1024) {
+                          setCajuPixError("Tamanho máximo de 5MB.");
+                          return;
+                        }
+                        setCajuPixFile(f);
+                        setCajuPixError("");
+                      }
+                    }}
+                  />
+                  {cajuPixFile ? (
+                    <span className="text-xs text-emerald-400 font-medium flex items-center gap-1.5 truncate bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                      <CheckCircle2 size={13} className="shrink-0" />
+                      {cajuPixFile.name}
+                    </span>
+                  ) : (paymentProofUrl || (card as any).receipt_url || card.invoice_url) ? (
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="shrink-0 text-slate-500" />
+                      Comprovante anterior disponível no card
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-slate-500 italic">
+                      Ou pressione <strong>Ctrl + V</strong> para colar a imagem aqui
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer do Modal */}
+            <div className="p-4 border-t border-purple-500/20 bg-slate-950/80 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowCajuToPixModal(false)}
+                disabled={isConvertingCajuPix}
+                className="px-4 py-2 text-xs font-medium text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-40"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCajuToPix}
+                disabled={isConvertingCajuPix}
+                className="flex items-center gap-2 px-5 py-2 text-xs font-bold text-white rounded-xl bg-purple-600 hover:bg-purple-500 shadow-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isConvertingCajuPix ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                <span>Salvar e Converter para Pix</span>
+              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Moon, Sun, Cpu, Sparkles } from "lucide-react";
+import { Moon, Sun, Cpu, Sparkles, Zap } from "lucide-react";
 import { useTheme, Theme } from "@/contexts/ThemeContext";
 
 export default function SettingsAparencia() {
@@ -38,7 +38,7 @@ export default function SettingsAparencia() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           
           {/* Card Modo Claro */}
           <button
@@ -176,6 +176,46 @@ export default function SettingsAparencia() {
             {theme === "jeton" && (
               <div className="absolute top-4 right-4">
                 <div className="w-2 h-2 rounded-full bg-[#f73b20]" />
+              </div>
+            )}
+          </button>
+
+          {/* Card Modo Designtech (Conectsol Editorial & Electric) */}
+          <button
+            type="button"
+            onClick={() => changeThemeWithTransition("designtech")}
+            className="relative flex flex-col items-start p-5 rounded-xl border transition-all text-left cursor-pointer group"
+            style={{
+              backgroundColor: theme === "designtech" ? "rgba(227, 90, 0, 0.12)" : "var(--bg-card)",
+              borderColor: theme === "designtech" ? "#FF6A00" : "var(--surface-border)",
+            }}
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Zap size={20} className={theme === "designtech" ? "text-[#FF6A00]" : "text-amber-500"} />
+              <div className="flex flex-col">
+                <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
+                  Modo Designtech
+                </span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[#FFA439]">
+                  Editorial & Electric
+                </span>
+              </div>
+            </div>
+            <div className="w-full h-24 bg-[#000000] border border-white/10 flex flex-col gap-2 p-3 relative overflow-hidden shadow-inner">
+              {/* Corner brackets */}
+              <div className="absolute top-1 left-1 w-2 h-2 border-t-2 border-l-2 border-[#FF6A00]" />
+              <div className="absolute top-1 right-1 w-2 h-2 border-t-2 border-r-2 border-[#FF6A00]" />
+              <div className="w-1/3 h-2.5 bg-[#ffffff]" />
+              <div className="w-2/3 h-2 bg-[#6d6d6d]" />
+              <div className="w-1/2 h-2 font-mono text-[9px] text-[#FFA439]">#E35A00 · JETBRAINS</div>
+              {/* Pill button preview */}
+              <div className="absolute bottom-2.5 right-2.5 px-3 py-1 rounded-full text-[9px] font-bold text-black bg-gradient-to-r from-[#E35A00] to-[#FF6A00] shadow-[0_0_12px_rgba(255,106,0,0.5)]">
+                PILL 75PX
+              </div>
+            </div>
+            {theme === "designtech" && (
+              <div className="absolute top-4 right-4">
+                <div className="w-2 h-2 rounded-full bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]" />
               </div>
             )}
           </button>

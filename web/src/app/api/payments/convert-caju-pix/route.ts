@@ -8,9 +8,12 @@ import type { ReceiptHistoryItem, PaymentConversionLog } from "@/types/database"
 interface ConvertCajuPixPayload {
   paymentId: string;
   collaboratorPixKey: string;
+  pixOwner?: string;
+  amount?: number;
+  targetStatus?: "FINALIZADO" | "CORRECAO_PENDENTE" | "AGUARDANDO_PAGAMENTO";
   reason?: string;
   cajuBalanceWithdrawn: boolean;
-  newReceiptUrl: string;
+  newReceiptUrl?: string;
 }
 
 export async function POST(req: Request) {
@@ -58,6 +61,9 @@ export async function POST(req: Request) {
     const {
       paymentId,
       collaboratorPixKey,
+      pixOwner,
+      amount,
+      targetStatus = "FINALIZADO",
       reason,
       cajuBalanceWithdrawn,
       newReceiptUrl,
@@ -72,14 +78,26 @@ export async function POST(req: Request) {
 
     if (!collaboratorPixKey || typeof collaboratorPixKey !== "string" || !collaboratorPixKey.trim()) {
       return NextResponse.json(
-        { error: "A Chave Pix ou nome do colaborador recebedor é obrigatória." },
+        { error: "A Chave Pix do colaborador recebedor é obrigatória." },
         { status: 400 }
       );
     }
 
-    if (!newReceiptUrl || typeof newReceiptUrl !== "string" || !newReceiptUrl.trim()) {
+    const cleanPixKey = collaboratorPixKey.trim();
+    const cleanPixOwner = (pixOwner && typeof pixOwner === "string" && pixOwner.trim())
+      ? pixOwner.trim()
+      : cleanPixKey;
+
+    const finalTargetStatus: "FINALIZADO" | "CORRECAO_PENDENTE" | "AGUARDANDO_PAGAMENTO" =
+      targetStatus === "CORRECAO_PENDENTE"
+        ? "CORRECAO_PENDENTE"
+        : targetStatus === "AGUARDANDO_PAGAMENTO"
+        ? "AGUARDANDO_PAGAMENTO"
+        : "FINALIZADO";
+
+    if (finalTargetStatus === "FINALIZADO" && (!newReceiptUrl || typeof newReceiptUrl !== "string" || !newReceiptUrl.trim())) {
       return NextResponse.json(
-        { error: "O comprovante do Pix anexado é obrigatório." },
+        { error: "O comprovante do Pix anexado é obrigatório para manter a solicitação como Finalizada." },
         { status: 400 }
       );
     }
@@ -95,13 +113,6 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Solicitação de pagamento não encontrada." },
         { status: 404 }
-      );
-    }
-
-    if (card.status !== "FINALIZADO") {
-      return NextResponse.json(
-        { error: "Esta conversão é exclusiva para solicitações no status FINALIZADO." },
-        { status: 400 }
       );
     }
 
@@ -127,9 +138,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Adicionar o novo comprovante do Pix como ativo
-    const cleanNewReceiptUrl = newReceiptUrl.trim();
-    if (!receiptsHistory.some((r) => r.url === cleanNewReceiptUrl)) {
+    // Adicionar o novo comprovante do Pix se fornecido
+    const cleanNewReceiptUrl = (newReceiptUrl && typeof newReceiptUrl === "string") ? newReceiptUrl.trim() : null;
+    if (cleanNewReceiptUrl && !receiptsHistory.some((r) => r.url === cleanNewReceiptUrl)) {
       receiptsHistory.push({
         url: cleanNewReceiptUrl,
         uploadedAt: new Date().toISOString(),
@@ -143,10 +154,14 @@ export async function POST(req: Request) {
       convertedBy: profile.name || user.id,
       originalMethod: card.payment_method || card.payment_type || "CAJU",
       newMethod: "PIX",
-      collaboratorPixKey: collaboratorPixKey.trim(),
+      collaboratorPixKey: cleanPixKey,
       cajuBalanceWithdrawn: Boolean(cajuBalanceWithdrawn),
       reason: (reason && reason.trim()) || "Local não aceita Caju / Falha no cartão",
     };
+
+    const parsedAmount = typeof amount === "number" && !isNaN(amount) && amount > 0
+      ? Number(amount.toFixed(2))
+      : Number(card.amount || 0);
 
     // 7. Atualizar splits caso existam
     let updatedSplits = card.splits;
@@ -157,26 +172,45 @@ export async function POST(req: Request) {
           return {
             ...split,
             payment_type: "Pix",
-            pix_key: collaboratorPixKey.trim(),
-            pix_owner: collaboratorPixKey.trim(),
+            pix_key: cleanPixKey,
+            pix_owner: cleanPixOwner,
+            amount: parsedAmount,
           };
         }
         return split;
       });
     }
 
-    // 8. Atualizar registro no banco (mantendo estritamente FINALIZADO)
+    // 8. Calcular histórico de etapas se houver mudança de status
+    let nextStageHistory = card.stage_history;
+    if (finalTargetStatus !== card.status) {
+      const { computeNextStageHistory } = await import("@/utils/sla");
+      nextStageHistory = computeNextStageHistory(
+        card.stage_history,
+        card.status,
+        finalTargetStatus,
+        user.id,
+        card.created_at
+      );
+    }
+
+    // 9. Atualizar registro no banco com distinção entre chave e titular
     const updatePayload: Record<string, any> = {
       payment_method: "PIX (Convertido de Caju)",
       payment_type: "PIX",
-      pix_key: collaboratorPixKey.trim(),
-      pix_owner: collaboratorPixKey.trim(),
-      payment_proof_url: cleanNewReceiptUrl,
-      receipts_history: receiptsHistory,
+      pix_key: cleanPixKey,
+      pix_owner: cleanPixOwner,
+      pix_name: cleanPixOwner,
+      amount: parsedAmount,
+      status: finalTargetStatus,
       payment_conversion_log: conversionLog,
       splits: updatedSplits,
-      status: "FINALIZADO", // Mantido sem exigir nota fiscal nem envio para gestor
+      stage_history: nextStageHistory,
       updated_at: new Date().toISOString(),
+      ...(cleanNewReceiptUrl ? { payment_proof_url: cleanNewReceiptUrl, receipts_history: receiptsHistory } : {}),
+      ...(finalTargetStatus === "CORRECAO_PENDENTE"
+        ? { rejection_reason: `Conversão de Caju para Pix: ${(reason && reason.trim()) || "Ajuste para pagamento via Pix"}` }
+        : {}),
     };
 
     const { data: updatedCard, error: updateError } = await supabaseAdmin
@@ -194,19 +228,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // 9. Registrar em audit_logs para conformidade e rastreabilidade
+    // 10. Registrar em audit_logs para conformidade e rastreabilidade
     await supabaseAdmin.from("audit_logs").insert({
       request_id: paymentId,
       action: "CONVERSAO_CAJU_PIX",
       performed_by: user.id,
-      old_status: "FINALIZADO",
-      new_status: "FINALIZADO",
-      notes: `Conversão de Caju para Pix realizada por ${profile.name}. Motivo: ${conversionLog.reason}. Saldo Caju retirado: ${cajuBalanceWithdrawn ? "Sim" : "Não"}. Chave Pix: ${collaboratorPixKey.trim()}`,
+      old_status: card.status,
+      new_status: finalTargetStatus,
+      notes: `Conversão de Caju para Pix realizada por ${profile.name}. Titular: ${cleanPixOwner} | Chave Pix: ${cleanPixKey} | Valor: R$ ${parsedAmount.toFixed(2)} | Destino: ${finalTargetStatus}. Motivo: ${conversionLog.reason}. Saldo Caju retirado: ${cajuBalanceWithdrawn ? "Sim" : "Não"}.`,
     });
+
+    // 11. Sincronizar saldo Nubank se aplicável
+    try {
+      const { processCardMovement } = await import("@/lib/nubankBalance");
+      await processCardMovement(paymentId, user.id);
+    } catch (nubankErr) {
+      console.warn("[convert-caju-pix] Sincronização de saldo Nubank:", nubankErr);
+    }
 
     return NextResponse.json({
       success: true,
-      message: "Conversão de Caju para Pix realizada com sucesso.",
+      message: `Conversão de Caju para Pix realizada com sucesso (Status: ${finalTargetStatus}).`,
       card: updatedCard,
     });
   } catch (err: any) {

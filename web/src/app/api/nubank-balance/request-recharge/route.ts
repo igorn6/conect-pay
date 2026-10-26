@@ -152,7 +152,8 @@ export async function POST(req: Request) {
     const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
     const subject = `Pagamento Ref. ${isCaju ? "Recarga Caju" : "Recarga Nubank"} | ${cnpj}`;
     const displayIdentifier = identifier || "";
-    const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${notes}\nValor: ${formattedAmount}\nChave pix / Linha digitável: ${displayIdentifier}\nTitular: ${pixOwner}\nSolicitante: ${requesterName}`;
+    const identifierLabel = paymentType === "PIX" ? "Chave pix" : (paymentType === "BOLETO" ? "Linha digitável" : "Chave pix");
+    const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${notes}\nValor: ${formattedAmount}\n${identifierLabel}: ${displayIdentifier}\nTitular: ${pixOwner}\nSolicitante: ${requesterName}`;
 
     return NextResponse.json({
       ok: true,

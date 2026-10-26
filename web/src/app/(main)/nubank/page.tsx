@@ -162,9 +162,9 @@ export default function NubankCajuPage() {
     setRechargeError(null);
     setRechargeForm({
       amount: "2.500,00",
-      paymentType: "BOLETO",
+      paymentType: "PIX",
       barcode: "",
-      pixKey: "",
+      pixKey: "00020126580014BR.GOV.BCB.PIX0136c8e15420-f3fb-4f01-9c93-031439d0f74852040000530398654072500.005802BR5925LIMA E TRINDADE COMERCIO 6009SAO PAULO61080540900062250521WDZIrBFGaOMV28Ffgvqv66304B21A",
       pixOwner: "Lima e Trindade",
       cnpj: "CNPJ 2",
       notes: "Recarga saldo Nubank",
@@ -183,6 +183,11 @@ export default function NubankCajuPage() {
       return;
     }
 
+    if (!rechargeForm.pixKey.trim()) {
+      setRechargeError("Informe a Chave Pix da recarga Nubank.");
+      return;
+    }
+
     try {
       setIsSubmittingRecharge(true);
       const { data: sessionData } = await supabase.auth.getSession();
@@ -196,9 +201,8 @@ export default function NubankCajuPage() {
         headers,
         body: JSON.stringify({
           amount: amountNum,
-          payment_type: rechargeForm.paymentType,
-          boleto_barcode: rechargeForm.paymentType === "BOLETO" ? rechargeForm.barcode.trim() : null,
-          pix_key: rechargeForm.paymentType === "PIX" ? rechargeForm.pixKey.trim() : "",
+          payment_type: "PIX",
+          pix_key: rechargeForm.pixKey.trim(),
           pix_owner: rechargeForm.pixOwner.trim(),
           cnpj: rechargeForm.cnpj.trim(),
           notes: rechargeForm.notes.trim(),
@@ -479,84 +483,81 @@ export default function NubankCajuPage() {
         )}
 
         {/* ========================================================
-            DECK DOS DOIS CANAIS CORPORATIVOS: NUBANK 02 E CAJU
+            DECK DOS DOIS CANAIS CORPORATIVOS: NUBANK 02 E CAJU (SIMÉTRICOS)
             ======================================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
           
           {/* Card 1: Nubank 02 (Saldo Corporativo em Tempo Real) */}
-          <div className="lg:col-span-2 rounded-2xl bg-gradient-to-br from-slate-900/95 via-[#181126] to-slate-900/95 border border-[#820AD1]/30 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between group hover:border-[#820AD1]/50 transition-all duration-300">
+          <div className="rounded-2xl bg-gradient-to-br from-slate-900/95 via-[#181126] to-slate-900/95 border border-[#820AD1]/30 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between group hover:border-[#820AD1]/50 transition-all duration-300">
             <div className="absolute top-0 right-0 -mr-20 -mt-20 w-72 h-72 bg-[#820AD1]/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative z-10">
+            <div className="relative z-10 flex flex-col h-full justify-between">
               
-              {/* Header do Card Nubank */}
-              <div className="flex items-start justify-between gap-4 flex-wrap sm:flex-nowrap">
-                <div className="flex items-start gap-4">
-                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#820AD1] to-[#5a0594] flex items-center justify-center text-white shadow-lg shadow-purple-950/60 shrink-0 border border-purple-400/20">
-                    <Wallet size={24} className="text-white drop-shadow-sm" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#d8b4fe] bg-[#820AD1]/25 px-2.5 py-0.5 rounded-full border border-[#820AD1]/40">
-                        Nubank 02 • Saldo Corporativo
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Anti-duplicidade Ativa
-                      </span>
+              <div>
+                {/* Header do Card Nubank */}
+                <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#820AD1] to-[#5a0594] flex items-center justify-center text-white shadow-lg shadow-purple-950/60 shrink-0 border border-purple-400/20">
+                      <Wallet size={24} className="text-white drop-shadow-sm" />
                     </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#d8b4fe] bg-[#820AD1]/25 px-2.5 py-0.5 rounded-full border border-[#820AD1]/40">
+                          Nubank 02 • Saldo Corporativo
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          Anti-duplicidade Ativa
+                        </span>
+                      </div>
 
-                    <div className="flex items-baseline gap-3 mt-2">
-                      {loading ? (
-                        <div className="h-10 w-44 bg-slate-800 rounded animate-pulse" />
-                      ) : error ? (
-                        <div className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
-                          <AlertCircle size={16} />
-                          <span>Erro ao consultar</span>
-                        </div>
-                      ) : (
-                        <AnimatedCurrency
-                          value={currentBalance}
-                          prefix="R$ "
-                          prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-medium mr-1"
-                          className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-mono"
-                        />
-                      )}
+                      <div className="flex items-baseline gap-3 mt-2">
+                        {loading ? (
+                          <div className="h-10 w-44 bg-slate-800 rounded animate-pulse" />
+                        ) : error ? (
+                          <div className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
+                            <AlertCircle size={16} />
+                            <span>Erro ao consultar</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5">
+                            <AnimatedCurrency
+                              value={currentBalance}
+                              prefix="R$ "
+                              prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-medium mr-1"
+                              className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-mono"
+                            />
+                            <button
+                              onClick={() => fetchBalance(true)}
+                              disabled={refreshing}
+                              title="Atualizar saldo agora"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                            >
+                              <RefreshCw size={15} className={refreshing ? "animate-spin text-purple-400" : ""} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-400 mt-1">
+                        Liquidação automática em tempo real para pagamentos no Kanban.
+                      </p>
                     </div>
-
-                    <p className="text-xs text-slate-400 mt-1">
-                      Liquidação automática em tempo real para pagamentos no Kanban.
-                    </p>
                   </div>
-                </div>
 
-                {/* Botão Recarga Nubank (Canto Superior Direito) */}
-                <div className="self-start shrink-0">
-                  <button
-                    onClick={handleOpenRechargeModal}
-                    className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-200 border border-purple-500/30 hover:border-purple-400/60 shadow-[0_0_15px_rgba(168,85,247,0.12)] hover:shadow-[0_0_20px_rgba(168,85,247,0.25)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
-                    title="Solicitar Recarga Nubank de R$ 2.500,00"
-                  >
-                    <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    <span>Recarga Nubank (R$ 2.500)</span>
-                  </button>
+                  {/* Botão Recarga Nubank (Canto Superior Direito) */}
+                  <div className="self-start shrink-0">
+                    <button
+                      onClick={handleOpenRechargeModal}
+                      className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-200 border border-purple-500/30 hover:border-purple-400/60 shadow-[0_0_15px_rgba(168,85,247,0.12)] hover:shadow-[0_0_20px_rgba(168,85,247,0.25)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                      title="Solicitar Recarga Nubank de R$ 2.500,00"
+                    >
+                      <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                      <span>Recarga Nubank (R$ 2.500)</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Micro Indicadores Financeiros */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-5 pt-4 border-t border-white/[0.08]">
-                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/50 border border-slate-800/80">
-                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-amber-400/80">Reembolsado:</span>
-                  <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
-                </div>
-                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/50 border border-slate-800/80">
-                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-emerald-400/80">Entradas:</span>
-                  <AnimatedCurrency value={totalEntradas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-emerald-400" />
-                </div>
-                <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/50 border border-slate-800/80">
-                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-rose-400/80">Saídas:</span>
-                  <AnimatedCurrency value={totalSaidas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-rose-400" />
-                </div>
-              </div>
             </div>
           </div>
 
@@ -612,23 +613,40 @@ export default function NubankCajuPage() {
 
         </div>
 
-        {/* Mini-Lista de Movimentações Recentes (Últimas 5) */}
-        <div className="rounded-2xl bg-slate-900/60 border border-white/[0.08] p-5 shadow-lg relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Últimas Movimentações Nubank
-                </span>
-                <span className="text-[10px] text-slate-500 font-semibold bg-slate-800 px-2 py-0.5 rounded-full">
-                  {snapshot?.movements?.length || 0} de 5
-                </span>
+        {/* Mini-Lista de Movimentações Recentes (Últimas 5) integrada com Indicadores Financeiros */}
+        <div className="rounded-2xl bg-gradient-to-br from-slate-900/90 via-[#181126]/60 to-slate-900/90 border border-[#820AD1]/30 p-5 shadow-xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-4 pb-3 border-b border-white/[0.08]">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#d8b4fe]">
+                Últimas Movimentações Nubank
+              </span>
+              <span className="text-[10px] text-slate-400 font-semibold bg-slate-800/80 border border-white/10 px-2 py-0.5 rounded-full">
+                {snapshot?.movements?.length || 0} de 5
+              </span>
+            </div>
+
+            {/* Micro Indicadores Financeiros Reorganizados com Estilo Discreto */}
+            <div className="flex items-center gap-2 flex-wrap text-xs">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/25">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-amber-400/90">Reembolsado:</span>
+                <AnimatedCurrency value={totalReembolsos} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-amber-300" />
               </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-emerald-400/90">Entradas:</span>
+                <AnimatedCurrency value={totalEntradas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-emerald-400" />
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/10 border border-rose-500/25">
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-rose-400/90">Saídas:</span>
+                <AnimatedCurrency value={totalSaidas} prefix="R$ " prefixClassName="font-normal opacity-80 mr-0.5" className="font-bold font-mono text-xs text-rose-400" />
+              </div>
+
               {snapshot?.updatedAt && (
-                <span className="text-[11px] text-slate-500">
-                  Última sincronização: {new Date(snapshot.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                <span className="text-[11px] text-slate-500 pl-1">
+                  • Sinc: {new Date(snapshot.updatedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
             </div>
+          </div>
 
             {loading ? (
               <div className="space-y-2">
@@ -1030,71 +1048,23 @@ export default function NubankCajuPage() {
                   </span>
                 </div>
 
-                {/* Forma de Pagamento */}
+                {/* Chave Pix de Recarga (Exclusivo Pix) */}
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                    Forma de Pagamento da Recarga
+                  <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                    Chave Pix de Recarga *
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setRechargeForm((prev) => ({ ...prev, paymentType: "BOLETO" }))}
-                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        rechargeForm.paymentType === "BOLETO"
-                          ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                          : "border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      <FileText size={15} />
-                      <span>Boleto Bancário (Linha Digitável)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setRechargeForm((prev) => ({ ...prev, paymentType: "PIX" }))}
-                      className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        rechargeForm.paymentType === "PIX"
-                          ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
-                          : "border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      <QrCode size={15} />
-                      <span>Chave Pix</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Campo Dinâmico: Linha digitável ou Chave Pix */}
-                <div className="md:col-span-2">
-                  {rechargeForm.paymentType === "BOLETO" ? (
-                    <div>
-                      <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                        Linha Digitável / Código de Barras do Boleto
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={rechargeForm.barcode}
-                        onChange={(e) => setRechargeForm((prev) => ({ ...prev, barcode: e.target.value }))}
-                        placeholder="Cole aqui a linha digitável do boleto de recarga Nubank..."
-                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-emerald-500"
-                        style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
-                      />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                        Chave Pix de Recarga
-                      </label>
-                      <input
-                        type="text"
-                        value={rechargeForm.pixKey}
-                        onChange={(e) => setRechargeForm((prev) => ({ ...prev, pixKey: e.target.value }))}
-                        placeholder="Informe a chave Pix (CNPJ, e-mail, telefone ou chave aleatória)..."
-                        className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-emerald-500"
-                        style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
-                      />
-                    </div>
-                  )}
+                  <input
+                    type="text"
+                    required
+                    value={rechargeForm.pixKey}
+                    onChange={(e) => setRechargeForm((prev) => ({ ...prev, pixKey: e.target.value }))}
+                    placeholder="Informe a chave Pix (CNPJ, e-mail, telefone ou chave aleatória)..."
+                    className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-emerald-500 font-medium"
+                    style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block">
+                    Pagamento imediato via Pix sem linha digitável ou boleto.
+                  </span>
                 </div>
 
               </div>
@@ -1111,11 +1081,7 @@ export default function NubankCajuPage() {
                   className="p-3.5 rounded-xl border font-mono text-xs whitespace-pre-wrap leading-relaxed select-text"
                   style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
                 >
-                  {`--\n${new Date().getHours() < 12 ? "Bom dia" : "Boa tarde"}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${rechargeForm.notes.trim() || "Recarga saldo Nubank"}\nValor: R$ ${rechargeForm.amount || "2.500,00"}\nChave pix / Linha digitável: ${
-                    rechargeForm.paymentType === "BOLETO"
-                      ? (rechargeForm.barcode.trim() || "(informe a linha digitável acima)")
-                      : (rechargeForm.pixKey.trim() || "(informe a chave pix acima)")
-                  }\nTitular: ${rechargeForm.pixOwner.trim() || "Lima e Trindade"}\nSolicitante: ${rechargeForm.requesterName.trim() || userName || "Igor Nascimento"}`}
+                  {`--\n${new Date().getHours() < 12 ? "Bom dia" : "Boa tarde"}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${rechargeForm.notes.trim() || "Recarga saldo Nubank"}\nValor: R$ ${rechargeForm.amount || "2.500,00"}\nChave pix: ${rechargeForm.pixKey.trim() || "(informe a chave pix acima)"}\nTitular: ${rechargeForm.pixOwner.trim() || "Lima e Trindade"}\nSolicitante: ${rechargeForm.requesterName.trim() || userName || "Igor Nascimento"}`}
                 </div>
               </div>
 

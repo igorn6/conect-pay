@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export type Theme = "light" | "dark" | "n8n" | "authkit" | "jeton";
+export type Theme = "light" | "dark" | "n8n" | "authkit" | "jeton" | "designtech";
 
 interface ThemeContextType {
   theme: Theme;
@@ -22,7 +22,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("@conectpay/theme") as Theme;
-    if (stored === "light" || stored === "dark" || stored === "n8n" || stored === "authkit" || stored === "jeton") {
+    if (stored === "light" || stored === "dark" || stored === "n8n" || stored === "authkit" || stored === "jeton" || stored === "designtech") {
       setThemeState(stored);
     }
     setMounted(true);
@@ -32,7 +32,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!mounted) return;
     
     const root = document.documentElement;
-    root.classList.remove("light-theme", "theme-n8n", "theme-authkit", "theme-jeton");
+    root.classList.remove("light-theme", "theme-n8n", "theme-authkit", "theme-jeton", "theme-designtech");
     
     if (theme === "light") {
       root.classList.add("light-theme");
@@ -42,6 +42,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.classList.add("theme-authkit");
     } else if (theme === "jeton") {
       root.classList.add("theme-jeton");
+    } else if (theme === "designtech") {
+      root.classList.add("theme-designtech");
     }
     
     localStorage.setItem("@conectpay/theme", theme);

@@ -83,8 +83,15 @@ export default function GlobalHeader() {
               <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} />
               <div className="absolute right-0 mt-2 w-48 rounded-xl border z-50 overflow-hidden shadow-xl"
                    style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
-                {(['light', 'dark', 'n8n', 'authkit', 'jeton'] as Theme[]).map((t) => {
-                  const labelMap: Record<string, string> = { light: "Modo Claro", dark: "Modo Escuro", n8n: "Modo Cyber", authkit: "Modo Authkit", jeton: "Modo Jeton" };
+                {(['light', 'dark', 'n8n', 'authkit', 'jeton', 'designtech'] as Theme[]).map((t) => {
+                  const labelMap: Record<string, string> = { 
+                    light: "Modo Claro", 
+                    dark: "Modo Escuro", 
+                    n8n: "Modo Cyber", 
+                    authkit: "Modo Authkit", 
+                    jeton: "Modo Jeton",
+                    designtech: "Modo Designtech"
+                  };
                   return (
                   <button
                     key={t}
@@ -95,7 +102,19 @@ export default function GlobalHeader() {
                     }}
                   >
                     <span>{labelMap[t]}</span>
-                    {theme === t && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
+                    {theme === t && (
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        t === "designtech"
+                          ? "bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]"
+                          : t === "jeton"
+                          ? "bg-[#f73b20]"
+                          : t === "authkit"
+                          ? "bg-[#7c4dff]"
+                          : t === "n8n"
+                          ? "bg-[#fd8925]"
+                          : "bg-emerald-500"
+                      }`} />
+                    )}
                   </button>
                 )})}
               </div>
