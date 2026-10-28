@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type FormEvent } from "react";
-import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2, FileText, Image as ImageIcon, Sparkles } from "lucide-react";
+import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2, FileText, Image as ImageIcon, Sparkles, Users, Lock, ShieldCheck } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PAYMENT_TYPES } from "@/constants/requesters";
 import { useProfilesMap } from "@/hooks/useProfilesMap";
@@ -9,7 +9,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
 import { sendPushNotification } from "@/lib/pushNotifications";
-import type { AiCategorySuggestion } from "@/types/database";
+import type { AiCategorySuggestion, RequestVisibility } from "@/types/database";
 
 interface NewRequestModalProps {
   onClose: () => void;
@@ -37,6 +37,7 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
   const [invoiceFiles, setInvoiceFiles] = useState<File[]>([]);
   
   const [requestKind, setRequestKind] = useState<"" | "RECARGA_NUBANK" | "RECARGA_CAJU">("");
+  const [visibility, setVisibility] = useState<RequestVisibility>("COMPARTILHADA");
   const [splits, setSplits] = useState<any[]>([
     { id: uuidv4(), payment_type: "", amount: "", pix_owner: "", pix_key: "", caju_phone: "", boleto_barcode: "", boleto_due_date: "", boleto_notes: "" }
   ]);
@@ -233,6 +234,7 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         ai_category_suggestion: aiSuggestion,
         due_date: d.toISOString(),
         request_kind: requestKind || null,
+        visibility: visibility || "COMPARTILHADA",
         balance_processed: false,
         splits: splits.map(s => ({
           id: s.id,
@@ -315,6 +317,80 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-6 space-y-6 custom-scrollbar">
           
           <div className="space-y-4">
+            {/* Seletor de Visibilidade (Compartilhada vs Individual) */}
+            <div className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02]">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-emerald-400" />
+                  Visibilidade da Solicitação
+                </label>
+                <span className="text-[10px] text-slate-400">
+                  {visibility === "COMPARTILHADA" ? "Visível para a equipe do seu setor" : "Privada e restrita a você"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Opção Compartilhada (Padrão) */}
+                <button
+                  type="button"
+                  onClick={() => setVisibility("COMPARTILHADA")}
+                  title="Compartilhada: todos do setor conseguem ver."
+                  className={`group relative flex items-center gap-2.5 p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                    visibility === "COMPARTILHADA"
+                      ? "border-emerald-500/60 bg-emerald-500/15 text-white shadow-sm shadow-emerald-950/40"
+                      : "border-white/5 bg-slate-900/40 text-slate-400 hover:border-white/15 hover:bg-slate-900/70 hover:text-slate-200"
+                  }`}
+                >
+                  <div
+                    className={`p-1.5 rounded-md ${
+                      visibility === "COMPARTILHADA"
+                        ? "bg-emerald-500/25 text-emerald-300"
+                        : "bg-white/5 text-slate-400 group-hover:text-slate-200"
+                    }`}
+                  >
+                    <Users size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-white">Compartilhada</span>
+                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-300 font-mono font-semibold">Padrão</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 leading-tight truncate mt-0.5" title="Compartilhada: todos do setor conseguem ver.">
+                      Todos do setor conseguem ver
+                    </p>
+                  </div>
+                </button>
+
+                {/* Opção Individual */}
+                <button
+                  type="button"
+                  onClick={() => setVisibility("INDIVIDUAL")}
+                  title="Individual: somente você consegue ver."
+                  className={`group relative flex items-center gap-2.5 p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
+                    visibility === "INDIVIDUAL"
+                      ? "border-amber-500/60 bg-amber-500/15 text-white shadow-sm shadow-amber-950/40"
+                      : "border-white/5 bg-slate-900/40 text-slate-400 hover:border-white/15 hover:bg-slate-900/70 hover:text-slate-200"
+                  }`}
+                >
+                  <div
+                    className={`p-1.5 rounded-md ${
+                      visibility === "INDIVIDUAL"
+                        ? "bg-amber-500/25 text-amber-300"
+                        : "bg-white/5 text-slate-400 group-hover:text-slate-200"
+                    }`}
+                  >
+                    <Lock size={16} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-bold text-white">Individual</span>
+                    <p className="text-[11px] text-slate-400 leading-tight truncate mt-0.5" title="Individual: somente você consegue ver.">
+                      Somente você consegue ver
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className={labelClass} style={labelStyle}>
                 Titulo / Descricao Curta *
@@ -559,7 +635,17 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
                         style={inputStyle}
                       />
                     </div>
-                    
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase mb-1" style={{ color: "var(--text-secondary)" }}>Titular / Beneficiário</label>
+                      <input
+                        type="text"
+                        value={split.pix_owner || ""}
+                        onChange={(e) => updateSplit(split.id, 'pix_owner', e.target.value)}
+                        className="w-full px-3 py-2 rounded text-xs outline-none"
+                        style={inputStyle}
+                        placeholder="Ex: CREA, CEMIG, Empresa..."
+                      />
+                    </div>
                   </div>
                 )}
 

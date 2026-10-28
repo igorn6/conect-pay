@@ -96,10 +96,10 @@ export async function POST(req: Request) {
       pix_name: pixOwner,
       pix_owner: pixOwner,
       pix_key: paymentType === "PIX" ? pixKey : "",
-      status: "NOVA_SOLICITACAO",
+      status: reqBody?.initial_status || reqBody?.status || "NOVA_SOLICITACAO",
       stage_history: [
         {
-          stage: "NOVA_SOLICITACAO",
+          stage: reqBody?.initial_status || reqBody?.status || "NOVA_SOLICITACAO",
           entered_at: new Date().toISOString(),
           left_at: null,
           duration_seconds: null,

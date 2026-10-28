@@ -616,7 +616,14 @@ export default function NubankStatementValidatorModal({
                           return (
                             <tr key={it.id || idx} className="hover:bg-white/[0.02] transition-colors">
                               <td className="px-4 py-3 whitespace-nowrap font-mono text-slate-300">
-                                {it.date.split("-").reverse().join("/")}
+                                <div className="flex flex-col">
+                                  <span>{it.date.split("-").reverse().join("/")}</span>
+                                  {r.isShiftedFromWeekend && r.effectiveDate && (
+                                    <span className="text-[9px] font-sans text-amber-300 font-semibold">
+                                      Liquidado em {r.effectiveDate.split("-").reverse().join("/")} (dia útil)
+                                    </span>
+                                  )}
+                                </div>
                               </td>
 
                               <td className="px-4 py-3 whitespace-nowrap">

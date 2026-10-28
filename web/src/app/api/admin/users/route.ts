@@ -5,17 +5,18 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function GET() {
   try {
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.listUsers();
-    if (authError) throw authError;
-
-    const { data: profiles, error: profilesError } = await supabaseAdmin.from("profiles").select("*").order("name");
+    const [{ data: authData }, { data: profiles, error: profilesError }] = await Promise.all([
+      supabaseAdmin.auth.admin.listUsers().catch(() => ({ data: { users: [] } as any })),
+      supabaseAdmin.from("profiles").select("*").order("name"),
+    ]);
     if (profilesError) throw profilesError;
 
-    const merged = profiles.map((p: any) => {
-      const authUser = authData.users.find((u: any) => u.id === p.id);
+    const usersList = authData?.users || [];
+    const merged = (profiles || []).map((p: any) => {
+      const authUser = usersList.find((u: any) => u.id === p.id);
       return {
         ...p,
-        email: authUser?.email || "Sem email",
+        email: authUser?.email || p.email || "Sem email",
         is_active: !authUser?.banned_until
       };
     });

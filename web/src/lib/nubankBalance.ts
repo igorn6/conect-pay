@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createClient } from "@/utils/supabase/server";
+import { syncCajuRechargeCard } from "@/lib/caju/cajuService";
 import {
   NUBANK_INITIAL_BALANCE,
   isNubankAccount,
@@ -25,17 +26,18 @@ export async function authorize(
   req?: Request,
   providedUserId?: string | null
 ): Promise<AuthResult> {
-  let user: any = null;
+  const headerUserId = req?.headers.get("x-user-id") || null;
+  let targetUserId: string | null = headerUserId || providedUserId || null;
 
-  // 1. Tenta por Bearer token no header Authorization
-  if (req) {
+  // 1. Se não veio userId explícito, tenta por Bearer token no header Authorization
+  if (!targetUserId && req) {
     const authHeader = req.headers.get("authorization");
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "").trim();
       try {
         const { data: tokenUser } = await supabaseAdmin.auth.getUser(token);
-        if (tokenUser?.user) {
-          user = tokenUser.user;
+        if (tokenUser?.user?.id) {
+          targetUserId = tokenUser.user.id;
         }
       } catch (e) {
         console.warn("[Authorize] Erro ao validar Bearer token:", e);
@@ -43,38 +45,21 @@ export async function authorize(
     }
   }
 
-  // 2. Se não encontrou, tenta por cookies SSR
-  if (!user) {
+  // 2. Se ainda não encontrou, tenta por cookies SSR
+  if (!targetUserId) {
     try {
       const supabase = await createClient();
       const {
         data: { user: cookieUser },
       } = await supabase.auth.getUser();
-      if (cookieUser) {
-        user = cookieUser;
+      if (cookieUser?.id) {
+        targetUserId = cookieUser.id;
       }
-    } catch (cookieErr) {
+    } catch {
       // Cookies SSR podem não estar presentes no client fetch
     }
   }
 
-  // 3. Fallback: header x-user-id ou providedUserId
-  if (!user && req) {
-    const headerUserId = req.headers.get("x-user-id");
-    const targetId = headerUserId || providedUserId;
-    if (targetId) {
-      try {
-        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(targetId);
-        if (authUser?.user) {
-          user = authUser.user;
-        }
-      } catch (e) {
-        console.warn("[Authorize] Erro ao buscar usuário por ID:", e);
-      }
-    }
-  }
-
-  const targetUserId = user?.id || providedUserId;
   if (!targetUserId) {
     return { ok: false, status: 401, error: "Não autorizado. Faça login novamente." };
   }
@@ -359,6 +344,9 @@ export async function processCardMovement(paymentId: string, userId: string) {
     return { processed: false, reason: "Solicitação não encontrada.", notFound: true as const };
   }
 
+  // Gatilho automático Caju: credita/estorna Saldo Livre quando Recarga Caju atinge ou sai de FINALIZADO
+  const cajuSync = await syncCajuRechargeCard(card, userId);
+
   let creatorRole: string | null = null;
   if (card.request_kind === "RECARGA_NUBANK" && card.created_by) {
     const { data: creator } = await supabaseAdmin.from("profiles").select("role").eq("id", card.created_by).maybeSingle();
@@ -367,7 +355,7 @@ export async function processCardMovement(paymentId: string, userId: string) {
 
   const decision = decideCardMovement(card, creatorRole);
   if (decision.action === "SKIP") {
-    return { processed: false, reason: decision.reason };
+    return { processed: cajuSync.processed, caju: cajuSync, reason: decision.reason };
   }
 
   if (decision.action === "REVERT") {

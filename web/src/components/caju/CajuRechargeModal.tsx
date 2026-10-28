@@ -109,6 +109,7 @@ export default function CajuRechargeModal({
       setSuccessData(data);
       if (onSuccess) onSuccess();
       if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("caju-balance-updated"));
         window.dispatchEvent(new Event("nubank-balance-updated"));
       }
     } catch (err: any) {

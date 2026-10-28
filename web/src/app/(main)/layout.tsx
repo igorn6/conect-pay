@@ -21,7 +21,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
         <GlobalNotification />
         <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative z-10">
           <GlobalHeader />
-          <div className="flex-1 flex flex-col h-full min-h-0 w-full overflow-hidden relative">
+          <div className="flex-1 flex flex-col min-h-0 w-full relative">
             {children}
           </div>
         </main>

@@ -7,6 +7,8 @@ export interface UserSector {
   created_at?: string;
 }
 
+export type RequestVisibility = "COMPARTILHADA" | "INDIVIDUAL";
+
 export type RequestStatus =
   | "NOVA_SOLICITACAO"
   | "EM_APROVACAO"
@@ -94,7 +96,10 @@ export interface PaymentRequest {
   payment_conversion_log?: PaymentConversionLog | null;
   balance_processed?: boolean | null;
   request_kind?: "RECARGA_NUBANK" | "RECARGA_CAJU" | null;
+  pending_edit?: PendingEdit | null;
+  edit_history?: EditHistoryItem[] | null;
   
+  visibility?: RequestVisibility | null;
   profiles?: Profile;
   category?: string | null;
 }
@@ -146,4 +151,38 @@ export interface KanbanColumnConfig {
   label: string;
   color: string;
   bgColor: string;
+}
+
+export interface PendingEditData {
+  title: string;
+  amount: number;
+  category?: string | null;
+  category_id?: string | null;
+  notes?: string | null;
+  payment_type?: string | null;
+  splits?: SplitPayment[] | null;
+  pix_key?: string | null;
+  pix_owner?: string | null;
+  caju_phone?: string | null;
+}
+
+export interface PendingEdit {
+  requested_by_id: string;
+  requested_by_name: string;
+  requested_at: string;
+  reason: string;
+  original_data: PendingEditData;
+  new_data: PendingEditData;
+}
+
+export interface EditHistoryItem {
+  id: string;
+  action: "AUTHORIZED" | "REJECTED" | "DIRECT_EDIT";
+  performed_by_id: string;
+  performed_by_name: string;
+  performed_at: string;
+  reason?: string | null;
+  changes_summary?: string;
+  previous_data?: PendingEditData;
+  applied_data?: PendingEditData;
 }

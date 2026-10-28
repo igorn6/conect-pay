@@ -4,7 +4,7 @@ import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
   ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles,
-  AlertCircle, Info, RefreshCw, RotateCcw, Undo2
+  AlertCircle, Info, RefreshCw, RotateCcw, Undo2, FileEdit
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ import { getStatusLabel } from "@/constants/kanban";
 import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@/utils/sla";
 import { syncNubankBalance } from "@/lib/nubankClient";
 import { sendPushNotification } from "@/lib/pushNotifications";
+import ManualEditModal from "./ManualEditModal";
 
 const NEXT_STATUS: Record<string, string> = {
   NOVA_SOLICITACAO: "EM_APROVACAO",
@@ -313,6 +314,189 @@ export default function CardDetailModal({
   const isCorrecaoPendente = card.status === "CORRECAO_PENDENTE";
   const isFinalizado = card.status === "FINALIZADO";
 
+  const isMaster = userRole === "MASTER";
+
+  // Estados para Edição Manual e Autorização Master
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showMasterAuthModal, setShowMasterAuthModal] = useState(false);
+  const [isAuthorizingEdit, setIsAuthorizingEdit] = useState(false);
+  const [showRejectEditModal, setShowRejectEditModal] = useState(false);
+  const [rejectEditReason, setRejectEditReason] = useState("");
+  const [isRejectingEdit, setIsRejectingEdit] = useState(false);
+
+  const handleMasterApproveEdit = async () => {
+    if (!card.pending_edit) return;
+    try {
+      setIsAuthorizingEdit(true);
+      const pending = card.pending_edit;
+      const newData = pending.new_data;
+
+      const historyItem = {
+        id: (typeof window !== "undefined" && window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2)),
+        action: "AUTHORIZED",
+        performed_by_id: userId,
+        performed_by_name: userName || "Master",
+        performed_at: new Date().toISOString(),
+        reason: pending.reason,
+        changes_summary: `Alteração autorizada pelo Master: Título "${card.title}" ➔ "${newData.title}", Valor R$ ${Number(card.amount).toFixed(2)} ➔ R$ ${Number(newData.amount).toFixed(2)}`,
+        previous_data: pending.original_data,
+        applied_data: newData,
+      };
+
+      const existingHistory = Array.isArray(card.edit_history) ? card.edit_history : [];
+
+      const { data: updatedCard, error: updateError } = await supabase
+        .from("payment_requests")
+        .update({
+          title: newData.title,
+          amount: newData.amount,
+          category: newData.category,
+          category_id: newData.category_id,
+          notes: newData.notes,
+          payment_type: newData.payment_type,
+          splits: newData.splits,
+          pix_key: newData.pix_key,
+          pix_owner: newData.pix_owner,
+          caju_phone: newData.caju_phone,
+          pending_edit: null,
+          edit_history: [historyItem, ...existingHistory],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", card.id)
+        .select("*")
+        .single();
+
+      if (updateError) throw updateError;
+
+      // Atualiza o objeto card em memória
+      if (updatedCard) {
+        Object.assign(card, updatedCard);
+      } else {
+        card.title = newData.title;
+        card.amount = newData.amount;
+        card.category = newData.category || null;
+        card.category_id = newData.category_id || "";
+        card.notes = newData.notes || null;
+        card.payment_type = newData.payment_type || null;
+        card.splits = newData.splits || null;
+        card.pending_edit = null;
+      }
+
+      // Log de auditoria
+      await supabase.from("audit_logs").insert({
+        request_id: card.id,
+        performed_by: userId || card.created_by,
+        action: `Alteração de dados autorizada e confirmada pelo Master (${userName}): Título "${card.title}" ➔ "${newData.title}", Valor R$ ${Number(pending.original_data.amount).toFixed(2)} ➔ R$ ${Number(newData.amount).toFixed(2)}. Solicitado por ${pending.requested_by_name}. Motivo: ${pending.reason}`,
+      });
+
+      // Notificação
+      sendPushNotification({
+        title: "Ajuste Autorizado pelo Master",
+        body: `O Master ${userName} autorizou e aplicou as alterações na solicitação #${card.id.substring(0, 6)} (${newData.title}).`,
+        url: "/kanban",
+        targetRoles: ["FINANCEIRO", "GESTOR"],
+        excludeUserId: userId || undefined,
+      });
+
+      setShowMasterAuthModal(false);
+      onUpdate("Alterações autorizadas e confirmadas com sucesso pelo Master!");
+    } catch (err: any) {
+      console.error("Erro ao autorizar alteração:", err);
+      alert("Erro ao autorizar alteração: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setIsAuthorizingEdit(false);
+    }
+  };
+
+  const handleMasterRejectEdit = async () => {
+    if (!card.pending_edit) return;
+    try {
+      setIsRejectingEdit(true);
+      const pending = card.pending_edit;
+
+      const historyItem = {
+        id: (typeof window !== "undefined" && window.crypto?.randomUUID ? window.crypto.randomUUID() : Math.random().toString(36).substring(2)),
+        action: "REJECTED",
+        performed_by_id: userId,
+        performed_by_name: userName || "Master",
+        performed_at: new Date().toISOString(),
+        reason: rejectEditReason.trim() || "Sem justificativa de recusa",
+        changes_summary: `Ajuste solicitado por ${pending.requested_by_name} foi recusado pelo Master`,
+        previous_data: pending.original_data,
+        applied_data: pending.new_data,
+      };
+
+      const existingHistory = Array.isArray(card.edit_history) ? card.edit_history : [];
+
+      const { data: updatedCard, error: updateError } = await supabase
+        .from("payment_requests")
+        .update({
+          pending_edit: null,
+          edit_history: [historyItem, ...existingHistory],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", card.id)
+        .select("*")
+        .single();
+
+      if (updateError) throw updateError;
+
+      card.pending_edit = null;
+
+      // Log de auditoria
+      await supabase.from("audit_logs").insert({
+        request_id: card.id,
+        performed_by: userId || card.created_by,
+        action: `Ajuste solicitado por ${pending.requested_by_name} foi recusado pelo Master (${userName}). Motivo da recusa: ${rejectEditReason.trim() || "Não especificado"}`,
+      });
+
+      // Notificação
+      sendPushNotification({
+        title: "Ajuste Recusado pelo Master",
+        body: `O Master ${userName} recusou o pedido de ajuste na solicitação #${card.id.substring(0, 6)}.`,
+        url: "/kanban",
+        targetRoles: ["FINANCEIRO"],
+        excludeUserId: userId || undefined,
+      });
+
+      setShowRejectEditModal(false);
+      onUpdate("Pedido de alteração recusado pelo Master.");
+    } catch (err: any) {
+      console.error("Erro ao recusar alteração:", err);
+      alert("Erro ao recusar alteração: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setIsRejectingEdit(false);
+    }
+  };
+
+  const handleCancelPendingEdit = async () => {
+    if (!window.confirm("Deseja cancelar o seu pedido de alteração para esta solicitação?")) return;
+    try {
+      setLoading(true);
+      await supabase
+        .from("payment_requests")
+        .update({
+          pending_edit: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", card.id);
+
+      card.pending_edit = null;
+
+      await supabase.from("audit_logs").insert({
+        request_id: card.id,
+        performed_by: userId || card.created_by,
+        action: `Pedido de alteração manual cancelado pelo solicitante (${userName}).`,
+      });
+
+      onUpdate("Pedido de alteração cancelado.");
+    } catch (e: any) {
+      alert("Erro ao cancelar pedido: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isMasterOrFinanceiro = userRole === "FINANCEIRO" || userRole === "MASTER";
   const canTrash = isMasterOrFinanceiro;
   const hasAttachment = !!paymentProofUrl;
@@ -324,7 +508,7 @@ export default function CardDetailModal({
   const isAdvanceToPendenteBlocked = !isRecharge && isNovaSolicitacao && requiresCnpj && !localCnpj;
 
   // Solicitar pagamento é exclusivo e prioritário para Pendente (EM_APROVACAO) e Correção Pendente
-  const canRequestPayment = isPix && isMasterOrFinanceiro && (isEmAprovacao || isCorrecaoPendente);
+  const canRequestPayment = (isPix || isBoleto || isRecharge) && isMasterOrFinanceiro && (isEmAprovacao || isCorrecaoPendente);
 
   const [emailModalType, setEmailModalType] = useState<"PAID_NUBANK" | "REQUEST">(
     canRequestPayment ? "REQUEST" : "PAID_NUBANK"
@@ -332,7 +516,7 @@ export default function CardDetailModal({
 
   useEffect(() => {
     setEmailModalType(canRequestPayment ? "REQUEST" : "PAID_NUBANK");
-  }, [card.id, card.status, isPix]);
+  }, [card.id, card.status, isPix, isBoleto, isRecharge]);
 
   const canAdvance = isMasterOrFinanceiro && (isRecharge ? card.status !== "FINALIZADO" : Boolean(NEXT_STATUS[card.status]));
   const canRefuseFinanceiro = isMasterOrFinanceiro && card.status !== "RECUSADO" && card.status !== "FINALIZADO";
@@ -484,22 +668,13 @@ export default function CardDetailModal({
     if (!isMasterOrFinanceiro) return;
     let newStatus = targetStatus;
     const isNubankRecharge = card.request_kind === "RECARGA_NUBANK";
-    const isRechargeCard = isNubankRecharge || card.request_kind === "RECARGA_CAJU";
+    const isCajuRecharge = card.request_kind === "RECARGA_CAJU";
+    const isRechargeCard = isNubankRecharge || isCajuRecharge;
 
-    if (isNubankRecharge) {
+    if (isRechargeCard) {
       if (card.status === "NOVA_SOLICITACAO") {
         newStatus = "EM_APROVACAO";
       } else if (card.status === "EM_APROVACAO" || targetStatus === "FINALIZADO") {
-        const hasProof =
-          effectiveProofUrls.length > 0 ||
-          Boolean(paymentProofUrl) ||
-          Boolean(card.payment_proof_url) ||
-          Boolean((card as any).receipt_url) ||
-          receiptsHistory.length > 0;
-        if (!hasProof) {
-          alert("Para finalizar a recarga Nubank, é obrigatório anexar o comprovante de pagamento.");
-          return;
-        }
         newStatus = "FINALIZADO";
       } else if (targetStatus) {
         newStatus = targetStatus;
@@ -507,15 +682,7 @@ export default function CardDetailModal({
         newStatus = NEXT_STATUS[card.status] || "FINALIZADO";
       }
     } else if (!newStatus) {
-      if (isRechargeCard) {
-        if (card.status === "NOVA_SOLICITACAO" || card.status === "EM_APROVACAO") {
-          newStatus = "AGUARDANDO_PAGAMENTO";
-        } else if (card.status === "AGUARDANDO_PAGAMENTO") {
-          newStatus = "FINALIZADO";
-        } else {
-          newStatus = NEXT_STATUS[card.status] || "FINALIZADO";
-        }
-      } else if (card.status === "AGUARDANDO_PAGAMENTO" || (card.status as string) === "AGUARDANDO_NOTINHA") {
+      if (card.status === "AGUARDANDO_PAGAMENTO" || (card.status as string) === "AGUARDANDO_NOTINHA") {
         newStatus = "FINALIZADO";
       } else {
         newStatus = NEXT_STATUS[card.status];
@@ -541,7 +708,7 @@ export default function CardDetailModal({
       card.created_at
     );
 
-    const effectiveCnpj = localCnpj || (card.request_kind === "RECARGA_NUBANK" ? "Nubank 02" : card.cnpj || null);
+    const effectiveCnpj = localCnpj || (card.request_kind === "RECARGA_NUBANK" ? "Nubank 02" : (card.cnpj || (isCajuRecharge ? "CNPJ 2" : null)));
 
     const { error } = await supabase
       .from("payment_requests")
@@ -556,8 +723,12 @@ export default function CardDetailModal({
     setLoading(false);
     if (error) { alert("Erro ao avançar solicitação."); return; }
 
-    // Dispara a sincronização de saldo Nubank
+    // Dispara a sincronização de saldo Nubank e Caju
     await syncNubankBalance(card.id, userId);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("caju-balance-updated"));
+      window.dispatchEvent(new Event("nubank-balance-updated"));
+    }
 
     onUpdate(`Solicitação avançou para ${getStatusLabel(newStatus)}`);
   }
@@ -855,15 +1026,17 @@ export default function CardDetailModal({
     // Tipo REQUEST (Solicitar pagamento a Tassio)
     const isRecargaCaju = card.request_kind === "RECARGA_CAJU" || card.title?.includes("Recarga Caju");
     const isRecargaNubank = card.request_kind === "RECARGA_NUBANK" || card.title === "Recarga Nubank";
-    const cnpjDisplay = localCnpj || card.cnpj || (isCajuOnly ? "Caju" : "(Selecione o CNPJ)");
+    const cnpjDisplay = localCnpj || card.cnpj || (isRecargaCaju ? "CNPJ 2" : (isCajuOnly ? "Caju" : "(Selecione o CNPJ)"));
     const rawSubject = isRecargaCaju
       ? `Pagamento Ref. Recarga Caju | ${cnpjDisplay}`
       : `Pagamento Ref. ${card.title} | ${cnpjDisplay}`;
 
     const boletoSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "BOLETO");
+    const barcodeVal = boletoSplit?.boleto_barcode || (card as any).boleto_barcode || (card as any).barcode || "";
+    const pixVal = (pixKey && pixKey !== "Não informado" ? pixKey : "") || (card as any).pix_key || "";
     const paymentKey = isRecargaNubank
       ? ""
-      : (boletoSplit?.boleto_barcode || (pixKey && pixKey !== "Não informado" ? pixKey : ""));
+      : (barcodeVal || pixVal);
     const paymentOwner = isRecargaCaju
       ? (card.pix_owner || "Caju")
       : (pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado"));
@@ -886,7 +1059,7 @@ export default function CardDetailModal({
   }
 
   function handleOpenGmail() {
-    if (emailModalType === "REQUEST" && requiresCnpj && !localCnpj) {
+    if (emailModalType === "REQUEST" && requiresCnpj && !localCnpj && !isRecharge) {
       alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
       return;
     }
@@ -896,7 +1069,7 @@ export default function CardDetailModal({
   }
 
   function handleOpenDefaultMail() {
-    if (emailModalType === "REQUEST" && requiresCnpj && !localCnpj) {
+    if (emailModalType === "REQUEST" && requiresCnpj && !localCnpj && !isRecharge) {
       alert("Por favor, selecione o CNPJ / Conta Pagadora antes de solicitar o pagamento.");
       return;
     }
@@ -1220,6 +1393,156 @@ export default function CardDetailModal({
         {/* BODY: grid de 1 coluna permite subir o painel de validação (order) sem mover lógica */}
         <div className="p-5 flex-1 overflow-y-auto custom-scrollbar grid grid-cols-1 content-start">
 
+          {/* BANNER DE ALTERAÇÃO PENDENTE DE AUTORIZAÇÃO DO MASTER */}
+          {card.pending_edit && (
+            <div className="mb-5 p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/40 shadow-lg relative overflow-hidden animate-in fade-in slide-in-from-top-2" style={{ order: -3 }}>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 pb-3 border-b border-amber-500/25">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                    <FileEdit size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h4 className="text-sm font-black text-amber-400 uppercase tracking-wider">
+                        Alteração Solicitada pelo Financeiro
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/25 text-amber-200 border border-amber-500/40 animate-pulse">
+                        Aguardando Autorização do Master
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      Solicitado por <strong className="text-white">{card.pending_edit.requested_by_name}</strong> em{" "}
+                      {new Date(card.pending_edit.requested_at).toLocaleString("pt-BR")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Botões de Ação para o Master */}
+                {isMaster ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowRejectEditModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 hover:border-red-500/50 transition-all cursor-pointer"
+                    >
+                      <X size={13} />
+                      <span>Recusar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowMasterAuthModal(true)}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-900/30 transition-all cursor-pointer"
+                    >
+                      <ShieldCheck size={14} />
+                      <span>Autorizar Alteração</span>
+                    </button>
+                  </div>
+                ) : (
+                  userId === card.pending_edit.requested_by_id && (
+                    <button
+                      type="button"
+                      onClick={handleCancelPendingEdit}
+                      className="text-xs font-medium text-slate-400 hover:text-red-400 underline transition-colors cursor-pointer"
+                    >
+                      Cancelar meu pedido
+                    </button>
+                  )
+                )}
+              </div>
+
+              {/* Justificativa informada */}
+              <div className="mb-4 p-3 rounded-xl bg-slate-950/70 border border-amber-500/20 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400/90 block mb-1">
+                  Justificativa / Motivo Especificado:
+                </span>
+                <p className="text-slate-200 font-medium italic">
+                  "{card.pending_edit.reason}"
+                </p>
+              </div>
+
+              {/* Comparativo Detalhado de Alterações */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                  Especificação das Alterações Propostas:
+                </span>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Título */}
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Título</span>
+                    <div className="text-slate-400 line-through text-[11px] truncate" title={card.pending_edit.original_data.title}>
+                      {card.pending_edit.original_data.title}
+                    </div>
+                    <div className="text-white font-bold text-xs truncate" title={card.pending_edit.new_data.title}>
+                      ➔ {card.pending_edit.new_data.title}
+                    </div>
+                  </div>
+
+                  {/* Valor */}
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Valor</span>
+                    <div className="text-slate-400 line-through text-[11px]">
+                      R$ {Number(card.pending_edit.original_data.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="text-emerald-400 font-black text-sm">
+                      ➔ R$ {Number(card.pending_edit.new_data.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+
+                  {/* Formas de Pagamento */}
+                  <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Formas de Pagamento</span>
+                    <div className="text-slate-400 line-through text-[11px] truncate">
+                      {card.pending_edit.original_data.payment_type || "Não especificado"}
+                    </div>
+                    <div className="text-blue-400 font-bold text-xs">
+                      ➔ {card.pending_edit.new_data.splits?.map((s: any) => s.payment_type).join(", ") || card.pending_edit.new_data.payment_type}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detalhes dos splits se houver */}
+                {card.pending_edit.new_data.splits && card.pending_edit.new_data.splits.length > 0 && (
+                  <div className="mt-2 p-3 rounded-xl bg-slate-950/40 border border-slate-800/80 text-xs space-y-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                      Detalhes dos novos pagamentos ({card.pending_edit.new_data.splits.length}):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {card.pending_edit.new_data.splits.map((s: any, idx: number) => (
+                        <div key={idx} className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-0.5">
+                          <div className="flex justify-between font-bold">
+                            <span className="text-blue-400">{s.payment_type}</span>
+                            <span className="text-emerald-400">R$ {Number(s.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          {s.pix_key && (
+                            <div className="text-slate-300 truncate">
+                              <span className="text-slate-500">Chave:</span> {s.pix_key}
+                            </div>
+                          )}
+                          {s.pix_owner && (
+                            <div className="text-slate-300 truncate">
+                              <span className="text-slate-500">Titular:</span> {s.pix_owner}
+                            </div>
+                          )}
+                          {s.caju_phone && (
+                            <div className="text-slate-300 truncate">
+                              <span className="text-slate-500">Caju:</span> {s.caju_phone}
+                            </div>
+                          )}
+                          {s.boleto_barcode && (
+                            <div className="text-slate-300 truncate font-mono text-[10px]">
+                              <span className="text-slate-500 font-sans">Boleto:</span> {s.boleto_barcode}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* ALERT: CORRECAO PENDENTE */}
           {isCorrecaoPendente && card.rejection_reason && (
             <div className="mb-5 p-4 rounded-xl bg-red-500/10 border-2 border-red-500/40" style={{ order: -2 }}>
@@ -1269,7 +1592,20 @@ export default function CardDetailModal({
             {/* LEFT COLUMN */}
             <div className="flex flex-col gap-4">
               <div>
-                <h3 className="text-2xl font-black leading-tight mb-1" style={{ color: "var(--text-primary)" }}>{card.title}</h3>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-2xl font-black leading-tight mb-1" style={{ color: "var(--text-primary)" }}>{card.title}</h3>
+                  {isMasterOrFinanceiro && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-xs"
+                      title="Editar título, valor, pagamento..."
+                    >
+                      <FileEdit size={13} />
+                      <span>Editar</span>
+                    </button>
+                  )}
+                </div>
                 <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
                   R$ {Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </p>
@@ -1597,6 +1933,12 @@ export default function CardDetailModal({
                       )}
                       {isSplitBoleto && (
                         <div className="space-y-2 mt-2">
+                          {(split.pix_owner || card.pix_name || card.pix_owner) && (
+                            <div>
+                              <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Beneficiário / Titular</span>
+                              <span className="text-xs font-bold block truncate" style={{ color: "var(--text-primary)" }}>{split.pix_owner || card.pix_name || card.pix_owner}</span>
+                            </div>
+                          )}
                           <div>
                             <span className="text-[10px] uppercase font-bold block mb-0.5" style={{ color: "var(--text-muted)" }}>Linha Digitável</span>
                             <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded border group" style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)" }}>
@@ -2384,39 +2726,22 @@ export default function CardDetailModal({
               {/* Botões quando Em Aprovação ou Correção Pendente */}
               {(isEmAprovacao || isCorrecaoPendente) && isMasterOrFinanceiro && !showRefuseForm && (
                 <div className="flex items-center gap-2 flex-wrap">
-                  {card.request_kind === "RECARGA_NUBANK" ? (
-                    effectiveProofUrls.length === 0 ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-amber-400 font-semibold flex items-center gap-1.5 bg-amber-500/10 px-3 py-2 rounded-xl border border-amber-500/25 whitespace-nowrap shadow-xs">
-                          <AlertTriangle size={13} className="shrink-0 text-amber-400" />
-                          Anexe o comprovante de pagamento para finalizar
-                        </span>
-                        <button
-                          type="button"
-                          disabled
-                          className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white/40 rounded-xl bg-slate-800 border border-white/10 opacity-50 cursor-not-allowed whitespace-nowrap"
-                        >
+                  {isRecharge ? (
+                    <button
+                      type="button"
+                      onClick={() => handleAdvance("FINALIZADO")}
+                      disabled={loading}
+                      className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-950/40 transition-all cursor-pointer whitespace-nowrap active:scale-95"
+                    >
+                      {loading ? (
+                        <Loader2 size={15} className="animate-spin" />
+                      ) : (
+                        <>
                           <CheckCircle2 size={15} />
                           <span>Finalizar Recarga</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleAdvance("FINALIZADO")}
-                        disabled={loading}
-                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white rounded-xl bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-950/40 transition-all cursor-pointer whitespace-nowrap active:scale-95"
-                      >
-                        {loading ? (
-                          <Loader2 size={15} className="animate-spin" />
-                        ) : (
-                          <>
-                            <CheckCircle2 size={15} />
-                            <span>Finalizar Recarga</span>
-                          </>
-                        )}
-                      </button>
-                    )
+                        </>
+                      )}
+                    </button>
                   ) : (
                     <>
                       <button
@@ -2523,7 +2848,7 @@ export default function CardDetailModal({
                       <Loader2 size={15} className="animate-spin" />
                     ) : (
                       <>
-                        <span>{isNovaSolicitacao ? "Aprovar Solicitação" : "Avançar Status"}</span>
+                        <span>{isRecharge && isNovaSolicitacao ? "Avançar para Pendente" : (isNovaSolicitacao ? "Aprovar Solicitação" : "Avançar Status")}</span>
                         <ArrowRight size={15} />
                       </>
                     )}

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw, Zap, FileText } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw, Zap, FileText, FileEdit } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
 
 interface KanbanColumnProps {
@@ -241,6 +241,15 @@ export default function KanbanColumn({
                       >
                         <Zap size={10} className="text-[#fb7185]" />
                         <span>Recarga Caju</span>
+                      </div>
+                    )}
+                    {card.pending_edit && (
+                      <div
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/25 border border-amber-500/50 text-amber-200 text-[10px] font-bold uppercase tracking-wider animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.35)] motion-reduce:animate-none"
+                        title={`Ajuste solicitado por ${card.pending_edit.requested_by_name || 'Financeiro'}: Aguardando autorização do Master`}
+                      >
+                        <FileEdit size={10} className="text-amber-300" />
+                        <span>Ajuste Pendente</span>
                       </div>
                     )}
                   </div>

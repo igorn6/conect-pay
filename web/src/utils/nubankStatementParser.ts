@@ -6,6 +6,9 @@ export interface ParsedStatementItem {
   id: string;
   date: string; // YYYY-MM-DD
   rawDate?: string;
+  effectiveDate?: string;
+  isWeekendOrHoliday?: boolean;
+  shiftedToBusinessDay?: string;
   amount: number; // com sinal (+ entrada / - saída)
   type: "ENTRADA" | "SAIDA";
   description: string;

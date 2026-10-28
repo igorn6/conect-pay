@@ -91,9 +91,11 @@ export default function KanbanPage() {
 
     let filteredData = (data as any[]) ?? [];
 
-    if (userRole === "GESTOR" && !filterRequesterId) {
+    const isMasterOrFinanceiro = userRole === "MASTER" || userRole === "FINANCEIRO";
+
+    if (!isMasterOrFinanceiro) {
       if (sectorId) {
-        // Fetch users in the same sector to filter
+        // Busca usuários do mesmo setor para permitir visualização de cards compartilhados
         const { data: sectorUsers } = await supabase
           .from("profiles")
           .select("id")
@@ -101,9 +103,15 @@ export default function KanbanPage() {
           
         const sectorUserIds = new Set(sectorUsers?.map(u => u.id) || []);
         
-        filteredData = filteredData.filter((req) => 
-          sectorUserIds.has(req.real_requester_id) || sectorUserIds.has(req.created_by) || req.real_requester_id === userId || req.created_by === userId
-        );
+        filteredData = filteredData.filter((req) => {
+          const isMine = req.real_requester_id === userId || req.created_by === userId;
+          if (isMine) return true;
+          // Se a solicitação for Individual, somente o criador/solicitante pode ver
+          if (req.visibility === "INDIVIDUAL") return false;
+          // Se for Compartilhada, membros do mesmo setor podem ver
+          const isSameSector = sectorUserIds.has(req.real_requester_id) || sectorUserIds.has(req.created_by);
+          return isSameSector;
+        });
       } else {
         filteredData = filteredData.filter((req) => 
           req.real_requester_id === userId || req.created_by === userId
@@ -330,15 +338,10 @@ export default function KanbanPage() {
       for (const card of toUpdate) {
         if (!card) continue;
         let next = NEXT_STATUS[card.status as keyof typeof NEXT_STATUS];
-        if (card.request_kind === "RECARGA_NUBANK") {
+        if (card.request_kind === "RECARGA_NUBANK" || card.request_kind === "RECARGA_CAJU") {
           if (card.status === "NOVA_SOLICITACAO") {
             next = "EM_APROVACAO";
           } else if (card.status === "EM_APROVACAO") {
-            const hasProof = Boolean(card.payment_proof_url) || Boolean((card as any).receipt_url) || (Array.isArray(card.receipts_history) && card.receipts_history.length > 0);
-            if (!hasProof) {
-              alert(`A solicitação de recarga "${card.title}" precisa de comprovante anexado para finalizar.`);
-              continue;
-            }
             next = "FINALIZADO";
           }
         }
@@ -361,6 +364,10 @@ export default function KanbanPage() {
           hasError = true;
         } else {
           await syncNubankBalance(card.id, userId);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("caju-balance-updated"));
+            window.dispatchEvent(new Event("nubank-balance-updated"));
+          }
         }
       }
       
@@ -450,20 +457,22 @@ export default function KanbanPage() {
             </select>
           </div>
 
-          {/* Requester Select */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
-            <User size={14} className="text-slate-400" />
-            <select
-              value={filterRequesterId}
-              onChange={(e) => setFilterRequesterId(e.target.value)}
-              className="bg-transparent text-xs text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[130px] cursor-pointer appearance-none"
-            >
-              <option value="" className="bg-slate-900 text-slate-300">Todos Solicitantes</option>
-              {Object.entries(profilesMap).map(([id, name]) => (
-                <option key={id} value={id} className="bg-slate-900 text-white">{name}</option>
-              ))}
-            </select>
-          </div>
+          {/* Requester Select - Somente Master e Financeiro */}
+          {(userRole === "MASTER" || userRole === "FINANCEIRO") && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
+              <User size={14} className="text-slate-400" />
+              <select
+                value={filterRequesterId}
+                onChange={(e) => setFilterRequesterId(e.target.value)}
+                className="bg-transparent text-xs text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[130px] cursor-pointer appearance-none"
+              >
+                <option value="" className="bg-slate-900 text-slate-300">Todos Solicitantes</option>
+                {Object.entries(profilesMap).map(([id, name]) => (
+                  <option key={id} value={id} className="bg-slate-900 text-white">{name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Right: Financial Pipeline Metrics & Nova Solicitação */}

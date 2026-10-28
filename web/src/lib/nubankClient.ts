@@ -31,6 +31,9 @@ export async function syncNubankBalance(paymentId: string, explicitUserId?: stri
   } catch (e) {
     console.warn("[Nubank] Erro de rede ao sincronizar saldo:", e);
   } finally {
-    if (typeof window !== "undefined") window.dispatchEvent(new Event(NUBANK_BALANCE_EVENT));
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(NUBANK_BALANCE_EVENT));
+      window.dispatchEvent(new Event("caju-balance-updated"));
+    }
   }
 }

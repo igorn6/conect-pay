@@ -27,7 +27,6 @@ import {
   ShieldCheck,
   Building2,
   QrCode,
-  CreditCard,
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,9 +38,8 @@ import MagnetButton from "@/components/ui/MagnetButton";
 import ShinyBadge from "@/components/ui/ShinyBadge";
 import NubankStatementValidatorModal from "@/components/nubank/NubankStatementValidatorModal";
 import NubankDailyReconciliationHistory from "@/components/nubank/NubankDailyReconciliationHistory";
-import CajuRechargeModal from "@/components/caju/CajuRechargeModal";
 
-export default function NubankCajuPage() {
+export default function NubankPage() {
   const router = useRouter();
   const { userRole, userName, userId } = useAuth();
   const isMaster = userRole === "MASTER";
@@ -64,7 +62,6 @@ export default function NubankCajuPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modais
-  const [isCajuModalOpen, setIsCajuModalOpen] = useState(false);
   const [isRechargeModalOpen, setIsRechargeModalOpen] = useState(false);
   const [rechargeForm, setRechargeForm] = useState({
     amount: "2.500,00",
@@ -386,13 +383,10 @@ export default function NubankCajuPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.08]">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-2xl font-extrabold tracking-tight text-white">Hub Contas & Benefícios</h1>
+              <h1 className="text-2xl font-extrabold tracking-tight text-white">Nubank 02 • Conta Corporativa</h1>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#820AD1]/20 border border-[#820AD1]/40 text-[#d8b4fe]">
                   Nubank 02
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300">
-                  Caju
                 </span>
               </div>
             </div>
@@ -483,134 +477,79 @@ export default function NubankCajuPage() {
         )}
 
         {/* ========================================================
-            DECK DOS DOIS CANAIS CORPORATIVOS: NUBANK 02 E CAJU (SIMÉTRICOS)
+            CARD CORPORATIVO NUBANK 02 (SALDO EM TEMPO REAL)
             ======================================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          
-          {/* Card 1: Nubank 02 (Saldo Corporativo em Tempo Real) */}
-          <div className="rounded-2xl bg-gradient-to-br from-slate-900/95 via-[#181126] to-slate-900/95 border border-[#820AD1]/30 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between group hover:border-[#820AD1]/50 transition-all duration-300">
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-72 h-72 bg-[#820AD1]/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative z-10 flex flex-col h-full justify-between">
-              
-              <div>
-                {/* Header do Card Nubank */}
-                <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#820AD1] to-[#5a0594] flex items-center justify-center text-white shadow-lg shadow-purple-950/60 shrink-0 border border-purple-400/20">
-                      <Wallet size={24} className="text-white drop-shadow-sm" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#d8b4fe] bg-[#820AD1]/25 px-2.5 py-0.5 rounded-full border border-[#820AD1]/40">
-                          Nubank 02 • Saldo Corporativo
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                          Anti-duplicidade Ativa
-                        </span>
-                      </div>
-
-                      <div className="flex items-baseline gap-3 mt-2">
-                        {loading ? (
-                          <div className="h-10 w-44 bg-slate-800 rounded animate-pulse" />
-                        ) : error ? (
-                          <div className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
-                            <AlertCircle size={16} />
-                            <span>Erro ao consultar</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2.5">
-                            <AnimatedCurrency
-                              value={currentBalance}
-                              prefix="R$ "
-                              prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-medium mr-1"
-                              className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-mono"
-                            />
-                            <button
-                              onClick={() => fetchBalance(true)}
-                              disabled={refreshing}
-                              title="Atualizar saldo agora"
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                            >
-                              <RefreshCw size={15} className={refreshing ? "animate-spin text-purple-400" : ""} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="text-xs text-slate-400 mt-1">
-                        Liquidação automática em tempo real para pagamentos no Kanban.
-                      </p>
-                    </div>
+        <div className="rounded-2xl bg-gradient-to-br from-slate-900/95 via-[#181126] to-slate-900/95 border border-[#820AD1]/30 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between group hover:border-[#820AD1]/50 transition-all duration-300">
+          <div className="absolute top-0 right-0 -mr-20 -mt-20 w-72 h-72 bg-[#820AD1]/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative z-10 flex flex-col h-full justify-between">
+            
+            <div>
+              {/* Header do Card Nubank */}
+              <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-[#820AD1] to-[#5a0594] flex items-center justify-center text-white shadow-lg shadow-purple-950/60 shrink-0 border border-purple-400/20">
+                    <Wallet size={24} className="text-white drop-shadow-sm" />
                   </div>
-
-                  {/* Botão Recarga Nubank (Canto Superior Direito) */}
-                  <div className="self-start shrink-0">
-                    <button
-                      onClick={handleOpenRechargeModal}
-                      className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-200 border border-purple-500/30 hover:border-purple-400/60 shadow-[0_0_15px_rgba(168,85,247,0.12)] hover:shadow-[0_0_20px_rgba(168,85,247,0.25)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
-                      title="Solicitar Recarga Nubank de R$ 2.500,00"
-                    >
-                      <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                      <span>Recarga Nubank (R$ 2.500)</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          {/* Card 2: Caju Benefícios (Cartões Corporativos) */}
-          <div className="rounded-2xl bg-gradient-to-br from-slate-900/95 via-[#22101b] to-slate-900/95 border border-rose-500/30 p-6 shadow-xl relative overflow-hidden flex flex-col justify-between group hover:border-rose-500/50 transition-all duration-300">
-            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-rose-500/15 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative z-10 flex flex-col h-full justify-between">
-              
-              <div>
-                {/* Header do Card Caju com Botão no Canto Superior Direito (Simétrico) */}
-                <div className="flex items-start justify-between gap-3 flex-wrap sm:flex-nowrap">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-700 flex items-center justify-center text-white shadow-lg shadow-rose-950/60 shrink-0 border border-rose-400/30">
-                      <Sparkles size={22} className="text-white drop-shadow-sm" />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-rose-300 bg-rose-500/25 px-2.5 py-0.5 rounded-full border border-rose-500/40">
-                        Caju • Benefícios
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-[#d8b4fe] bg-[#820AD1]/25 px-2.5 py-0.5 rounded-full border border-[#820AD1]/40">
+                        Nubank 02 • Saldo Corporativo
                       </span>
-                      <p className="text-[11px] text-slate-400 mt-1 font-mono font-medium">Conta: CNPJ 2 (Padrão)</p>
+                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Anti-duplicidade Ativa
+                      </span>
                     </div>
-                  </div>
 
-                  {/* Botão Recarga Caju (Canto Superior Direito) */}
-                  <div className="self-start shrink-0">
-                    <button
-                      onClick={() => setIsCajuModalOpen(true)}
-                      className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-200 border border-rose-500/30 hover:border-rose-400/60 shadow-[0_0_15px_rgba(244,63,94,0.12)] hover:shadow-[0_0_20px_rgba(244,63,94,0.25)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
-                      title="Solicitar Recarga Caju de R$ 3.000,00"
-                    >
-                      <Sparkles className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                      <span>Recarga Caju (R$ 3.000)</span>
-                    </button>
+                    <div className="flex items-baseline gap-3 mt-2">
+                      {loading ? (
+                        <div className="h-10 w-44 bg-slate-800 rounded animate-pulse" />
+                      ) : error ? (
+                        <div className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
+                          <AlertCircle size={16} />
+                          <span>Erro ao consultar</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          <AnimatedCurrency
+                            value={currentBalance}
+                            prefix="R$ "
+                            prefixClassName="text-2xl md:text-3xl text-[#d8b4fe]/80 font-medium mr-1"
+                            className="text-3xl md:text-4xl font-extrabold text-white tracking-tight font-mono"
+                          />
+                          <button
+                            onClick={() => fetchBalance(true)}
+                            disabled={refreshing}
+                            title="Atualizar saldo agora"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                          >
+                            <RefreshCw size={15} className={refreshing ? "animate-spin text-purple-400" : ""} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-xs text-slate-400 mt-1">
+                      Liquidação automática em tempo real para pagamentos no Kanban.
+                    </p>
                   </div>
                 </div>
 
-                {/* Conteúdo Preservado do Card Caju */}
-                <div className="mt-5 pt-4 border-t border-rose-500/20">
-                  <span className="text-[10px] uppercase font-mono font-semibold tracking-wider text-rose-300/80">
-                    Valor Padrão por Solicitação:
-                  </span>
-                  <div className="text-3xl font-extrabold text-white font-mono mt-1 tracking-tight">
-                    R$ 3.000,00
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                    Lança o card no Kanban e gera e-mail pronto para aprovação de Tássio.
-                  </p>
+                {/* Botão Recarga Nubank (Canto Superior Direito) */}
+                <div className="self-start shrink-0">
+                  <button
+                    onClick={handleOpenRechargeModal}
+                    className="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-200 border border-purple-500/30 hover:border-purple-400/60 shadow-[0_0_15px_rgba(168,85,247,0.12)] hover:shadow-[0_0_20px_rgba(168,85,247,0.25)] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                    title="Solicitar Recarga Nubank de R$ 2.500,00"
+                  >
+                    <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <span>Recarga Nubank (R$ 2.500)</span>
+                  </button>
                 </div>
               </div>
-
             </div>
-          </div>
 
+          </div>
         </div>
 
         {/* Mini-Lista de Movimentações Recentes (Últimas 5) integrada com Indicadores Financeiros */}
@@ -1307,13 +1246,6 @@ export default function NubankCajuPage() {
           fetchBalance(true);
           setReconcileRefreshTrigger((prev) => prev + 1);
         }}
-      />
-
-      {/* MODAL DE SOLICITAÇÃO RECARGA CAJU */}
-      <CajuRechargeModal
-        isOpen={isCajuModalOpen}
-        onClose={() => setIsCajuModalOpen(false)}
-        onSuccess={() => fetchBalance(true)}
       />
 
     </div>

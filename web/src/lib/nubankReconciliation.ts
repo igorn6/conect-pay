@@ -3,6 +3,12 @@ import {
   type ParsedStatementResult,
   type ParsedStatementItem,
 } from "@/utils/nubankStatementParser";
+import {
+  isWeekendDay,
+  getHolidayName,
+  isCajuBusinessDay,
+  getNextBusinessDay,
+} from "@/constants/caju";
 
 export interface ItemReconciliationResult {
   statementItem: ParsedStatementItem;
@@ -13,6 +19,9 @@ export interface ItemReconciliationResult {
   matchedPaymentRequestId?: string;
   matchedPaymentRequestTitle?: string;
   notes?: string;
+  effectiveDate?: string;
+  isShiftedFromWeekend?: boolean;
+  rawDate?: string;
 }
 
 export interface DayReconciliationResult {
@@ -26,6 +35,10 @@ export interface DayReconciliationResult {
   matchedCount: number;
   unmatchedCount: number;
   items: ItemReconciliationResult[];
+  isBusinessDay?: boolean;
+  isWeekend?: boolean;
+  isHoliday?: boolean;
+  holidayName?: string;
 }
 
 export interface FullReconciliationReport {
@@ -78,8 +91,14 @@ export const KNOWN_CORPORATE_ALIASES: Array<{ keywords: string[]; aliases: strin
     aliases: ["multidisplay comercio", "multidisplay", "claro"],
   },
   {
-    keywords: ["crea", "conselho regional de engenharia"],
-    aliases: ["cons regional de engenharia", "crea"],
+    keywords: ["crea", "conselho regional de engenharia", "art", "arts", "engenharia e agronomia"],
+    aliases: [
+      "cons regional de engenharia",
+      "conselho regional de engenharia e agronomia",
+      "crea",
+      "art",
+      "arts",
+    ],
   },
   {
     keywords: ["mercado pago", "mercado livre"],
@@ -157,11 +176,11 @@ export async function reconcileStatement(
   const maxDate = sortedDates[sortedDates.length - 1] || new Date().toISOString().slice(0, 10);
 
   const startBuffer = new Date(minDate);
-  startBuffer.setDate(startBuffer.getDate() - 25);
+  startBuffer.setDate(startBuffer.getDate() - 45);
   const startIso = startBuffer.toISOString();
 
   const endBuffer = new Date(maxDate);
-  endBuffer.setDate(endBuffer.getDate() + 10);
+  endBuffer.setDate(endBuffer.getDate() + 15);
   endBuffer.setHours(23, 59, 59, 999);
   const endIso = endBuffer.toISOString();
 
@@ -187,11 +206,22 @@ export async function reconcileStatement(
     used: false,
   }));
 
-  const poolCards = (cards || []).map((c: any) => ({
-    ...c,
-    amount: Number(c.amount),
-    used: false,
-  }));
+  const poolCards = (cards || []).map((c: any) => {
+    const rawSplits = Array.isArray(c.splits) ? c.splits : [];
+    const amountNum = Number(c.amount || 0);
+    return {
+      ...c,
+      amount: amountNum,
+      remainingAmount: amountNum,
+      used: false,
+      availableSplits: rawSplits.map((s: any, idx: number) => ({
+        ...s,
+        _splitIndex: idx,
+        amount: Number(s.amount || 0),
+        used: false,
+      })),
+    };
+  });
 
   const itemsResults: ItemReconciliationResult[] = [];
   let matchedItemsCount = 0;
@@ -200,7 +230,15 @@ export async function reconcileStatement(
   // 4. Cruzamento item a item do extrato
   for (const item of parsed.items) {
     const itemAmtAbs = Math.abs(item.amount);
-    const itemDate = item.date;
+    const rawDate = item.date;
+    const effectiveDate = getNextBusinessDay(rawDate);
+    item.rawDate = rawDate;
+    item.effectiveDate = effectiveDate;
+    item.isWeekendOrHoliday = rawDate !== effectiveDate;
+    if (rawDate !== effectiveDate) {
+      item.shiftedToBusinessDay = effectiveDate;
+    }
+
     const itemBeneficiary = item.beneficiaryOrSender || "";
     const itemFullDesc = `${item.description} ${itemBeneficiary}`;
 
@@ -215,10 +253,11 @@ export async function reconcileStatement(
       if (item.amount < 0 && m.type === "ENTRADA") return false;
 
       const mDate = (m.created_at || "").slice(0, 10);
-      const daysDiff = Math.abs(new Date(mDate).getTime() - new Date(itemDate).getTime()) / 86400000;
+      const mEffDate = getNextBusinessDay(mDate);
+      const daysDiff = Math.abs(new Date(mEffDate).getTime() - new Date(effectiveDate).getTime()) / 86400000;
       if (daysDiff > 5) return false;
 
-      // Se houver coincidência de entidade ou data exata
+      // Se houver coincidência de entidade ou data útil exata
       if (daysDiff <= 1) return true;
       return checkEntityMatch(itemFullDesc, m.description || "");
     });
@@ -233,7 +272,8 @@ export async function reconcileStatement(
         if (item.amount < 0 && m.type === "ENTRADA") return false;
 
         const mDate = (m.created_at || "").slice(0, 10);
-        const daysDiff = Math.abs(new Date(mDate).getTime() - new Date(itemDate).getTime()) / 86400000;
+        const mEffDate = getNextBusinessDay(mDate);
+        const daysDiff = Math.abs(new Date(mEffDate).getTime() - new Date(effectiveDate).getTime()) / 86400000;
         return daysDiff <= 4;
       });
     }
@@ -247,12 +287,16 @@ export async function reconcileStatement(
         matchedMovementId: matchedMov.id,
         matchedMovementDesc: matchedMov.description,
         matchedMovementDate: matchedMov.created_at,
+        effectiveDate,
+        rawDate,
+        isShiftedFromWeekend: rawDate !== effectiveDate,
       });
       continue;
     }
 
     // FASE 2: Procura correspondência inteligente em payment_requests (Kanban)
     let matchedCard: any = null;
+    let matchedSplit: any = null;
     let matchNotes = "";
 
     for (const card of poolCards) {
@@ -261,13 +305,16 @@ export async function reconcileStatement(
       const cardAmt = Number(card.amount);
       const isTotalMatch = Math.abs(cardAmt - itemAmtAbs) < 0.01;
 
-      // Verifica se bate com algum split individual (ex: pagamento de R$ 1.500 dentro de solicitação parcelada)
-      const splitsArray = Array.isArray(card.splits) ? card.splits : [];
-      const matchingSplit = splitsArray.find(
+      // Procura primeiro split individual compatível e não utilizado
+      const unusedSplits = card.availableSplits.filter((s: any) => !s.used);
+      const matchingSplit = unusedSplits.find(
         (s: any) => Math.abs(Number(s.amount) - itemAmtAbs) < 0.01
       );
 
-      if (!isTotalMatch && !matchingSplit) continue;
+      // Permite absorção fracionada/residual quando o card for de montante agregado (ex: R$ 758,73 cobrindo múltiplos boletos de R$ 108,39)
+      const canAbsorbFraction = !matchingSplit && (card.remainingAmount >= itemAmtAbs - 0.01);
+
+      if (!isTotalMatch && !matchingSplit && !canAbsorbFraction) continue;
 
       // Constrói texto abrangente do cartão (título, titular, notas, categoria, splits)
       const cardText = [
@@ -287,27 +334,55 @@ export async function reconcileStatement(
 
       const entityMatched = checkEntityMatch(itemFullDesc, cardText);
 
-      // Data de criação ou finalização do card
-      const cDate = (card.updated_at || card.created_at || "").slice(0, 10);
-      const daysDiff = Math.abs(new Date(cDate).getTime() - new Date(itemDate).getTime()) / 86400000;
+      // Datas relevantes para aferir proximidade temporal
+      const allDates = [
+        card.created_at,
+        card.updated_at,
+        card.due_date,
+        matchingSplit?.boleto_due_date,
+      ]
+        .filter(Boolean)
+        .map((d: string) => getNextBusinessDay(String(d).slice(0, 10)));
+
+      const daysDiffs = allDates.map((d: string) => {
+        const time = new Date(d).getTime();
+        return isNaN(time) ? 999 : Math.abs(time - new Date(effectiveDate).getTime()) / 86400000;
+      });
+      const minDaysDiff = daysDiffs.length > 0 ? Math.min(...daysDiffs) : 999;
 
       // Critério de aceite:
-      // 1. Entidade combinada (titular/aliases) com data em até 15 dias
-      // 2. Data próxima (<= 3 dias) mesmo que o nome tenha divergência sutil
-      if (entityMatched && daysDiff <= 15) {
+      // 1. Entidade combinada (titular/CREA/aliases/ART) com data em até 35 dias
+      // 2. Ou valor idêntico total com data muito próxima (<= 3 dias)
+      if (entityMatched && minDaysDiff <= 35) {
         matchedCard = card;
-        matchNotes = `Conciliado com card: "${card.title}" (${card.pix_owner || card.pix_name || "Favorecido"}).`;
+        matchedSplit = matchingSplit || null;
+        const ownerDisplay = matchingSplit?.pix_owner || card.pix_owner || card.pix_name || "Favorecido";
+        matchNotes = `Conciliado com card: "${card.title}" (${ownerDisplay}).`;
         break;
       }
 
-      if (isTotalMatch && daysDiff <= 3 && !matchedCard) {
+      if (isTotalMatch && minDaysDiff <= 3 && !matchedCard) {
         matchedCard = card;
+        matchedSplit = null;
         matchNotes = `Vinculado por valor idêntico e data próxima: "${card.title}".`;
       }
     }
 
     if (matchedCard) {
-      matchedCard.used = true;
+      matchedCard.remainingAmount = round2(matchedCard.remainingAmount - itemAmtAbs);
+      if (matchedSplit) {
+        matchedSplit.used = true;
+        const remainingUnused = matchedCard.availableSplits.filter((s: any) => !s.used);
+        if (remainingUnused.length === 0 || matchedCard.remainingAmount < 0.01) {
+          matchedCard.used = true;
+        }
+      } else {
+        if (matchedCard.remainingAmount < 0.01) {
+          matchedCard.used = true;
+          matchedCard.availableSplits.forEach((s: any) => { s.used = true; });
+        }
+      }
+
       matchedItemsCount++;
       itemsResults.push({
         statementItem: item,
@@ -315,6 +390,9 @@ export async function reconcileStatement(
         matchedPaymentRequestId: matchedCard.id,
         matchedPaymentRequestTitle: matchedCard.title,
         notes: matchNotes,
+        effectiveDate,
+        rawDate,
+        isShiftedFromWeekend: rawDate !== effectiveDate,
       });
     } else {
       unmatchedItemsCount++;
@@ -322,6 +400,9 @@ export async function reconcileStatement(
         statementItem: item,
         status: "NAO_ENCONTRADO_NO_SISTEMA",
         notes: "Lançamento bancário presente no extrato, mas não localizado no Conect Pay.",
+        effectiveDate,
+        rawDate,
+        isShiftedFromWeekend: rawDate !== effectiveDate,
       });
     }
   }
@@ -337,24 +418,76 @@ export async function reconcileStatement(
     }));
 
   // 5. Agrupamento por dia e determinação do Saldo do Extrato
-  const uniqueDates = Array.from(new Set(parsed.items.map((it) => it.date))).sort();
+  // Coleta todas as datas do extrato e garante que os próximos dias úteis estejam incluídos
+  const allDatesSet = new Set<string>();
+  parsed.items.forEach((it) => {
+    allDatesSet.add(it.date);
+    allDatesSet.add(getNextBusinessDay(it.date));
+  });
+
+  const allSortedDates = Array.from(allDatesSet).sort();
+  const rangeMin = allSortedDates[0] || minDate || "";
+  const rangeMax = allSortedDates[allSortedDates.length - 1] || maxDate || "";
+
+  // Preenche todos os dias corridos entre rangeMin e rangeMax para garantir que sábados e domingos apareçam sem buracos
+  const continuousDates: string[] = [];
+  if (rangeMin && rangeMax) {
+    let cur = new Date(`${rangeMin}T12:00:00Z`);
+    const end = new Date(`${rangeMax}T12:00:00Z`);
+    while (cur <= end) {
+      continuousDates.push(cur.toISOString().slice(0, 10));
+      cur = new Date(cur.getTime() + 86400000);
+    }
+  } else {
+    continuousDates.push(...allSortedDates);
+  }
 
   const statementBalance = round2(
     manualStatementBalance ??
       parsed.finalBalance ??
-      (maxDate && parsed.dailySummaries[maxDate]?.dayClosingBalance
-        ? Number(parsed.dailySummaries[maxDate].dayClosingBalance)
+      (rangeMax && parsed.dailySummaries[rangeMax]?.dayClosingBalance
+        ? Number(parsed.dailySummaries[rangeMax].dayClosingBalance)
         : systemBalance)
   );
 
   const balanceDivergence = round2(statementBalance - systemBalance);
   const isBalanceDivergent = Math.abs(balanceDivergence) >= 0.01;
 
-  // 6. Fechamentos Diários
+  // 6. Fechamentos Diários com regra contábil de dias úteis (Fim de semana e feriados sem movimentação)
   const dailyResults: DayReconciliationResult[] = [];
+  let lastKnownStmtBalance: number | null = null;
+  let lastKnownSysBalance = systemBalance;
 
-  for (const d of uniqueDates) {
-    const dayItems = itemsResults.filter((r) => r.statementItem.date === d);
+  for (const d of continuousDates) {
+    const isWk = isWeekendDay(d);
+    const holiday = getHolidayName(d);
+    const isBiz = !isWk && !holiday;
+
+    if (!isBiz) {
+      // Fim de Semana ou Feriado: sem movimentação contábil, repete o saldo do dia anterior
+      dailyResults.push({
+        date: d,
+        statementClosingBalance: lastKnownStmtBalance,
+        systemClosingBalance: lastKnownSysBalance,
+        difference: 0,
+        status: "CONCILIADO",
+        entriesTotal: 0,
+        exitsTotal: 0,
+        matchedCount: 0,
+        unmatchedCount: 0,
+        items: [],
+        isBusinessDay: false,
+        isWeekend: isWk,
+        isHoliday: Boolean(holiday),
+        holidayName: holiday || undefined,
+      });
+      continue;
+    }
+
+    // Dia Útil: recebe todos os lançamentos cujo dia de liquidação financeira efetiva seja este dia
+    const dayItems = itemsResults.filter(
+      (r) => (r.effectiveDate || getNextBusinessDay(r.statementItem.date)) === d
+    );
     const dayMatched = dayItems.filter((r) => r.status === "CONCILIADO").length;
     const dayUnmatched = dayItems.filter((r) => r.status !== "CONCILIADO").length;
 
@@ -365,19 +498,26 @@ export async function reconcileStatement(
       else exits += Math.abs(r.statementItem.amount);
     });
 
-    // Saldo do extrato no dia: do resumo do PDF ou fallback para statementBalance no último dia
-    const dayStmtBalance =
-      parsed.dailySummaries[d]?.dayClosingBalance ??
-      (d === maxDate ? statementBalance : null);
+    // Saldo do extrato no dia
+    const dayStmtBalance: number | null =
+      parsed.dailySummaries[d]?.dayClosingBalance !== undefined
+        ? parsed.dailySummaries[d].dayClosingBalance
+        : d === rangeMax
+        ? statementBalance
+        : lastKnownStmtBalance;
 
-    // Saldo do sistema no dia: busca o balance_after do último movimento do sistema daquele dia
+    if (dayStmtBalance !== null) lastKnownStmtBalance = dayStmtBalance;
+
+    // Saldo do sistema no dia: busca o balance_after do último movimento do sistema daquele dia útil
     const dayMovs = (movements || []).filter(
-      (m: any) => (m.created_at || "").slice(0, 10) === d
+      (m: any) => getNextBusinessDay((m.created_at || "").slice(0, 10)) === d
     );
     const systemDayBalance =
       dayMovs.length > 0
         ? round2(Number(dayMovs[0].balance_after))
-        : systemBalance;
+        : lastKnownSysBalance;
+
+    lastKnownSysBalance = systemDayBalance;
 
     const diff =
       dayStmtBalance !== null
@@ -395,6 +535,9 @@ export async function reconcileStatement(
       matchedCount: dayMatched,
       unmatchedCount: dayUnmatched,
       items: dayItems,
+      isBusinessDay: true,
+      isWeekend: false,
+      isHoliday: false,
     });
   }
 
