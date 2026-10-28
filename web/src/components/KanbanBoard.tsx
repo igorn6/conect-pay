@@ -15,6 +15,8 @@ interface KanbanBoardProps {
   onSelectAllInColumn?: (ids: string[], isAdding: boolean) => void;
   categories?: Category[];
   onUpdateCategory?: (cardId: string, newCategory: string) => void;
+  userRole?: string;
+  onEditCard?: (card: PaymentRequest) => void;
 }
 
 /**
@@ -32,6 +34,8 @@ export default function KanbanBoard({
   profilesMap = {},
   categories,
   onUpdateCategory,
+  userRole,
+  onEditCard,
 }: KanbanBoardProps) {
   // Agrupa os cards por status uma única vez (evita filtrar 8x a cada render)
   const cardsByStatus = useMemo(() => {
@@ -83,6 +87,8 @@ export default function KanbanBoard({
             profilesMap={profilesMap}
             categories={categories}
             onUpdateCategory={onUpdateCategory}
+            userRole={userRole}
+            onEditCard={onEditCard}
             onSelectAll={(ids, isAdding) => {
               if (onSelectAllInColumn) {
                 onSelectAllInColumn(ids, isAdding);

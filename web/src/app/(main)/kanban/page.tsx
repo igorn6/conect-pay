@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import KanbanBoard from "@/components/KanbanBoard";
 import NewRequestModal from "@/components/NewRequestModal";
 import CardDetailModal from "@/components/CardDetailModal";
+import QuickEditCardModal from "@/components/QuickEditCardModal";
 import TrashModal from "@/components/TrashModal";
 import Toast from "@/components/Toast";
 import MassActionBar from "@/components/MassActionBar";
@@ -23,6 +24,7 @@ export default function KanbanPage() {
   const cardsRef = useRef<PaymentRequest[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<PaymentRequest | null>(null);
+  const [quickEditCard, setQuickEditCard] = useState<PaymentRequest | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [categories, setCategories] = useState<Category[]>([]);
@@ -512,6 +514,8 @@ export default function KanbanPage() {
           onSelectAllInColumn={handleSelectAllInColumn}
           categories={categories}
           onUpdateCategory={handleUpdateCategory}
+          userRole={userRole || undefined}
+          onEditCard={(card) => setQuickEditCard(card)}
         />
         {userRole === "MASTER" && (
           <MassActionBar
@@ -525,6 +529,26 @@ export default function KanbanPage() {
         <NewRequestModal
           onClose={() => setIsModalOpen(false)}
           onSave={() => handleSuccess("Solicitação criada com sucesso!")}
+        />
+      )}
+
+      {quickEditCard && userRole && (
+        <QuickEditCardModal
+          isOpen={!!quickEditCard}
+          card={quickEditCard}
+          userRole={userRole}
+          userName={simulatedUserName || "Usuário"}
+          userId={userId || ""}
+          profilesMap={profilesMap}
+          onClose={() => setQuickEditCard(null)}
+          onSuccess={(updatedCard, msg) => {
+            setQuickEditCard(null);
+            fetchCards();
+            if (selectedCard && selectedCard.id === updatedCard.id) {
+              setSelectedCard(updatedCard);
+            }
+            handleSuccess(msg || "Solicitação alterada com sucesso!");
+          }}
         />
       )}
 

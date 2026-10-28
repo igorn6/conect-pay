@@ -117,12 +117,14 @@ export async function sendPushNotification({
   body,
   url = "/kanban",
   targetRoles = ["MASTER", "FINANCEIRO"],
+  targetUserIds,
   excludeUserId,
 }: {
   title: string;
   body: string;
   url?: string;
   targetRoles?: ("MASTER" | "FINANCEIRO" | "GESTOR" | "SOLICITANTE")[];
+  targetUserIds?: string[];
   excludeUserId?: string;
 }) {
   try {
@@ -133,7 +135,8 @@ export async function sendPushNotification({
         title,
         body,
         url,
-        targetRoles,
+        targetRoles: targetUserIds && targetUserIds.length > 0 ? undefined : targetRoles,
+        targetUserIds,
         excludeUserId,
       }),
     });

@@ -4,7 +4,7 @@ import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
   ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles,
-  AlertCircle, Info, RefreshCw, RotateCcw, Undo2, FileEdit
+  AlertCircle, Info, RefreshCw, RotateCcw, Undo2, FileEdit, Pencil
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,6 +16,7 @@ import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@
 import { syncNubankBalance } from "@/lib/nubankClient";
 import { sendPushNotification } from "@/lib/pushNotifications";
 import ManualEditModal from "./ManualEditModal";
+import QuickEditCardModal from "./QuickEditCardModal";
 
 const NEXT_STATUS: Record<string, string> = {
   NOVA_SOLICITACAO: "EM_APROVACAO",
@@ -54,6 +55,7 @@ export default function CardDetailModal({
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [editHistoryOpen, setEditHistoryOpen] = useState(true);
 
   // Payment Proof (Type A - Financeiro)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(card.payment_proof_url || null);
@@ -1606,9 +1608,23 @@ export default function CardDetailModal({
                     </button>
                   )}
                 </div>
-                <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-                  R$ {Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
+                {isMasterOrFinanceiro ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(true)}
+                    className="group/val text-left inline-flex items-center gap-2 cursor-pointer transition-all -ml-1 px-2 py-0.5 rounded-xl hover:bg-amber-500/10 border border-transparent hover:border-amber-500/30"
+                    title="Clique para editar o valor e a solicitação (Master/Financeiro)"
+                  >
+                    <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 group-hover/val:text-amber-400 tracking-tight transition-colors">
+                      R$ {Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
+                    <Pencil size={18} className="text-amber-400 opacity-50 group-hover/val:opacity-100 transition-opacity" />
+                  </button>
+                ) : (
+                  <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                    R$ {Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                )}
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold"
                         style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
@@ -2342,6 +2358,65 @@ export default function CardDetailModal({
                   {card.rejection_reason || "O gestor solicitou a correção do comprovante de pagamento."}
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* ACCORDION: Histórico de Alterações (Master & Financeiro) */}
+          {Array.isArray(card.edit_history) && card.edit_history.length > 0 && (
+            <div className="mt-4 rounded-xl border border-amber-500/25 bg-amber-500/[0.03] overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setEditHistoryOpen(!editHistoryOpen)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-amber-500/10 hover:bg-amber-500/15 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <FileEdit size={16} className="text-amber-400" />
+                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">
+                    Histórico de Alterações de Valor ({card.edit_history.length})
+                  </span>
+                </div>
+                <span
+                  className="inline-flex transition-transform duration-200 ease-out"
+                  style={{ transform: editHistoryOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                >
+                  <ChevronDown size={16} className="text-amber-400" />
+                </span>
+              </button>
+              {editHistoryOpen && (
+                <div className="p-3 space-y-2.5">
+                  {card.edit_history.map((item: any, idx: number) => (
+                    <div
+                      key={item.id || idx}
+                      className="p-3 rounded-xl bg-slate-950/70 border border-white/5 space-y-1.5 text-xs"
+                    >
+                      <div className="flex items-center justify-between text-[11px] text-slate-400">
+                        <span className="flex items-center gap-1 font-semibold text-slate-200">
+                          <User size={11} className="text-amber-400" />
+                          {item.performed_by_name || "Financeiro/Master"} ({item.performed_by_role || "ADMIN"})
+                        </span>
+                        <span className="font-mono text-slate-500">
+                          {item.performed_at ? new Date(item.performed_at).toLocaleString("pt-BR") : "Data não registrada"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span className="text-slate-400 line-through font-mono">
+                          R$ {Number(item.previous_amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </span>
+                        <span className="text-slate-500">➔</span>
+                        <span className="text-emerald-400 font-bold font-mono text-sm">
+                          R$ {Number(item.new_amount || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                      {item.reason && (
+                        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200/90 text-[11px] italic">
+                          <strong className="not-italic font-bold text-amber-300">Motivo: </strong>
+                          "{item.reason}"
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -3638,6 +3713,23 @@ export default function CardDetailModal({
             </div>
           </div>
         </div>
+      )}
+      {/* QuickEditCardModal para Master e Financeiro */}
+      {isEditModalOpen && (
+        <QuickEditCardModal
+          isOpen={isEditModalOpen}
+          card={card}
+          userRole={userRole}
+          userName={simulatedUserName || userName || "Usuário"}
+          userId={userId || ""}
+          profilesMap={profilesMap}
+          onClose={() => setIsEditModalOpen(false)}
+          onSuccess={(updatedCard, msg) => {
+            setIsEditModalOpen(false);
+            Object.assign(card, updatedCard);
+            onUpdate(msg || "Solicitação atualizada com sucesso!");
+          }}
+        />
       )}
     </div>
   );

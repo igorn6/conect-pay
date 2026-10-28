@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { KanbanColumnConfig, PaymentRequest, Category } from "@/types/database";
-import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw, Zap, FileText, FileEdit } from "lucide-react";
+import { Inbox, User, Check, Clock, CheckCircle2, ShieldCheck, RefreshCw, Zap, FileText, FileEdit, Pencil } from "lucide-react";
 import { getCardSlaMetrics } from "@/utils/sla";
 
 interface KanbanColumnProps {
@@ -17,6 +17,8 @@ interface KanbanColumnProps {
   categories?: Category[];
   onUpdateCategory?: (cardId: string, newCategory: string) => void;
   /** Quando true (coluna sem cards) renderiza uma tira vertical fina. */
+  userRole?: string;
+  onEditCard?: (card: PaymentRequest) => void;
   compact?: boolean;
 }
 
@@ -35,7 +37,10 @@ export default function KanbanColumn({
   onSelectAll,
   profilesMap = {},
   compact = false,
+  userRole,
+  onEditCard,
 }: KanbanColumnProps) {
+  const canEdit = userRole === "MASTER" || userRole === "FINANCEIRO";
   const hasColor = ["CORRECAO_PENDENTE", "FINALIZADO", "RECUSADO"].includes(config.key);
 
   const columnTotal = useMemo(() => {
