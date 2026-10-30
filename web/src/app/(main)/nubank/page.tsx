@@ -29,6 +29,11 @@ import {
   QrCode,
   Zap,
 } from "lucide-react";
+import {
+  matchesDatePreset,
+  DATE_PRESET_OPTIONS,
+  type DatePresetFilter,
+} from "@/utils/exportToGoogleSheets";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import type { NubankSnapshot, NubankMovement } from "@/constants/nubank";
@@ -59,6 +64,7 @@ export default function NubankPage() {
 
   // Filtros do extrato
   const [movementFilter, setMovementFilter] = useState<"ALL" | "ENTRADA" | "SAIDA" | "REEMBOLSO" | "AJUSTE">("ALL");
+  const [dateFilter, setDateFilter] = useState<DatePresetFilter>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Modais
@@ -341,6 +347,11 @@ export default function NubankPage() {
       if (movementFilter === "REEMBOLSO" && mov.type !== "REEMBOLSO") return false;
       if (movementFilter === "AJUSTE" && mov.type !== "AJUSTE") return false;
 
+      // Filtro de Período Pré-definido
+      if (dateFilter !== "ALL" && !matchesDatePreset(mov.created_at, dateFilter)) {
+        return false;
+      }
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const desc = (mov.description || "").toLowerCase();
@@ -349,7 +360,7 @@ export default function NubankPage() {
       }
       return true;
     });
-  }, [snapshot?.movements, movementFilter, searchQuery]);
+  }, [snapshot?.movements, movementFilter, dateFilter, searchQuery]);
 
   // Totais do Extrato
   const { totalEntradas, totalSaidas, totalReembolsos } = useMemo(() => {
@@ -725,6 +736,28 @@ export default function NubankPage() {
                     placeholder="Buscar no extrato..."
                     className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs outline-none border border-white/10 bg-slate-900/80 text-white placeholder-slate-500 focus:border-white/20 transition-all font-mono"
                   />
+                </div>
+
+                {/* Filtro de Período Pré-definido */}
+                <div className="flex items-center gap-0.5 sm:gap-1 p-1 rounded-xl border border-white/10 bg-slate-900/80 backdrop-blur-md">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 px-1.5 flex items-center gap-1">
+                    <Calendar size={11} className="text-purple-400" />
+                    <span className="hidden md:inline">Data:</span>
+                  </span>
+                  {DATE_PRESET_OPTIONS.map((dp) => (
+                    <button
+                      key={dp.id}
+                      type="button"
+                      onClick={() => setDateFilter(dp.id)}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-mono transition-all cursor-pointer ${
+                        dateFilter === dp.id
+                          ? "bg-purple-600 text-white font-bold shadow-xs"
+                          : "text-slate-400 hover:text-slate-200 font-medium"
+                      }`}
+                    >
+                      {dp.label}
+                    </button>
+                  ))}
                 </div>
 
                 <div className="flex items-center gap-1 p-1 rounded-xl border border-white/10 bg-slate-900/80 backdrop-blur-md">

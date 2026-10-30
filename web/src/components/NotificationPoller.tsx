@@ -25,24 +25,30 @@ export default function NotificationPoller() {
       } else if (userRole === "GESTOR") {
         const { data: sectorUsers } = await supabase.from("profiles").select("id").eq("sector", sectorId);
         const sectorUserIds = sectorUsers?.map(u => u.id) || [];
-        
-        const { data } = await supabase
+
+        // 1) Conta as solicitações do setor que precisam de validação do gestor
+        const { data: validacaoData } = await supabase
           .from("payment_requests")
-          .select("id, status, real_requester_id, created_by")
-          .in("status", ["VALIDACAO_GESTOR", "AGUARDANDO_PAGAMENTO", "CORRECAO_PENDENTE", "RECUSADO"])
+          .select("id, real_requester_id, created_by")
+          .eq("status", "VALIDACAO_GESTOR")
           .or("is_deleted.eq.false,is_deleted.is.null");
 
-        const items = data || [];
-        currentCount = items.filter(req => {
-          const isMine = req.real_requester_id === userId || req.created_by === userId;
-          const isInSector = sectorUserIds.includes(req.real_requester_id) || sectorUserIds.includes(req.created_by);
-          
-          if (req.status === "VALIDACAO_GESTOR") {
-            return isInSector || isMine;
-          } else {
-            return isMine;
-          }
-        }).length;
+        const validacaoCount = (validacaoData || []).filter(req =>
+          sectorUserIds.includes(req.real_requester_id) ||
+          sectorUserIds.includes(req.created_by) ||
+          req.real_requester_id === userId ||
+          req.created_by === userId
+        ).length;
+
+        // 2) Conta APENAS as solicitações do PRÓPRIO usuário nos demais status
+        const { count: mineCount } = await supabase
+          .from("payment_requests")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["AGUARDANDO_PAGAMENTO", "CORRECAO_PENDENTE", "RECUSADO"])
+          .or("is_deleted.eq.false,is_deleted.is.null")
+          .or(`real_requester_id.eq.${userId},created_by.eq.${userId}`);
+
+        currentCount = validacaoCount + (mineCount || 0);
       } else {
         const { count: c } = await supabase
           .from("payment_requests")

@@ -36,13 +36,13 @@ function playNotificationSound() {
 
 export default function GlobalNotification() {
   const { userRole, userId, sectorId } = useAuth();
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
   
   const lastNotifyRef = useRef<{ [type: string]: number }>({});
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
   const knownStatusesRef = useRef<Map<string, string>>(new Map());
 
-  const showToastAndSound = useCallback((message: string, type: "success" | "error" = "success") => {
+  const showToastAndSound = useCallback((message: string, type: "success" | "error" | "warning" = "success") => {
     playNotificationSound();
     setToast({ message, type });
 
@@ -65,6 +65,18 @@ export default function GlobalNotification() {
     // Auto hide toast after 5 seconds
     setTimeout(() => setToast(null), 5000);
   }, []);
+
+  // Escuta eventos de notificação customizados do app (ex: exportação p/ planilha)
+  useEffect(() => {
+    const handleAppToast = (e: Event) => {
+      const customEvt = e as CustomEvent<{ message: string; type?: "success" | "error" | "warning" }>;
+      if (customEvt.detail?.message) {
+        showToastAndSound(customEvt.detail.message, customEvt.detail.type || "success");
+      }
+    };
+    window.addEventListener("app-toast", handleAppToast);
+    return () => window.removeEventListener("app-toast", handleAppToast);
+  }, [showToastAndSound]);
 
   useEffect(() => {
     if (!userRole || !userId) return;

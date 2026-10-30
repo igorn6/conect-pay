@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle, XCircle, X } from "lucide-react";
+import { CheckCircle, XCircle, AlertTriangle, X } from "lucide-react";
 
 interface ToastProps {
   message: string;
-  type: "success" | "error";
+  type: "success" | "error" | "warning";
   onClose: () => void;
 }
 
 /**
- * Toast notification — aparece não canto superior direito.
+ * Toast notification — aparece no canto superior direito.
  * Auto-desaparece após 4 segundos.
  */
 export default function Toast({ message, type, onClose }: ToastProps) {
@@ -29,13 +29,20 @@ export default function Toast({ message, type, onClose }: ToastProps) {
   }, [onClose]);
 
   const isSuccess = type === "success";
+  const isWarning = type === "warning";
+
+  const borderColor = isSuccess
+    ? "rgba(16, 185, 129, 0.35)"
+    : isWarning
+    ? "rgba(245, 158, 11, 0.35)"
+    : "rgba(239, 68, 68, 0.35)";
 
   return (
     <div
       className="fixed top-6 right-6 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg max-w-md"
       style={{
         backgroundColor: "var(--bg-elevated)",
-        border: `1px solid ${isSuccess ? "rgba(16, 185, 129, 0.35)" : "rgba(239, 68, 68, 0.35)"}`,
+        border: `1px solid ${borderColor}`,
         boxShadow: "0 12px 36px rgba(0, 0, 0, 0.25)",
         backdropFilter: "blur(16px)",
         opacity: visible ? 1 : 0,
@@ -45,6 +52,8 @@ export default function Toast({ message, type, onClose }: ToastProps) {
     >
       {isSuccess ? (
         <CheckCircle size={20} color="#10b981" />
+      ) : isWarning ? (
+        <AlertTriangle size={20} color="#f59e0b" />
       ) : (
         <XCircle size={20} color="#ef4444" />
       )}

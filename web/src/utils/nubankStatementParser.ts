@@ -283,17 +283,24 @@ export function parseNubankPdfText(text: string): ParsedStatementResult {
     const entryIndex = dayChunk.indexOf("Total de entradas");
     const exitIndex = dayChunk.indexOf("Total de saídas");
 
-    if (entryIndex !== -1) {
-      const entryChunk =
-        exitIndex !== -1 && exitIndex > entryIndex
-          ? dayChunk.slice(entryIndex, exitIndex)
-          : dayChunk.slice(entryIndex);
-      extractPdfTransactions(entryChunk, cur.dateStr, "ENTRADA", items);
-    }
-
-    if (exitIndex !== -1) {
-      const exitChunk = dayChunk.slice(exitIndex);
-      extractPdfTransactions(exitChunk, cur.dateStr, "SAIDA", items);
+    if (entryIndex !== -1 && exitIndex !== -1) {
+      if (exitIndex > entryIndex) {
+        const entryChunk = dayChunk.slice(entryIndex, exitIndex);
+        const exitChunk = dayChunk.slice(exitIndex);
+        extractPdfTransactions(entryChunk, cur.dateStr, "ENTRADA", items);
+        extractPdfTransactions(exitChunk, cur.dateStr, "SAIDA", items);
+      } else {
+        const exitChunk = dayChunk.slice(exitIndex, entryIndex);
+        const entryChunk = dayChunk.slice(entryIndex);
+        extractPdfTransactions(exitChunk, cur.dateStr, "SAIDA", items);
+        extractPdfTransactions(entryChunk, cur.dateStr, "ENTRADA", items);
+      }
+    } else if (entryIndex !== -1) {
+      extractPdfTransactions(dayChunk.slice(entryIndex), cur.dateStr, "ENTRADA", items);
+    } else if (exitIndex !== -1) {
+      extractPdfTransactions(dayChunk.slice(exitIndex), cur.dateStr, "SAIDA", items);
+    } else {
+      extractPdfTransactions(dayChunk, cur.dateStr, "SAIDA", items);
     }
   }
 
@@ -335,42 +342,131 @@ export function parseNubankPdfText(text: string): ParsedStatementResult {
   };
 }
 
+function cleanPdfNoise(text: string): string {
+  return text
+    .replace(/Tem alguma dúvida\?[\s\S]*?(?:Atendimento das 8h às 18h em dias úteis\.)/gi, "")
+    .replace(/Extrato gerado dia[\s\S]*?(?:VALORES EM R\$)/gi, "")
+    .replace(/LIMA E TRINDADE COMERCIO DE GERADOR[\s\S]*?(?:VALORES EM R\$)/gi, "")
+    .replace(/\b\d+\s+de\s+\d+\b/g, "");
+}
+
+function determineTransactionType(desc: string, defaultType: "ENTRADA" | "SAIDA"): "ENTRADA" | "SAIDA" {
+  const lower = desc.toLowerCase();
+  if (
+    lower.includes("transferência recebida") ||
+    lower.includes("transferencia recebida") ||
+    lower.includes("reembolso recebido") ||
+    lower.includes("estorno") ||
+    lower.includes("depósito recebido") ||
+    lower.includes("rendimento") ||
+    lower.includes("resgate")
+  ) {
+    return "ENTRADA";
+  }
+  if (
+    lower.includes("transferência enviada") ||
+    lower.includes("transferencia enviada") ||
+    lower.includes("pagamento de boleto") ||
+    lower.includes("compra no débito") ||
+    lower.includes("compra no debito") ||
+    lower.includes("recarga de celular") ||
+    lower.includes("pagamento efetuado")
+  ) {
+    return "SAIDA";
+  }
+  return defaultType;
+}
+
 function extractPdfTransactions(
   chunk: string,
   dateIso: string,
-  type: "ENTRADA" | "SAIDA",
+  defaultType: "ENTRADA" | "SAIDA",
   items: ParsedStatementItem[]
 ) {
-  const lines = chunk.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const cleaned = cleanPdfNoise(chunk);
+  const rawLines = cleaned.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  // Expande linhas que possam conter mais de uma transação concatenada
+  const TX_SPLIT_REGEX = /(?<!^)(?=(?:Pagamento\s+de\s+boleto\s+efetuado|Transfer[êe]ncia\s+enviada|Transfer[êe]ncia\s+recebida|Compra\s+no\s+d[ée]bito|Estorno|Reembolso\s+recebido|Recarga\s+de\s+celular|Pagamento\s+efetuado))/gi;
+
+  const lines: string[] = [];
+  for (const rawLine of rawLines) {
+    const splitParts = rawLine.split(TX_SPLIT_REGEX).map((p) => p.trim()).filter(Boolean);
+    lines.push(...splitParts);
+  }
+
+  const INLINE_AMOUNT_REGEX = /^(.*?)(?:(?<=[a-zA-ZÀ-ÿ\s])|(?<=[^0-9,.]))((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})$/;
+  const PURE_AMOUNT_REGEX = /^(?:R\$\s*)?((?:\d{1,3}(?:\.\d{3})*|\d+),\d{2})$/;
+  const SUMMARY_REGEX = /^(Saldo\s+do\s+dia|Total\s+de\s+entradas|Total\s+de\s+sa[íi]das)/i;
+
   let currentDesc = "";
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (
-      line.startsWith("Total de entradas") ||
-      line.startsWith("Total de saídas") ||
-      line.startsWith("Saldo do dia")
-    ) {
-      continue;
-    }
+    if (SUMMARY_REGEX.test(line)) continue;
 
-    // Linha de valor exato: "290,00" ou "1.500,00"
-    const amtMatch = line.match(/^([\d\.]+(?:,\d{2}))$/);
-    if (amtMatch && currentDesc) {
-      const rawVal = parseAmount(amtMatch[1]);
-      const amount = type === "SAIDA" ? -Math.abs(rawVal) : Math.abs(rawVal);
+    // Caso A: Linha com valor no final (ex: "Pagamento de boleto...108,39" ou "... 108,39")
+    const inlineMatch = line.match(INLINE_AMOUNT_REGEX);
+    if (inlineMatch) {
+      const descPart = inlineMatch[1].trim();
+      const valStr = inlineMatch[2];
+      const desc = currentDesc ? `${currentDesc} ${descPart}`.trim() : descPart;
+      const rawVal = parseAmount(valStr);
+      const txType = determineTransactionType(desc, defaultType);
+      const amount = txType === "SAIDA" ? -Math.abs(rawVal) : Math.abs(rawVal);
+
       items.push({
         id: `pdf_${dateIso}_${items.length + 1}`,
         date: dateIso,
         amount,
-        type,
+        type: txType,
+        description: desc,
+        beneficiaryOrSender: extractPersonName(desc),
+      });
+      currentDesc = "";
+      continue;
+    }
+
+    // Caso B: Linha contendo apenas o valor monetário isolado (ex: "90,00" ou "R$ 90,00")
+    const pureMatch = line.match(PURE_AMOUNT_REGEX);
+    if (pureMatch && currentDesc) {
+      const rawVal = parseAmount(pureMatch[1]);
+      const txType = determineTransactionType(currentDesc, defaultType);
+      const amount = txType === "SAIDA" ? -Math.abs(rawVal) : Math.abs(rawVal);
+
+      items.push({
+        id: `pdf_${dateIso}_${items.length + 1}`,
+        date: dateIso,
+        amount,
+        type: txType,
         description: currentDesc,
         beneficiaryOrSender: extractPersonName(currentDesc),
       });
       currentDesc = "";
-    } else {
-      if (currentDesc) currentDesc += " " + line;
-      else currentDesc = line;
+      continue;
+    }
+
+    // Caso C: Continuação ou início de descrição
+    currentDesc = currentDesc ? `${currentDesc} ${line}` : line;
+  }
+
+  // Se restou algo no final do buffer com valor embutido
+  if (currentDesc) {
+    const trailingMatch = currentDesc.match(INLINE_AMOUNT_REGEX);
+    if (trailingMatch) {
+      const desc = trailingMatch[1].trim();
+      const rawVal = parseAmount(trailingMatch[2]);
+      const txType = determineTransactionType(desc, defaultType);
+      const amount = txType === "SAIDA" ? -Math.abs(rawVal) : Math.abs(rawVal);
+
+      items.push({
+        id: `pdf_${dateIso}_${items.length + 1}`,
+        date: dateIso,
+        amount,
+        type: txType,
+        description: desc,
+        beneficiaryOrSender: extractPersonName(desc),
+      });
     }
   }
 }

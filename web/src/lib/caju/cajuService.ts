@@ -3,18 +3,22 @@
  * Orquestra leitura do snapshot patrimonial, colaboradores, extrato oficial,
  * fechamentos diários reconstruídos a partir do marco zero, importação CSV
  * idempotente + conciliação automática com o Kanban e gatilho de recarga.
+ *
+ * NOVA LÓGICA (a partir de 28/10/2026):
+ *  - Âncora: R$ 11.348,75 em 27/10/2026
+ *  - COMPRA (caju_transactions) → deduz do saldo total
+ *  - RECARGA (caju_movements type=RECARGA) → adiciona ao saldo total
+ *  - Fim de semana → próxima segunda-feira (getNextBusinessDay)
+ *  - Sem divisão posse/colaborador — saldo único
  */
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   CAJU_CUTOFF_ISO,
-  CAJU_OFFICIAL_RECHARGES,
   isCajuRechargeCard,
   round2,
   isWeekendDay,
   getHolidayName,
-  isCajuBusinessDay,
   getNextBusinessDay,
-  getEffectiveFinancialDate,
   type CajuCollaborator,
   type CajuDailyClosing,
   type CajuImportSummary,
@@ -74,27 +78,13 @@ const SEED_COLLABORATORS: ReadonlyArray< readonly [string, string, number] > = [
 
 let cajuInitializedCache = false;
 
-/** Garante que a carteira Caju e os 44 colaboradores iniciais existam no banco. */
+/** Garante que a carteira Caju exista no banco com a âncora oficial. */
 export async function ensureCajuInitialized(): Promise<void> {
   if (cajuInitializedCache) return;
 
   await supabaseAdmin
     .from("caju_wallet")
-    .upsert({ id: "caju", free_balance: 5845.8, cutoff_at: CAJU_CUTOFF_ISO }, { onConflict: "id", ignoreDuplicates: true });
-
-  const { count } = await supabaseAdmin
-    .from("caju_collaborators")
-    .select("id", { count: "exact", head: true });
-
-  if ((count ?? 0) < 44) {
-    const payload = SEED_COLLABORATORS.map(([name, cpf, balance]) => ({
-      name,
-      cpf,
-      balance,
-      is_seed: true,
-    }));
-    await supabaseAdmin.from("caju_collaborators").upsert(payload, { onConflict: "cpf", ignoreDuplicates: true });
-  }
+    .upsert({ id: "caju", free_balance: 11348.75, cutoff_at: CAJU_CUTOFF_ISO }, { onConflict: "id", ignoreDuplicates: true });
 
   cajuInitializedCache = true;
 }
@@ -106,8 +96,12 @@ function brDate(iso: string): string {
 }
 
 /**
- * Reconstrói a tabela de Fechamentos Diários caminhando a partir do saldo atual
- * (que já reflete exatamente o marco zero + eventos posteriores).
+ * Reconstrói a tabela de Fechamentos Diários a partir do saldo âncora
+ * (R$ 11.348,75 em 27/10/2026) usando a nova lógica simplificada:
+ *  - COMPRA (caju_transactions) → deduz do saldo total
+ *  - RECARGA (caju_movements type=RECARGA) → adiciona ao saldo total
+ *  - Fim de semana → próxima segunda-feira (getNextBusinessDay)
+ *  - Sem divisão posse/colaborador — saldo único (totalEnd)
  */
 export function buildDailyClosings(args: {
   currentFree: number;
@@ -116,78 +110,65 @@ export function buildDailyClosings(args: {
   transactions: CajuTransaction[];
   movements: CajuMovement[];
 }): CajuDailyClosing[] {
-  const { currentFree, currentCards, cutoffIso, transactions, movements } = args;
+  const { cutoffIso, transactions, movements } = args;
   const cutoffDate = brDate(cutoffIso);
 
-  const byDay = new Map<
-    string,
-    {
-      deposits: number;
-      rescues: number;
-      purchases: number;
-      recharges: number;
-      txCount: number;
-      depositsCount: number;
-      reconciledDeposits: number;
-      netFree: number;
-      netCards: number;
-    }
-  >();
+  // Âncora contábil: R$ 11.348,75 em 27/10/2026
+  const ANCHOR_DATE = "2026-10-27";
+  const ANCHOR_TOTAL = 11348.75;
+
+  // Mapa de dias: data → { purchases, recharges, txCount, netTotal }
+  const byDay = new Map<string, {
+    purchases: number;
+    recharges: number;
+    txCount: number;
+    netTotal: number; // positivo = entrada, negativo = saída
+  }>();
 
   const slot = (d: string) => {
     let s = byDay.get(d);
     if (!s) {
-      s = {
-        deposits: 0,
-        rescues: 0,
-        purchases: 0,
-        recharges: 0,
-        txCount: 0,
-        depositsCount: 0,
-        reconciledDeposits: 0,
-        netFree: 0,
-        netCards: 0,
-      };
+      s = { purchases: 0, recharges: 0, txCount: 0, netTotal: 0 };
       byDay.set(d, s);
     }
     return s;
   };
 
-  // Garante todos os dias corridos continuamente desde 2026-09-01 até a data mais recente (>= cutoffDate)
   let minDayStr = "2026-09-01";
   let maxDayStr = cutoffDate;
 
-  // 1. Processa todas as transações (incluindo as Recargas integradas)
-  // Regra padrão Conect Pay: fins de semana e feriados não possuem movimentações contábeis.
-  // Toda movimentação ocorrida em sábado/domingo/feriado é transferida para o próximo dia útil.
+  // 1. Processar COMPRAs (caju_transactions tx_type=COMPRA) → deduzem do total
   for (const tx of transactions) {
+    if (tx.tx_type !== "COMPRA") continue;
     const rawDate = brDate(tx.occurred_at);
     const effDate = getNextBusinessDay(rawDate);
     if (effDate < minDayStr) minDayStr = effDate;
     if (effDate > maxDayStr) maxDayStr = effDate;
     const s = slot(effDate);
     const amt = round2(tx.amount);
+    s.purchases = round2(s.purchases + amt);
+    s.netTotal = round2(s.netTotal - amt); // compra sai do saldo
     s.txCount++;
-    if (tx.tx_type === "DEPOSITO") {
-      s.deposits = round2(s.deposits + amt);
-      s.depositsCount++;
-      if (tx.reconciliation_status === "CONCILIADO") s.reconciledDeposits++;
-      s.netFree = round2(s.netFree - amt);
-      s.netCards = round2(s.netCards + amt);
-    } else if (tx.tx_type === "RESGATE") {
-      s.rescues = round2(s.rescues + amt);
-      s.netFree = round2(s.netFree + amt);
-      s.netCards = round2(s.netCards - amt);
-    } else if (tx.tx_type === "COMPRA") {
-      s.purchases = round2(s.purchases + amt);
-      s.netCards = round2(s.netCards - amt);
-    } else if (tx.tx_type === "RECARGA") {
-      s.recharges = round2(s.recharges + amt);
-      s.netFree = round2(s.netFree + amt);
-    }
   }
 
-  // Preenche todos os dias do calendário entre minDayStr e maxDayStr sem buracos
+  // 2. Processar RECARGAs (caju_movements type=RECARGA) → adicionam ao total
+  for (const mov of movements) {
+    if (mov.type !== "RECARGA") continue;
+    const rawDate = brDate(mov.created_at);
+    const effDate = getNextBusinessDay(rawDate);
+    if (effDate < minDayStr) minDayStr = effDate;
+    if (effDate > maxDayStr) maxDayStr = effDate;
+    const s = slot(effDate);
+    const amt = round2(Math.abs(mov.free_delta));
+    s.recharges = round2(s.recharges + amt);
+    s.netTotal = round2(s.netTotal + amt); // recarga entra no saldo
+    s.txCount++;
+  }
+
+  // 3. Processar RECARGAs do Kanban (caju_movements type=RECARGA também)
+  //    — já processadas acima via movements
+
+  // Preencher todos os dias corridos sem buracos
   let cursor = new Date(`${minDayStr}T12:00:00Z`);
   const endCursor = new Date(`${maxDayStr}T12:00:00Z`);
   while (cursor <= endCursor) {
@@ -195,115 +176,63 @@ export function buildDailyClosings(args: {
     cursor = new Date(cursor.getTime() + 86_400_000);
   }
 
-  // Âncora contábil oficial (Dia 27/10/2026):
-  // Saldo Posse (Livre) = R$ 5.545,80 | Saldo Colaborador = R$ 5.802,95 | Saldo Total = R$ 11.348,75
-  const ANCHOR_DATE = "2026-10-27";
-  const ANCHOR_FREE = 5545.8;
-  const ANCHOR_CARDS = 5802.95;
-  const ANCHOR_TOTAL = 11348.75;
+  // Calcular saldos por dia usando caminhada progressiva/regressiva a partir da âncora
+  const totalMap = new Map<string, { totalStart: number; totalEnd: number }>();
 
-  const resultsMap = new Map<
-    string,
-    {
-      freeStart: number;
-      cardsStart: number;
-      totalStart: number;
-      freeEnd: number;
-      cardsEnd: number;
-      totalEnd: number;
-    }
-  >();
-
-  // Fechamento da data âncora (27/10/2026)
+  // Âncora (27/10/2026)
   const s27 = slot(ANCHOR_DATE);
-  const startFree27 = round2(ANCHOR_FREE - s27.netFree);
-  const startCards27 = round2(ANCHOR_CARDS - s27.netCards);
+  const anchorStart = round2(ANCHOR_TOTAL - s27.netTotal);
+  totalMap.set(ANCHOR_DATE, { totalStart: anchorStart, totalEnd: ANCHOR_TOTAL });
 
-  resultsMap.set(ANCHOR_DATE, {
-    freeStart: startFree27,
-    cardsStart: startCards27,
-    totalStart: round2(startFree27 + startCards27),
-    freeEnd: ANCHOR_FREE,
-    cardsEnd: ANCHOR_CARDS,
-    totalEnd: ANCHOR_TOTAL,
-  });
+  const allDayKeys = Array.from(byDay.keys()).sort();
 
-  // Dias futuros (ex: 28/10/2026): caminhada progressiva a partir do final de 27/10
-  const allDayKeys = Array.from(byDay.keys());
-  const futureDays = allDayKeys.filter((d) => d > ANCHOR_DATE).sort();
-  let currFree = ANCHOR_FREE;
-  let currCards = ANCHOR_CARDS;
-  for (const d of futureDays) {
+  // Dias futuros → caminhada progressiva a partir do fim do dia âncora
+  let runTotal = ANCHOR_TOTAL;
+  for (const d of allDayKeys.filter((d) => d > ANCHOR_DATE)) {
     const s = byDay.get(d)!;
-    const startF = currFree;
-    const startC = currCards;
-    const endF = round2(startF + s.netFree);
-    const endC = round2(startC + s.netCards);
-    resultsMap.set(d, {
-      freeStart: startF,
-      cardsStart: startC,
-      totalStart: round2(startF + startC),
-      freeEnd: endF,
-      cardsEnd: endC,
-      totalEnd: round2(endF + endC),
-    });
-    currFree = endF;
-    currCards = endC;
+    const startT = runTotal;
+    const endT = round2(startT + s.netTotal);
+    totalMap.set(d, { totalStart: startT, totalEnd: endT });
+    runTotal = endT;
   }
 
-  // Dias passados (ex: 26/10, 25/10, ...): caminhada regressiva a partir do início de 27/10
-  let runStartFree = startFree27;
-  let runStartCards = startCards27;
-  const pastDays = allDayKeys.filter((d) => d < ANCHOR_DATE).sort().reverse();
-  for (const d of pastDays) {
+  // Dias passados → caminhada regressiva a partir do início do dia âncora
+  let runPastTotal = anchorStart;
+  for (const d of allDayKeys.filter((d) => d < ANCHOR_DATE).reverse()) {
     const s = byDay.get(d)!;
-    const endF = runStartFree;
-    const endC = runStartCards;
-    const startF = round2(endF - s.netFree);
-    const startC = round2(endC - s.netCards);
-    resultsMap.set(d, {
-      freeStart: startF,
-      cardsStart: startC,
-      totalStart: round2(startF + startC),
-      freeEnd: endF,
-      cardsEnd: endC,
-      totalEnd: round2(endF + endC),
-    });
-    runStartFree = startF;
-    runStartCards = startC;
+    const endT = runPastTotal;
+    const startT = round2(endT - s.netTotal);
+    totalMap.set(d, { totalStart: startT, totalEnd: endT });
+    runPastTotal = startT;
   }
 
-  const daysDesc = Array.from(byDay.keys()).sort((a, b) => b.localeCompare(a));
+  // Montar closings em ordem decrescente
+  const daysDesc = allDayKeys.slice().sort((a, b) => b.localeCompare(a));
   const closings: CajuDailyClosing[] = [];
 
   for (const d of daysDesc) {
     const s = byDay.get(d)!;
-    const res = resultsMap.get(d) || {
-      freeStart: 0,
-      cardsStart: 0,
-      totalStart: 0,
-      freeEnd: 0,
-      cardsEnd: 0,
-      totalEnd: 0,
-    };
+    const res = totalMap.get(d) || { totalStart: 0, totalEnd: 0 };
     const isWk = isWeekendDay(d);
     const holiday = getHolidayName(d);
     const isBiz = !isWk && !holiday;
 
     closings.push({
       date: d,
-      deposits: s.deposits,
-      rescues: s.rescues,
+      deposits: 0,
+      rescues: 0,
       purchases: s.purchases,
       recharges: s.recharges,
       txCount: s.txCount,
-      depositsCount: s.depositsCount,
-      reconciledDeposits: s.reconciledDeposits,
-      freeBalanceStart: res.freeStart,
-      cardsBalanceStart: res.cardsStart,
+      depositsCount: 0,
+      reconciledDeposits: 0,
+      // Para compatibilidade de UI: totalEnd = saldo do dia
+      // freeBalance = totalBalance (sem split posse/colaborador)
+      freeBalanceStart: res.totalStart,
+      cardsBalanceStart: 0,
       totalBalanceStart: res.totalStart,
-      freeBalanceEnd: res.freeEnd,
-      cardsBalanceEnd: res.cardsEnd,
+      freeBalanceEnd: res.totalEnd,
+      cardsBalanceEnd: 0,
       totalBalanceEnd: res.totalEnd,
       isHistorical: d <= cutoffDate,
       isBusinessDay: isBiz,
@@ -338,7 +267,7 @@ export async function getCajuHubData(txLimit = 5000): Promise<CajuHubData> {
     supabaseAdmin.from("caju_wallet").select("*").eq("id", "caju").single(),
     supabaseAdmin.from("caju_collaborators").select("*").order("balance", { ascending: false }).order("name", { ascending: true }),
     supabaseAdmin.from("caju_transactions").select("*").order("occurred_at", { ascending: false }).limit(txLimit),
-    supabaseAdmin.from("caju_movements").select("*").order("created_at", { ascending: false }).limit(200),
+    supabaseAdmin.from("caju_movements").select("*").order("created_at", { ascending: false }).limit(500),
     supabaseAdmin.from("caju_import_batches").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
@@ -362,37 +291,42 @@ export async function getCajuHubData(txLimit = 5000): Promise<CajuHubData> {
     free_balance_after: m.free_balance_after !== null ? round2(Number(m.free_balance_after)) : null,
   }));
 
-  // Cria transações para as recargas oficiais (Pix R$ 3.000,00) para compor o Extrato e o Saldo
-  const rechargeTransactions: CajuTransaction[] = CAJU_OFFICIAL_RECHARGES.map((r) => ({
-    id: `recarga-${r.id}`,
-    tx_hash: `recarga-${r.id}`,
-    advance_name: "Carteira Despesas",
-    collaborator_name: "Empresa • Conect Pay",
-    cpf: "00000000000",
-    collaborator_id: null,
-    tx_type: "RECARGA",
-    raw_type: "Recarga Pix",
-    merchant: `Recarga Caju • ID ${r.id}`,
-    amount: r.amount,
-    occurred_at: `${r.date}T${r.time}-03:00`,
-    applied_to_balance: true,
-    reconciliation_status: "CONCILIADO",
-    match_kind: "EXATO",
-    matched_request_id: null,
-    match_details: null,
-    import_batch_id: null,
-    created_at: `${r.date}T${r.time}-03:00`,
-  }));
+  // Junta COMPRAS (caju_transactions) e RECARGAS (caju_movements type=RECARGA) no mesmo extrato
+  const rechargeTransactions: CajuTransaction[] = movements
+    .filter((m) => m.type === "RECARGA")
+    .map((m, idx) => ({
+      id: m.id || `recharge-mov-${idx}`,
+      tx_hash: `recharge-${m.id || idx}`,
+      advance_name: "Carteira Despesas",
+      collaborator_name: "Empresa • Conect Pay",
+      cpf: "00000000000",
+      collaborator_id: null,
+      tx_type: "RECARGA",
+      raw_type: "Recarga Pix",
+      merchant: m.description || "Depósito de Créditos Caju",
+      amount: round2(Math.abs(m.free_delta)),
+      occurred_at: m.created_at,
+      applied_to_balance: true,
+      reconciliation_status: "CONCILIADO",
+      match_kind: "EXATO",
+      matched_request_id: m.payment_request_id || null,
+      match_details: null,
+      import_batch_id: null,
+      created_at: m.created_at,
+    }));
 
   const allTransactions = [...baseTransactions, ...rechargeTransactions].sort((a, b) =>
     b.occurred_at.localeCompare(a.occurred_at)
   );
 
-  const freeBalance = round2(Number(wallet?.free_balance ?? 5545.8));
-  const cardsBalance = round2(collaborators.reduce((s, c) => s + c.balance, 0));
-  const totalBalance = round2(freeBalance + cardsBalance);
+  // Saldo total = wallet.free_balance (âncora já ajustada)
+  const WALLET_ANCHOR = 11348.75;
+  const freeBalance = round2(Number(wallet?.free_balance ?? WALLET_ANCHOR));
+  // cardsBalance = 0 no novo modelo (sem split posse/colaborador)
+  const cardsBalance = 0;
+  const totalBalance = freeBalance;
 
-  // Compras no mês corrente (ou mês da transação mais recente, caso não haja compras no mês atual)
+  // Compras no mês corrente
   const nowMonth = brDate(new Date().toISOString()).slice(0, 7);
   const latestTxMonth = allTransactions[0] ? brDate(allTransactions[0].occurred_at).slice(0, 7) : nowMonth;
   const targetMonth = allTransactions.some((t) => t.tx_type === "COMPRA" && brDate(t.occurred_at).startsWith(nowMonth))

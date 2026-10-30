@@ -11,8 +11,10 @@ import {
   ArrowUpRight,
   FileText,
   ShieldCheck,
+  ClipboardCopy,
 } from "lucide-react";
 import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
+import { copyOutflowsToSheets } from "@/utils/exportToGoogleSheets";
 
 interface ReconciliationItem {
   id: string;
@@ -241,15 +243,27 @@ export default function NubankDailyReconciliationHistory({
                         <tr className="bg-slate-900/60 border-t border-white/[0.06]">
                           <td colSpan={8} className="p-4 sm:p-5">
                             <div className="space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">
-                                  Lançamentos auditados em {dateFormatted} ({day.nubank_statement_items.length} itens)
-                                </span>
-                                {day.source_file_name && (
-                                  <span className="text-[10px] font-mono text-slate-500">
-                                    Arquivo de origem: {day.source_file_name}
+                              <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">
+                                    Lançamentos auditados em {dateFormatted} ({day.nubank_statement_items.length} itens)
                                   </span>
-                                )}
+                                  {day.source_file_name && (
+                                    <span className="text-[10px] font-mono text-slate-500">
+                                      • {day.source_file_name}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => copyOutflowsToSheets(day.nubank_statement_items || [], "Nubank")}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/60 transition-all cursor-pointer shadow-sm"
+                                  title="Copiar saídas auditadas deste dia para colar na coluna A da planilha Google Sheets"
+                                >
+                                  <ClipboardCopy size={13} className="text-purple-400" />
+                                  <span>📋 Copiar Lançamentos do Dia ({day.nubank_statement_items.length})</span>
+                                </button>
                               </div>
                               <div className="rounded-xl border border-white/[0.06] overflow-hidden divide-y divide-white/[0.04]">
                                 {day.nubank_statement_items.map((it) => (

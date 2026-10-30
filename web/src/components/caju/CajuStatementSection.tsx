@@ -26,7 +26,14 @@ import {
   ArrowDownLeft,
   ShoppingBag,
   ExternalLink,
+  ClipboardCopy,
 } from "lucide-react";
+import {
+  copyOutflowsToSheets,
+  matchesDatePreset,
+  DATE_PRESET_OPTIONS,
+  type DatePresetFilter,
+} from "@/utils/exportToGoogleSheets";
 import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
 import {
   formatCpf,
@@ -102,9 +109,10 @@ export default function CajuStatementSection({
 }: CajuStatementSectionProps) {
   // Filtros de Extrato
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState<DatePresetFilter>("ALL");
   const [typeFilter, setTypeFilter] = useState<"ALL" | CajuTxType>("ALL");
   const [reconcileFilter, setReconcileFilter] = useState<"ALL" | "CONCILIADO" | "SEM_CONCILIACAO">("ALL");
-  const [originFilter, setOriginFilter] = useState<"ALL" | "APPLIED" | "HISTORICAL">("ALL");
+  const [copyingSheets, setCopyingSheets] = useState(false);
 
   // Paginação
   const [page, setPage] = useState(1);
@@ -141,13 +149,15 @@ export default function CajuStatementSection({
         if (tx.tx_type === "DEPOSITO" && tx.reconciliation_status === "CONCILIADO") return false;
       }
 
-      // Marco Zero / Histórico
-      if (originFilter === "APPLIED" && !tx.applied_to_balance) return false;
-      if (originFilter === "HISTORICAL" && tx.applied_to_balance) return false;
+      // Filtro de Período Pré-definido
+      if (dateFilter !== "ALL") {
+        const txDate = tx.occurred_at || tx.created_at;
+        if (!matchesDatePreset(txDate, dateFilter)) return false;
+      }
 
       return true;
     });
-  }, [transactions, searchQuery, typeFilter, reconcileFilter, originFilter]);
+  }, [transactions, searchQuery, dateFilter, typeFilter, reconcileFilter]);
 
   // Total de páginas
   const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
@@ -242,14 +252,29 @@ export default function CajuStatementSection({
                 )}
               </div>
 
-              {/* Ações Rápidas: Importar CSV */}
-              <div className="flex items-center gap-2">
+              {/* Ações Rápidas: Copiar p/ Planilha & Importar CSV */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setCopyingSheets(true);
+                    await copyOutflowsToSheets(filteredTransactions, "Caju");
+                    setTimeout(() => setCopyingSheets(false), 2000);
+                  }}
+                  disabled={copyingSheets}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/60 shadow-[0_0_12px_rgba(244,63,94,0.12)] transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                  title="Copiar saídas visíveis/filtradas para colar na coluna A da planilha Google Sheets"
+                >
+                  <ClipboardCopy size={13} className="text-rose-400" />
+                  <span>📋 Copiar p/ Planilha (Saídas)</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={onOpenImportModal}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/60 shadow-[0_0_12px_rgba(244,63,94,0.12)] transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all cursor-pointer shrink-0"
                 >
-                  <Upload size={13} className="text-rose-400" />
+                  <Upload size={13} className="text-slate-400" />
                   <span>Importar Extrato CSV</span>
                 </button>
               </div>
@@ -258,6 +283,31 @@ export default function CajuStatementSection({
             {/* Linha de Filtros Semânticos */}
             <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-white/[0.06]">
               <div className="flex items-center gap-1.5 flex-wrap">
+                {/* Período Pré-definido */}
+                <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1">
+                  <Calendar size={12} className="text-rose-400" />
+                  <span>Data:</span>
+                </span>
+                {DATE_PRESET_OPTIONS.map((dp) => (
+                  <button
+                    key={dp.id}
+                    type="button"
+                    onClick={() => {
+                      setDateFilter(dp.id);
+                      setPage(1);
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      dateFilter === dp.id
+                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/40 shadow-sm font-bold"
+                        : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent font-medium"
+                    }`}
+                  >
+                    {dp.label}
+                  </button>
+                ))}
+
+                <div className="h-3.5 w-px bg-white/10 mx-1 hidden sm:block" />
+
                 {/* Tipo de Transação */}
                 <span className="text-[11px] font-semibold text-slate-400 mr-1 flex items-center gap-1">
                   <Filter size={12} />
@@ -319,33 +369,6 @@ export default function CajuStatementSection({
                     {rf.label}
                   </button>
                 ))}
-
-                <div className="h-3.5 w-px bg-white/10 mx-1 hidden sm:block" />
-
-                {/* Marco Zero */}
-                {(
-                  [
-                    { key: "ALL", label: "Todos os Marcos" },
-                    { key: "APPLIED", label: "Pós-Marco Zero" },
-                    { key: "HISTORICAL", label: "Histórico Base" },
-                  ] as const
-                ).map((of) => (
-                  <button
-                    key={of.key}
-                    type="button"
-                    onClick={() => {
-                      setOriginFilter(of.key);
-                      setPage(1);
-                    }}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-all cursor-pointer ${
-                      originFilter === of.key
-                        ? "bg-white/10 text-white border border-white/20"
-                        : "text-slate-400 hover:text-slate-200 border border-transparent"
-                    }`}
-                  >
-                    {of.label}
-                  </button>
-                ))}
               </div>
 
               {/* Contador Resumido */}
@@ -379,8 +402,7 @@ export default function CajuStatementSection({
                   >
                     <th className="py-3 px-4 font-semibold">Data / Hora</th>
                     <th className="py-3 px-4 font-semibold">Colaborador & CPF</th>
-                    <th className="py-3 px-4 font-semibold">Tipo & Origem</th>
-                    <th className="py-3 px-4 font-semibold">Impacto Matemático</th>
+                    <th className="py-3 px-4 font-semibold">Tipo & Estabelecimento</th>
                     <th className="py-3 px-4 font-semibold text-right">Valor</th>
                     <th className="py-3 px-4 font-semibold text-center">Validador IA</th>
                   </tr>
@@ -388,7 +410,7 @@ export default function CajuStatementSection({
                 <tbody className="divide-y" style={{ borderColor: "var(--surface-border)" }}>
                   {paginatedTransactions.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                      <td colSpan={5} className="py-12 text-center text-slate-400">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <FileCheck2 size={32} className="text-slate-500 opacity-60" />
                           <p className="text-sm font-medium text-slate-300">
@@ -414,24 +436,11 @@ export default function CajuStatementSection({
                           className="hover:bg-white/[0.03] transition-colors"
                           style={{ borderColor: "var(--surface-border)" }}
                         >
-                          {/* Data/Hora & Tag de Marco */}
+                          {/* Data/Hora */}
                           <td className="py-3.5 px-4 whitespace-nowrap">
-                            <div className="flex flex-col gap-1">
-                              <span className="font-mono text-slate-200 font-medium">
-                                {formatDateTimeBr(tx.occurred_at)}
-                              </span>
-                              <div>
-                                {tx.applied_to_balance ? (
-                                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 tracking-tight">
-                                    Pós-Marco Zero
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/15 border border-slate-500/30 text-slate-400 tracking-tight">
-                                    Histórico Base
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                            <span className="font-mono text-slate-200 font-medium">
+                              {formatDateTimeBr(tx.occurred_at)}
+                            </span>
                           </td>
 
                           {/* Colaborador & CPF */}
@@ -484,28 +493,6 @@ export default function CajuStatementSection({
                                 {tx.advance_name || tx.merchant || "—"}
                               </span>
                             </div>
-                          </td>
-
-                          {/* Impacto Matemático */}
-                          <td className="py-3.5 px-4 whitespace-nowrap">
-                            {isDeposit && (
-                              <span className="text-[11px] font-medium text-emerald-400/90 font-mono">
-                                Livre (-) → Cartão (+)
-                              </span>
-                            )}
-                            {isRescue && (
-                              <span className="text-[11px] font-medium text-amber-300/90 font-mono">
-                                Cartão (-) → Livre (+)
-                              </span>
-                            )}
-                            {isPurchase && (
-                              <span className="text-[11px] font-medium text-rose-400/90 font-mono">
-                                Cartão (-) • Patrimônio (-)
-                              </span>
-                            )}
-                            {!isDeposit && !isRescue && !isPurchase && (
-                              <span className="text-[11px] text-slate-500 font-mono">—</span>
-                            )}
                           </td>
 
                           {/* Valor */}
@@ -733,15 +720,25 @@ export default function CajuStatementSection({
                                   ) : null}
                                 </div>
                                 <div className="flex items-center gap-1 flex-wrap">
-                                  {closing.isWeekend ? (
-                                    <span className="text-[10px] font-medium text-slate-400">
-                                      Repete saldo anterior (sem mov.)
-                                    </span>
-                                  ) : closing.isHoliday ? (
+                                  {closing.isHoliday && closing.holidayName && (
                                     <span className="text-[10px] font-medium text-purple-300 truncate max-w-[150px]" title={closing.holidayName}>
                                       {closing.holidayName}
                                     </span>
-                                  ) : closing.isHistorical ? (
+                                  )}
+                                  {closing.isWeekend ? (
+                                    <span className="text-[10px] font-medium text-slate-400">
+                                      Repete saldo anterior (saídas caem na segunda)
+                                    </span>
+                                  ) : closing.txCount > 0 ? (
+                                    <span className="text-[10px] font-medium text-slate-400">
+                                      {closing.txCount} {closing.txCount === 1 ? "movimentação" : "movimentações"}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] font-medium text-slate-500 italic">
+                                      Sem movimentações
+                                    </span>
+                                  )}
+                                  {closing.isHistorical ? (
                                     <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-slate-500/15 border border-slate-500/30 text-slate-400">
                                       Reconstrução Reversa
                                     </span>
@@ -903,9 +900,22 @@ export default function CajuStatementSection({
                                         Transações do dia {formatDayBr(closing.date)} ({dayTransactions.length})
                                       </span>
                                     </div>
-                                    <span className="text-[11px] text-slate-400 font-mono">
-                                      Total do dia: {closing.txCount} eventos
-                                    </span>
+                                    <div className="flex items-center gap-2.5">
+                                      {dayTransactions.some(t => t.tx_type === "COMPRA") && (
+                                        <button
+                                          type="button"
+                                          onClick={() => copyOutflowsToSheets(dayTransactions, "Caju")}
+                                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-all cursor-pointer"
+                                          title="Copiar saídas deste dia para colar na coluna A da planilha Google Sheets"
+                                        >
+                                          <ClipboardCopy size={11} className="text-rose-400" />
+                                          <span>📋 Copiar Saídas</span>
+                                        </button>
+                                      )}
+                                      <span className="text-[11px] text-slate-400 font-mono">
+                                        Total do dia: {closing.txCount} eventos
+                                      </span>
+                                    </div>
                                   </div>
 
                                   {dayTransactions.length === 0 ? (
