@@ -8,5 +8,5 @@
    - Nunca realizar deploy ou publicar em produção automaticamente.
 
 2. **Deploy em Produção Apenas com Autorização Explícita:**
-   - O comando de deploy de produção (`npx vercel deploy --prod --yes` ou promoção para `https://conect-pay-producao.vercel.app`) só pode ser executado se o usuário solicitar ou autorizar expressamente (ex.: *"pode subir para produção"*, *"autorizado subir"*, *"faz o deploy"*).
+   - O comando de deploy de produção (`npx vercel deploy --prod --yes` ou promoção para `https://conect-pay.vercel.app`) só pode ser executado se o usuário solicitar ou autorizar expressamente (ex.: *"pode subir para produção"*, *"autorizado subir"*, *"faz o deploy"*).
    - Ao concluir alterações locais, deve-se avisar o usuário que as mudanças estão disponíveis para validação em localhost e aguardar a confirmação para qualquer promoção para produção.
