@@ -1,9 +1,8 @@
 "use client";
 
-import { MessageSquare, LogOut, UserCircle, Palette } from "lucide-react";
+import { LogOut, Palette } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme, Theme } from "@/contexts/ThemeContext";
-import { useChat } from "@/contexts/ChatContext";
 import React from "react";
 import { useRouter } from "next/navigation";
 
@@ -17,7 +16,6 @@ export default function GlobalHeader() {
   const [showThemeMenu, setShowThemeMenu] = React.useState(false);
   const { theme, changeThemeWithTransition } = useTheme();
   const { userName, userRole, avatarUrl, logout, sectorName } = useAuth();
-  const { isChatOpen, setIsChatOpen, totalUnread } = useChat();
   const router = useRouter();
 
   const avatar = avatarUrl
@@ -121,21 +119,6 @@ export default function GlobalHeader() {
             </>
           )}
         </div>
-
-        {/* Chat toggle */}
-        <button
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          className="relative p-2.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-          title="Chat"
-          style={{ color: isChatOpen ? "var(--text-primary)" : "var(--text-muted)" }}
-        >
-          <MessageSquare size={22} />
-          {totalUnread > 0 && (
-            <span className="absolute -top-1 -right-1 bg-rose-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-md">
-              {totalUnread > 99 ? "99+" : totalUnread}
-            </span>
-          )}
-        </button>
 
         {/* Logout */}
         <button

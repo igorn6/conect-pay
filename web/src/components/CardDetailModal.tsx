@@ -3,12 +3,11 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import {
   X, ArrowRight, Loader2, CreditCard, Calendar, User, AlignLeft, Tag,
   Ban, Trash2, Mail, UploadCloud, CheckCircle2, Copy, FileText, Building2,
-  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, MessageSquare, ExternalLink, Maximize2, Clock, Timer, Sparkles,
+  ShieldCheck, ShieldAlert, Zap, ChevronDown, ChevronUp, History, AlertTriangle, ExternalLink, Maximize2, Clock, Timer, Sparkles,
   AlertCircle, Info, RefreshCw, RotateCcw, Undo2, FileEdit, Pencil
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { useChat } from "@/contexts/ChatContext";
 import { useCategories } from "@/hooks/useCategories";
 import type { PaymentRequest, ReceiptHistoryItem, StageHistoryItem, PaymentConversionLog } from "@/types/database";
 import { getStatusLabel } from "@/constants/kanban";
@@ -45,7 +44,6 @@ export default function CardDetailModal({
   profilesMap = {},
 }: CardDetailModalProps) {
   const { userId, sectorId, userName } = useAuth();
-  const { setIsChatOpen, setPendingCard, allProfiles, setActiveChatId, startChat, openChatWithCard } = useChat();
   const [loading, setLoading] = useState(false);
   const [showRefuseForm, setShowRefuseForm] = useState(false);
   const [refusalReason, setRefusalReason] = useState(card.refusal_reason || "");
@@ -2721,32 +2719,6 @@ export default function CardDetailModal({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 w-full">
             {/* LADO ESQUERDO: Botões de Comunicação & Notificação */}
             <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-              {/* Enviar no Chat */}
-              <button
-                type="button"
-                onClick={() => {
-                  const cardPayload = {
-                    requestId: card.id,
-                    title: card.title || "Sem título",
-                    amount: card.amount,
-                    status: card.status,
-                  };
-                  
-                  const targetId = card.real_requester_id || card.created_by;
-                  if (targetId && userId !== targetId) {
-                    openChatWithCard(targetId, cardPayload);
-                  } else {
-                    setPendingCard(cardPayload);
-                    setIsChatOpen(true);
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700/70 hover:border-slate-600 transition-all shadow-sm cursor-pointer"
-                title="Conversar sobre esta solicitação no chat"
-              >
-                <MessageSquare size={14} className="text-slate-400" />
-                <span>Chat</span>
-              </button>
-
               {/* Ações de E-mail (Segmentado Neutro Moderno) */}
               {isMasterOrFinanceiro && card.status !== "RECUSADO" && (
                 <div className="inline-flex rounded-xl border border-slate-700/70 bg-slate-800/80 p-0.5 shadow-sm">
