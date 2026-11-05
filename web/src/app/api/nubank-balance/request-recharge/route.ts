@@ -37,12 +37,13 @@ export async function POST(req: Request) {
     const defaultNotes = isCaju ? "Recarga Caju" : "Recarga saldo Nubank";
 
     const rawAmount = reqBody?.amount;
-    const paymentType = ((reqBody?.payment_type || reqBody?.paymentType || "BOLETO") as string).toUpperCase();
+    const paymentType = ((reqBody?.payment_type || reqBody?.paymentType || (isCaju ? "BOLETO" : "PIX")) as string).toUpperCase();
     const barcode = ((reqBody?.boleto_barcode || reqBody?.barcode || "") as string).trim();
-    const pixKey = ((reqBody?.pix_key || reqBody?.pixKey || "") as string).trim();
+    const pixKey = ((reqBody?.pix_key || reqBody?.pixKey || reqBody?.key || reqBody?.pix || "") as string).trim();
     const pixOwner = ((reqBody?.pix_owner || reqBody?.pixOwner || defaultOwner) as string).trim();
     const cnpj = ((reqBody?.cnpj || DEFAULT_RECHARGE_CNPJ) as string).trim();
     const notes = ((reqBody?.notes || defaultNotes) as string).trim();
+    const invoiceUrl = ((reqBody?.invoice_url || reqBody?.invoiceUrl || "") as string).trim();
     const providedUserId = reqBody?.userId || req.headers.get("x-user-id");
     const providedName = ((reqBody?.requesterName || "") as string).trim();
 
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
       currency: "BRL",
     }).format(amountNum);
 
-    const identifier = paymentType === "BOLETO" ? (barcode || "") : (pixKey || "");
+    const identifier = paymentType === "BOLETO" ? (barcode || pixKey) : (pixKey || barcode);
 
     const splitId = uuidv4();
     const cardTitle = isCaju ? `Recarga Caju - ${formattedAmount}` : `Recarga Nubank - ${formattedAmount}`;
@@ -95,7 +96,8 @@ export async function POST(req: Request) {
       payment_type: paymentType,
       pix_name: pixOwner,
       pix_owner: pixOwner,
-      pix_key: paymentType === "PIX" ? pixKey : "",
+      pix_key: pixKey || "",
+      invoice_url: invoiceUrl || null,
       status: reqBody?.initial_status || reqBody?.status || "NOVA_SOLICITACAO",
       stage_history: [
         {
@@ -117,7 +119,7 @@ export async function POST(req: Request) {
           payment_type: paymentType,
           amount: amountNum,
           pix_owner: pixOwner,
-          pix_key: paymentType === "PIX" ? pixKey : "",
+          pix_key: pixKey || "",
           caju_phone: null,
           boleto_barcode: paymentType === "BOLETO" ? (barcode || null) : null,
           boleto_due_date: null,
@@ -151,9 +153,12 @@ export async function POST(req: Request) {
     const currentHour = new Date().getHours();
     const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
     const subject = `Pagamento Ref. ${isCaju ? "Recarga Caju" : "Recarga Nubank"} | ${cnpj}`;
-    const displayIdentifier = identifier || "";
-    const identifierLabel = paymentType === "PIX" ? "Chave pix" : (paymentType === "BOLETO" ? "Linha digitável" : "Chave pix");
-    const body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${notes}\nValor: ${formattedAmount}\n${identifierLabel}: ${displayIdentifier}\nTitular: ${pixOwner}\nSolicitante: ${requesterName}`;
+    const displayIdentifier = identifier || pixKey || barcode || "";
+    const identifierLabel = paymentType === "BOLETO" ? "Linha digitável" : "Chave pix";
+    let body = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${notes}\nValor: ${formattedAmount}\n${identifierLabel}: ${displayIdentifier}\nTitular: ${pixOwner}\nSolicitante: ${requesterName}`;
+    if (invoiceUrl) {
+      body += `\n\nNota Fiscal / Comprovante: ${invoiceUrl}`;
+    }
 
     return NextResponse.json({
       ok: true,

@@ -34,6 +34,38 @@ interface ManualEditModalProps {
   onSuccess: (updatedCard?: any, msg?: string) => void;
 }
 
+function toLocalDatetimeInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return "";
+  }
+}
+
+function fromLocalDatetimeInput(val: string, fallbackIso?: string): string {
+  if (!val) return fallbackIso || new Date().toISOString();
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return fallbackIso || new Date().toISOString();
+    return d.toISOString();
+  } catch {
+    return fallbackIso || new Date().toISOString();
+  }
+}
+
+function toLocalDateInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    return iso.substring(0, 10);
+  } catch {
+    return "";
+  }
+}
+
 export default function ManualEditModal({
   isOpen,
   onClose,
@@ -52,6 +84,8 @@ export default function ManualEditModal({
   const [categoryId, setCategoryId] = useState(card.category_id || "");
   const [categoryName, setCategoryName] = useState(card.category || "");
   const [notes, setNotes] = useState(card.notes || card.description || "");
+  const [createdAtInput, setCreatedAtInput] = useState(() => toLocalDatetimeInput(card.created_at));
+  const [dueDateInput, setDueDateInput] = useState(() => toLocalDateInput(card.due_date));
   const [reason, setReason] = useState("");
 
   // Splits state
@@ -213,6 +247,9 @@ export default function ManualEditModal({
       const formattedSplits = buildFormattedSplits();
       const firstSplit = formattedSplits[0];
 
+      const newCreatedAt = fromLocalDatetimeInput(createdAtInput, card.created_at);
+      const newDueDate = dueDateInput ? new Date(dueDateInput + "T12:00:00Z").toISOString() : card.due_date;
+
       const originalData: PendingEditData = {
         title: card.title,
         amount: Number(card.amount),
@@ -224,6 +261,8 @@ export default function ManualEditModal({
         pix_key: card.pix_key || null,
         pix_owner: card.pix_owner || card.pix_name || null,
         caju_phone: card.caju_phone || null,
+        created_at: card.created_at,
+        due_date: card.due_date,
       };
 
       const newData: PendingEditData = {
@@ -237,6 +276,8 @@ export default function ManualEditModal({
         pix_key: formattedSplits.find((s) => s.payment_type === "Pix")?.pix_key || null,
         pix_owner: formattedSplits.find((s) => s.payment_type === "Pix")?.pix_owner || null,
         caju_phone: formattedSplits.find((s) => s.payment_type === "Caju")?.caju_phone || null,
+        created_at: newCreatedAt,
+        due_date: newDueDate,
       };
 
       const pendingEdit: PendingEdit = {
@@ -299,6 +340,9 @@ export default function ManualEditModal({
       const formattedSplits = buildFormattedSplits();
       const firstSplit = formattedSplits[0];
 
+      const newCreatedAt = fromLocalDatetimeInput(createdAtInput, card.created_at);
+      const newDueDate = dueDateInput ? new Date(dueDateInput + "T12:00:00Z").toISOString() : card.due_date;
+
       const previousData: PendingEditData = {
         title: card.title,
         amount: Number(card.amount),
@@ -310,6 +354,8 @@ export default function ManualEditModal({
         pix_key: card.pix_key || null,
         pix_owner: card.pix_owner || card.pix_name || null,
         caju_phone: card.caju_phone || null,
+        created_at: card.created_at,
+        due_date: card.due_date,
       };
 
       const appliedData: PendingEditData = {
@@ -323,6 +369,8 @@ export default function ManualEditModal({
         pix_key: formattedSplits.find((s) => s.payment_type === "Pix")?.pix_key || null,
         pix_owner: formattedSplits.find((s) => s.payment_type === "Pix")?.pix_owner || null,
         caju_phone: formattedSplits.find((s) => s.payment_type === "Caju")?.caju_phone || null,
+        created_at: newCreatedAt,
+        due_date: newDueDate,
       };
 
       const newHistoryItem = {
@@ -353,6 +401,8 @@ export default function ManualEditModal({
           pix_key: appliedData.pix_key,
           pix_owner: appliedData.pix_owner,
           caju_phone: appliedData.caju_phone,
+          created_at: appliedData.created_at || card.created_at,
+          due_date: appliedData.due_date || card.due_date,
           pending_edit: null,
           edit_history: [newHistoryItem, ...existingHistory],
           updated_at: new Date().toISOString(),
@@ -528,6 +578,42 @@ export default function ManualEditModal({
                   placeholder="Observações complementares sobre esta solicitação..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-amber-500 transition-all resize-none"
                 />
+              </div>
+            </div>
+
+            {/* DATAS DA SOLICITAÇÃO (CRIAÇÃO E VENCIMENTO) */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 p-3.5 rounded-xl bg-slate-900/50 border border-slate-800">
+              <div className="md:col-span-6">
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400 block mb-1.5">
+                  <Calendar size={13} />
+                  <span>Data do Pedido (Criação) *</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  required
+                  value={createdAtInput}
+                  onChange={(e) => setCreatedAtInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-amber-500 transition-all cursor-pointer"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Data e hora oficial do registro da solicitação.
+                </p>
+              </div>
+
+              <div className="md:col-span-6">
+                <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-400 block mb-1.5">
+                  <Calendar size={13} />
+                  <span>Data de Vencimento</span>
+                </label>
+                <input
+                  type="date"
+                  value={dueDateInput}
+                  onChange={(e) => setDueDateInput(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono outline-none focus:border-blue-500 transition-all cursor-pointer"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Data limite/prazo para pagamento da solicitação.
+                </p>
               </div>
             </div>
 

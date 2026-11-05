@@ -28,6 +28,9 @@ import {
   Building2,
   QrCode,
   Zap,
+  Upload,
+  Paperclip,
+  X,
 } from "lucide-react";
 import {
   matchesDatePreset,
@@ -81,6 +84,7 @@ export default function NubankPage() {
   });
   const [isSubmittingRecharge, setIsSubmittingRecharge] = useState(false);
   const [rechargeError, setRechargeError] = useState<string | null>(null);
+  const [rechargeFile, setRechargeFile] = useState<File | null>(null);
 
   const [rechargeSuccessData, setRechargeSuccessData] = useState<{
     card: any;
@@ -163,11 +167,12 @@ export default function NubankPage() {
   // Ação: Abrir Modal de Edição da Recarga Nubank
   const handleOpenRechargeModal = () => {
     setRechargeError(null);
+    setRechargeFile(null);
     setRechargeForm({
       amount: "2.500,00",
       paymentType: "PIX",
       barcode: "",
-      pixKey: "00020126580014BR.GOV.BCB.PIX0136c8e15420-f3fb-4f01-9c93-031439d0f74852040000530398654072500.005802BR5925LIMA E TRINDADE COMERCIO 6009SAO PAULO61080540900062250521WDZIrBFGaOMV28Ffgvqv66304B21A",
+      pixKey: "",
       pixOwner: "Lima e Trindade",
       cnpj: "CNPJ 2",
       notes: "Recarga saldo Nubank",
@@ -175,6 +180,61 @@ export default function NubankPage() {
     });
     setIsRechargeModalOpen(true);
   };
+
+  // Submeter Recarga Nubank (cria card no Kanban com dados editados e gera e-mail)
+  const handlePasteRechargeFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        alert("Pressione as teclas Ctrl + V para colar a imagem diretamente nesta tela.");
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((t) => t.startsWith("image/"));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const ext = imageType.split("/")[1] || "png";
+          const file = new File([blob], `comprovante_recarga_${Date.now()}.${ext}`, { type: imageType });
+          setRechargeFile(file);
+          setRechargeError(null);
+          return;
+        }
+      }
+      alert("Nenhuma imagem encontrada na área de transferência. Tire um print ou copie uma imagem antes.");
+    } catch {
+      alert("Para colar o arquivo, basta clicar nesta tela e pressionar Ctrl + V.");
+    }
+  };
+
+  useEffect(() => {
+    if (!isRechargeModalOpen) return;
+
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.type && item.type.indexOf("image") !== -1) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            const ext = file.type.split("/")[1] || "png";
+            const renamed = new File(
+              [file],
+              `comprovante_recarga_${Date.now()}.${ext}`,
+              { type: file.type || "image/png" }
+            );
+            setRechargeFile(renamed);
+            setRechargeError(null);
+          }
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("paste", handleWindowPaste);
+    return () => window.removeEventListener("paste", handleWindowPaste);
+  }, [isRechargeModalOpen]);
 
   // Submeter Recarga Nubank (cria card no Kanban com dados editados e gera e-mail)
   const handleSubmitRecharge = async (e: React.FormEvent) => {
@@ -191,8 +251,33 @@ export default function NubankPage() {
       return;
     }
 
+    if (!rechargeFile) {
+      setRechargeError("O anexo de um arquivo (comprovante / documento da recarga) é obrigatório antes de mandar para o Kanban.");
+      return;
+    }
+
     try {
       setIsSubmittingRecharge(true);
+
+      // Upload obrigatório do arquivo do comprovante/documento
+      let uploadedInvoiceUrl = "";
+      const fileExt = rechargeFile.name.split(".").pop() || "pdf";
+      const fileName = `recarga_nubank_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `invoices/${fileName}`;
+
+      let { error: uploadError } = await supabase.storage.from("receipts").upload(filePath, rechargeFile);
+      if (uploadError) {
+        const { error: fallbackError } = await supabase.storage.from("attachments").upload(`invoices/${fileName}`, rechargeFile);
+        if (fallbackError) {
+          throw new Error("Falha no upload do anexo: " + (fallbackError.message || uploadError.message));
+        }
+        const { data: urlData } = supabase.storage.from("attachments").getPublicUrl(`invoices/${fileName}`);
+        uploadedInvoiceUrl = urlData.publicUrl;
+      } else {
+        const { data: { publicUrl } } = supabase.storage.from("receipts").getPublicUrl(filePath);
+        uploadedInvoiceUrl = publicUrl;
+      }
+
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -211,6 +296,7 @@ export default function NubankPage() {
           notes: rechargeForm.notes.trim(),
           userId,
           requesterName: rechargeForm.requesterName.trim() || userName || "Igor Nascimento",
+          invoice_url: uploadedInvoiceUrl,
         }),
       });
 
@@ -1030,13 +1116,103 @@ export default function NubankPage() {
                     required
                     value={rechargeForm.pixKey}
                     onChange={(e) => setRechargeForm((prev) => ({ ...prev, pixKey: e.target.value }))}
-                    placeholder="Informe a chave Pix (CNPJ, e-mail, telefone ou chave aleatória)..."
+                    placeholder="Cole a chave Pix de recarga aqui..."
                     className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-emerald-500 font-medium"
                     style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
                   />
                   <span className="text-[10px] text-slate-400 mt-1 block">
                     Pagamento imediato via Pix sem linha digitável ou boleto.
                   </span>
+                </div>
+
+                {/* Anexo Obrigatório */}
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <label className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                      Comprovante / Documento da Recarga (Obrigatório) *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handlePasteRechargeFromClipboard}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                      title="Colar imagem copiada da área de transferência (ou aperte Ctrl+V)"
+                    >
+                      <Copy size={12} />
+                      <span>Colar Notinha (Ctrl+V)</span>
+                    </button>
+                  </div>
+                  
+                  {!rechargeFile ? (
+                    <div 
+                      className="p-4 border-2 border-dashed rounded-xl flex flex-col items-center justify-center transition-all"
+                      style={{ borderColor: "var(--surface-border)", backgroundColor: "var(--bg-card)" }}
+                    >
+                      <Upload size={22} className="text-slate-400 mb-1.5" />
+                      <span className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>
+                        Anexar Comprovante ou Documento
+                      </span>
+                      <span className="text-[10px] text-slate-400 mt-0.5 mb-3 text-center">
+                        PDF, PNG, JPG ou JPEG (Selecione um arquivo ou pressione <strong>Ctrl+V</strong> para colar)
+                      </span>
+
+                      <div className="flex items-center gap-2 w-full max-w-xs">
+                        <label 
+                          className="flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-white/5 transition-colors cursor-pointer text-center"
+                          style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
+                        >
+                          <Upload size={13} />
+                          <span>Selecionar</span>
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setRechargeFile(file);
+                                setRechargeError(null);
+                              }
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handlePasteRechargeFromClipboard}
+                          className="flex-1 py-1.5 px-3 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Copy size={13} />
+                          <span>Colar (Ctrl+V)</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="flex items-center justify-between p-3 rounded-xl border"
+                      style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)" }}
+                    >
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-400 shrink-0">
+                          <Paperclip size={16} />
+                        </div>
+                        <div className="overflow-hidden">
+                          <div className="text-xs font-semibold truncate" style={{ color: "var(--text-primary)" }}>
+                            {rechargeFile.name}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            {(rechargeFile.size / 1024).toFixed(1)} KB • Pronto para envio
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setRechargeFile(null)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors shrink-0 cursor-pointer"
+                        title="Remover arquivo"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -1053,7 +1229,7 @@ export default function NubankPage() {
                   className="p-3.5 rounded-xl border font-mono text-xs whitespace-pre-wrap leading-relaxed select-text"
                   style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
                 >
-                  {`--\n${new Date().getHours() < 12 ? "Bom dia" : "Boa tarde"}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${rechargeForm.notes.trim() || "Recarga saldo Nubank"}\nValor: R$ ${rechargeForm.amount || "2.500,00"}\nChave pix: ${rechargeForm.pixKey.trim() || "(informe a chave pix acima)"}\nTitular: ${rechargeForm.pixOwner.trim() || "Lima e Trindade"}\nSolicitante: ${rechargeForm.requesterName.trim() || userName || "Igor Nascimento"}`}
+                  {`--\n${new Date().getHours() < 12 ? "Bom dia" : "Boa tarde"}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${rechargeForm.notes.trim() || "Recarga saldo Nubank"}\nValor: R$ ${rechargeForm.amount || "2.500,00"}\nChave pix: ${rechargeForm.pixKey.trim() || "(informe a chave pix acima)"}\nTitular: ${rechargeForm.pixOwner.trim() || "Lima e Trindade"}\nSolicitante: ${rechargeForm.requesterName.trim() || userName || "Igor Nascimento"}${rechargeFile ? `\n\nDocumento / Anexo: ${rechargeFile.name}` : ""}`}
                 </div>
               </div>
 

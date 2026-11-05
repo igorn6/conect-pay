@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, type FormEvent } from "react";
-import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2, FileText, Image as ImageIcon, Sparkles, Users, Lock, ShieldCheck } from "lucide-react";
+import { useState, useRef, useEffect, type FormEvent } from "react";
+import { X, Loader2, UploadCloud, CheckCircle2, Plus, Trash2, FileText, Image as ImageIcon, Sparkles, Users, Lock, ShieldCheck, Copy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PAYMENT_TYPES } from "@/constants/requesters";
 import { useProfilesMap } from "@/hooks/useProfilesMap";
@@ -126,6 +126,56 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
   const clearAllInvoiceFiles = () => {
     setInvoiceFiles([]);
   };
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        alert("Pressione as teclas Ctrl + V para colar a imagem diretamente nesta tela.");
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find((t) => t.startsWith("image/"));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const ext = imageType.split("/")[1] || "png";
+          const file = new File([blob], `notinha_colada_${Date.now()}.${ext}`, { type: imageType });
+          setInvoiceFiles((prev) => [...prev, file]);
+          return;
+        }
+      }
+      alert("Nenhuma imagem encontrada na área de transferência. Tire um print ou copie uma imagem antes.");
+    } catch {
+      alert("Para colar a notinha, basta clicar nesta tela e pressionar Ctrl + V.");
+    }
+  };
+
+  useEffect(() => {
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.type && item.type.indexOf("image") !== -1) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            const ext = file.type.split("/")[1] || "png";
+            const renamed = new File(
+              [file],
+              `notinha_colada_${Date.now()}.${ext}`,
+              { type: file.type || "image/png" }
+            );
+            setInvoiceFiles((prev) => [...prev, renamed]);
+          }
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("paste", handleWindowPaste);
+    return () => window.removeEventListener("paste", handleWindowPaste);
+  }, []);
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -676,19 +726,30 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
           </div>
 
           <div className="mt-2">
-            <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
               <label className={labelClass} style={{ ...labelStyle, marginBottom: 0 }}>
                 Notinha ou Nota Fiscal (Opcional)
               </label>
-              {invoiceFiles.length > 0 && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={clearAllInvoiceFiles}
-                  className="text-[11px] text-red-400/80 hover:text-red-400 hover:underline transition-colors cursor-pointer"
+                  onClick={handlePasteFromClipboard}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 transition-all cursor-pointer shadow-xs active:scale-95"
+                  title="Colar imagem copiada da área de transferência (ou aperte Ctrl+V)"
                 >
-                  Remover todos
+                  <Copy size={12} />
+                  <span>Colar Notinha (Ctrl+V)</span>
                 </button>
-              )}
+                {invoiceFiles.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearAllInvoiceFiles}
+                    className="text-[11px] text-red-400/80 hover:text-red-400 hover:underline transition-colors cursor-pointer"
+                  >
+                    Remover todos
+                  </button>
+                )}
+              </div>
             </div>
 
             <input
@@ -705,13 +766,34 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
 
             {invoiceFiles.length === 0 ? (
               <div 
-                className="p-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-colors hover:bg-white/[0.02]"
+                className="p-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center transition-colors hover:bg-white/[0.02]"
                 style={{ borderColor: "var(--surface-border)" }}
-                onClick={() => fileInputRef.current?.click()}
               >
                 <UploadCloud size={24} className="mb-2" style={{ color: "var(--text-secondary)" }} />
                 <span className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>Anexar Notinha ou Nota Fiscal</span>
-                <span className="text-[10px] mt-0.5" style={{ color: "var(--text-secondary)" }}>Imagens ou PDF (Clique para selecionar)</span>
+                <span className="text-[10px] mt-0.5 mb-3" style={{ color: "var(--text-secondary)" }}>
+                  Imagens ou PDF (Clique para selecionar ou pressione <strong>Ctrl+V</strong> para colar)
+                </span>
+
+                <div className="flex items-center gap-2 w-full max-w-xs">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 py-1.5 px-3 rounded-lg border text-xs font-medium flex items-center justify-center gap-1.5 hover:bg-white/5 transition-colors cursor-pointer"
+                    style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
+                  >
+                    <UploadCloud size={14} />
+                    <span>Selecionar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePasteFromClipboard}
+                    className="flex-1 py-1.5 px-3 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Copy size={13} />
+                    <span>Colar (Ctrl+V)</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -761,15 +843,26 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
                   })}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-2 px-3 rounded-lg border border-dashed text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer hover:bg-white/[0.02]"
-                  style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
-                >
-                  <Plus size={14} />
-                  <span>Adicionar outro comprovante</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex-1 py-2 px-3 rounded-lg border border-dashed text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer hover:bg-white/[0.02]"
+                    style={{ borderColor: "var(--surface-border)", color: "var(--text-secondary)" }}
+                  >
+                    <Plus size={14} />
+                    <span>Adicionar outro comprovante</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePasteFromClipboard}
+                    className="py-2 px-3.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    title="Colar outra imagem copiada"
+                  >
+                    <Copy size={13} />
+                    <span>Colar Notinha</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -12,6 +12,8 @@ import {
   Bell,
   User,
   CheckCircle2,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { sendPushNotification } from "@/lib/pushNotifications";
@@ -32,6 +34,38 @@ function round2(v: number): number {
   return Math.round((v + Number.EPSILON) * 100) / 100;
 }
 
+function toLocalDatetimeInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return "";
+  }
+}
+
+function fromLocalDatetimeInput(val: string, fallbackIso?: string): string {
+  if (!val) return fallbackIso || new Date().toISOString();
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return fallbackIso || new Date().toISOString();
+    return d.toISOString();
+  } catch {
+    return fallbackIso || new Date().toISOString();
+  }
+}
+
+function toLocalDateInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  try {
+    return iso.substring(0, 10);
+  } catch {
+    return "";
+  }
+}
+
 export default function QuickEditCardModal({
   isOpen,
   onClose,
@@ -44,6 +78,8 @@ export default function QuickEditCardModal({
 }: QuickEditCardModalProps) {
   const [amountStr, setAmountStr] = useState(String(card.amount || ""));
   const [title, setTitle] = useState(card.title || "");
+  const [createdAtInput, setCreatedAtInput] = useState(() => toLocalDatetimeInput(card.created_at));
+  const [dueDateInput, setDueDateInput] = useState(() => toLocalDateInput(card.due_date));
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -108,6 +144,29 @@ export default function QuickEditCardModal({
         }
       }
 
+      const newCreatedAt = fromLocalDatetimeInput(createdAtInput, card.created_at);
+      const newDueDate = dueDateInput ? new Date(dueDateInput + "T12:00:00Z").toISOString() : card.due_date;
+
+      const dateChanged = new Date(newCreatedAt).getTime() !== new Date(card.created_at).getTime();
+      const dueDateChanged = dueDateInput && card.due_date ? dueDateInput !== card.due_date.substring(0, 10) : false;
+
+      const changesList: string[] = [];
+      if (newAmount !== currentAmount) {
+        changesList.push(`Valor: R$ ${currentAmount.toFixed(2)} ➔ R$ ${newAmount.toFixed(2)}`);
+      }
+      if (title.trim() !== card.title) {
+        changesList.push(`Título: "${card.title}" ➔ "${title.trim()}"`);
+      }
+      if (dateChanged) {
+        const oldFmt = new Date(card.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+        const newFmt = new Date(newCreatedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+        changesList.push(`Data do pedido: ${oldFmt} ➔ ${newFmt}`);
+      }
+      if (dueDateChanged) {
+        changesList.push(`Vencimento: ${dueDateInput}`);
+      }
+      const summaryText = changesList.length > 0 ? changesList.join(" | ") : "Dados atualizados";
+
       const historyItem = {
         id:
           typeof window !== "undefined" && window.crypto?.randomUUID
@@ -122,8 +181,12 @@ export default function QuickEditCardModal({
         new_amount: newAmount,
         previous_title: card.title,
         new_title: title.trim(),
+        previous_created_at: card.created_at,
+        new_created_at: newCreatedAt,
+        previous_due_date: card.due_date,
+        new_due_date: newDueDate,
         reason: reason.trim(),
-        changes_summary: `Valor alterado de R$ ${currentAmount.toFixed(2)} para R$ ${newAmount.toFixed(2)}`,
+        changes_summary: summaryText,
       };
 
       const existingHistory = Array.isArray(card.edit_history)
@@ -136,6 +199,8 @@ export default function QuickEditCardModal({
         .update({
           amount: newAmount,
           title: title.trim(),
+          created_at: newCreatedAt,
+          due_date: newDueDate,
           splits: updatedSplits,
           pending_edit: null,
           edit_history: [historyItem, ...existingHistory],
@@ -151,7 +216,7 @@ export default function QuickEditCardModal({
       await supabase.from("audit_logs").insert({
         request_id: card.id,
         performed_by: userId || card.created_by,
-        action: `Alteração de dados por ${userName} (${userRole}): Valor alterado de R$ ${currentAmount.toFixed(2)} para R$ ${newAmount.toFixed(2)} (Título: "${title.trim()}"). Motivo: ${reason.trim()}`,
+        action: `Alteração de dados por ${userName} (${userRole}): ${summaryText}. Motivo: ${reason.trim()}`,
       });
 
       // 3. Notificar o solicitante diretamente via Web Push
@@ -291,6 +356,43 @@ export default function QuickEditCardModal({
                 className="w-full px-3.5 py-2.5 bg-slate-900/90 border border-white/10 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20 rounded-xl text-white text-xs font-medium placeholder-slate-600 outline-hidden transition-all"
                 placeholder="Ex: Abastecimento de veículo, Hotel..."
               />
+            </div>
+          </div>
+
+          {/* Datas da Solicitação */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl bg-slate-900/60 border border-white/5">
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mb-1.5">
+                <Calendar size={13} className="text-amber-400" />
+                <span>Data do Pedido (Criação)</span>
+                <span className="text-rose-400">*</span>
+              </label>
+              <input
+                type="datetime-local"
+                value={createdAtInput}
+                onChange={(e) => setCreatedAtInput(e.target.value)}
+                required
+                className="w-full px-3 py-2 bg-slate-950 border border-white/10 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-white text-xs font-mono outline-hidden transition-all cursor-pointer"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Data e hora oficial do registro.
+              </p>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 mb-1.5">
+                <Clock size={13} className="text-blue-400" />
+                <span>Data de Vencimento</span>
+              </label>
+              <input
+                type="date"
+                value={dueDateInput}
+                onChange={(e) => setDueDateInput(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-950 border border-white/10 focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 rounded-xl text-white text-xs font-mono outline-hidden transition-all cursor-pointer"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                Data limite para pagamento.
+              </p>
             </div>
           </div>
 

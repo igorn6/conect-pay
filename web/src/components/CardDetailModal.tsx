@@ -360,6 +360,8 @@ export default function CardDetailModal({
           pix_key: newData.pix_key,
           pix_owner: newData.pix_owner,
           caju_phone: newData.caju_phone,
+          created_at: newData.created_at || card.created_at,
+          due_date: newData.due_date || card.due_date,
           pending_edit: null,
           edit_history: [historyItem, ...existingHistory],
           updated_at: new Date().toISOString(),
@@ -381,6 +383,8 @@ export default function CardDetailModal({
         card.notes = newData.notes || null;
         card.payment_type = newData.payment_type || null;
         card.splits = newData.splits || null;
+        if (newData.created_at) card.created_at = newData.created_at;
+        if (newData.due_date) card.due_date = newData.due_date;
         card.pending_edit = null;
       }
 
@@ -973,7 +977,7 @@ export default function CardDetailModal({
     const formattedAmount = Number(card.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 
     // Obter dados do Pix (dos splits ou direto do card)
-    const pixSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "PIX");
+    const pixSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "PIX" || s.pix_key);
     const pixKey = pixSplit?.pix_key || card.pix_key || "Não informado";
     const pixOwner = pixSplit?.pix_owner || card.pix_owner || card.pix_name || "Não informado";
 
@@ -1027,7 +1031,7 @@ export default function CardDetailModal({
 
     // Tipo REQUEST (Solicitar pagamento a Tassio)
     const isRecargaCaju = card.request_kind === "RECARGA_CAJU" || card.title?.includes("Recarga Caju");
-    const isRecargaNubank = card.request_kind === "RECARGA_NUBANK" || card.title === "Recarga Nubank";
+    const isRecargaNubank = card.request_kind === "RECARGA_NUBANK" || card.title === "Recarga Nubank" || card.title?.includes("Recarga Nubank");
     const cnpjDisplay = localCnpj || card.cnpj || (isRecargaCaju ? "CNPJ 2" : (isCajuOnly ? "Caju" : "(Selecione o CNPJ)"));
     const rawSubject = isRecargaCaju
       ? `Pagamento Ref. Recarga Caju | ${cnpjDisplay}`
@@ -1035,17 +1039,16 @@ export default function CardDetailModal({
 
     const boletoSplit = card.splits?.find((s: any) => s.payment_type?.toUpperCase() === "BOLETO");
     const barcodeVal = boletoSplit?.boleto_barcode || (card as any).boleto_barcode || (card as any).barcode || "";
-    const pixVal = (pixKey && pixKey !== "Não informado" ? pixKey : "") || (card as any).pix_key || "";
-    const paymentKey = isRecargaNubank
-      ? ""
-      : (barcodeVal || pixVal);
+    const pixVal = (pixKey && pixKey !== "Não informado" ? pixKey : "") || pixSplit?.pix_key || (card as any).pix_key || "";
+    const paymentKey = barcodeVal || pixVal;
     const paymentOwner = isRecargaCaju
       ? (card.pix_owner || "Caju")
-      : (pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || "Não informado"));
+      : (pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || pixSplit?.pix_owner || "Não informado"));
     const paymentKeyDisplay = paymentKey ? ` ${paymentKey}` : "";
     const displayMotivo = isRecargaCaju ? (card.notes || "Recarga Caju") : motivo;
+    const keyLabel = (isRecargaNubank || (!barcodeVal && pixVal)) ? "Chave pix" : "Chave pix / Linha digitável";
 
-    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${displayMotivo}\nValor: R$ ${formattedAmount}\nChave pix / Linha digitável:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
+    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${displayMotivo}\nValor: R$ ${formattedAmount}\n${keyLabel}:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
 
     if (invoicesText) {
       rawBody += `\n\n${invoicesText}`;
@@ -1632,12 +1635,36 @@ export default function CardDetailModal({
                     <User size={12} style={{ color: "var(--text-secondary)" }} />
                     {requesterName}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold"
-                        style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
-                        title="Data do Pedido">
-                    <Calendar size={12} style={{ color: "var(--text-secondary)" }} />
-                    {new Date(card.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
-                  </span>
+                  {isMasterOrFinanceiro ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold hover:border-amber-400 hover:text-amber-300 transition-all cursor-pointer group"
+                      style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                      title="Clique para alterar a data da solicitação ou vencimento"
+                    >
+                      <Calendar size={12} className="text-amber-400 group-hover:scale-110 transition-transform" />
+                      <span>{new Date(card.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</span>
+                      <Pencil size={10} className="text-amber-400 opacity-60 group-hover:opacity-100 transition-opacity ml-0.5" />
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold"
+                          style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                          title="Data do Pedido">
+                      <Calendar size={12} style={{ color: "var(--text-secondary)" }} />
+                      {new Date(card.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}
+                    </span>
+                  )}
+                  {card.due_date && (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-semibold"
+                      style={{ backgroundColor: "var(--surface-hover)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                      title="Data de Vencimento"
+                    >
+                      <Clock size={12} className="text-blue-400" />
+                      <span>Venc: {new Date(card.due_date.substring(0, 10) + "T12:00:00Z").toLocaleDateString("pt-BR")}</span>
+                    </span>
+                  )}
                 </div>
               </div>
 

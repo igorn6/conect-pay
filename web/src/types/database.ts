@@ -164,6 +164,8 @@ export interface PendingEditData {
   pix_key?: string | null;
   pix_owner?: string | null;
   caju_phone?: string | null;
+  created_at?: string | null;
+  due_date?: string | null;
 }
 
 export interface PendingEdit {

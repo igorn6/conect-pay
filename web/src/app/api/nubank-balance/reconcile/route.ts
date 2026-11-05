@@ -67,11 +67,76 @@ export async function POST(req: Request) {
       const isPdf = fileName.toLowerCase().endsWith(".pdf");
 
       if (isPdf) {
-        const pdfParse = require("pdf-parse/lib/pdf-parse.js");
         const arrayBuf = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuf);
-        const pdfData = await pdfParse(buffer);
-        rawText = pdfData.text || "";
+
+        // 1. Tentar unpdf (moderno PDF.js sem dependências nativas e com suporte a XRef streams)
+        try {
+          const { extractText } = await import("unpdf");
+          const res = await extractText(new Uint8Array(arrayBuf));
+          if (res?.text) {
+            rawText = Array.isArray(res.text) ? res.text.join("\n\n") : res.text;
+          }
+        } catch (unpdfErr) {
+          console.warn("[reconcile PDF] unpdf extraction falhou, tentando fallbacks:", unpdfErr);
+        }
+
+        // 2. Se unpdf não extraiu texto, tentar pdf-parse com versões alternativas
+        if (!rawText.trim()) {
+          try {
+            const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+            const buffer = Buffer.from(arrayBuf);
+            const pdfData = await pdfParse(buffer, { version: "v2.0.550" });
+            rawText = pdfData?.text || "";
+          } catch (pdfParseErr) {
+            try {
+              const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+              const buffer = Buffer.from(arrayBuf);
+              const pdfData = await pdfParse(buffer);
+              rawText = pdfData?.text || "";
+            } catch (legacyErr) {
+              console.warn("[reconcile PDF] pdf-parse fallback falhou:", legacyErr);
+            }
+          }
+        }
+
+        // 3. Fallback com IA (Gemini 2.5 Flash) se as bibliotecas locais falharem por corrupção de XRef
+        if (!rawText.trim() && (process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY)) {
+          try {
+            const { createGoogleGenerativeAI } = await import("@ai-sdk/google");
+            const { generateText } = await import("ai");
+            const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+            const google = createGoogleGenerativeAI({ apiKey });
+            const result = await generateText({
+              model: google("gemini-2.5-flash"),
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Extraia e transcreva integralmente todo o texto deste extrato bancário do Nubank, linha por linha exatamente como está escrito (incluindo todas as seções, datas, descrições, valores e saldos). Não resuma e não adicione explicações.",
+                    },
+                    {
+                      type: "file",
+                      data: Buffer.from(arrayBuf),
+                      mediaType: "application/pdf",
+                    },
+                  ],
+                },
+              ],
+            });
+            rawText = result.text || "";
+          } catch (aiErr) {
+            console.error("[reconcile PDF] Gemini fallback falhou:", aiErr);
+          }
+        }
+
+        if (!rawText.trim()) {
+          return NextResponse.json(
+            { error: "Não foi possível extrair o texto deste arquivo PDF. Se preferir, exporte o extrato em formato CSV no app do Nubank ou cole o texto na aba 'Colar Texto do Extrato'." },
+            { status: 422 }
+          );
+        }
       } else {
         rawText = await file.text();
       }
