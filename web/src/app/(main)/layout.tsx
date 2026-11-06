@@ -4,23 +4,25 @@ import { ReactNode } from "react";
 import Sidebar from "@/components/Sidebar";
 import GlobalNotification from "@/components/GlobalNotification";
 import GlobalHeader from "@/components/GlobalHeader";
+import SuperSolzinhoWidget from "@/components/SuperSolzinhoWidget";
 
 import AuroraBackground from "@/components/ui/AuroraBackground";
 
 export default function MainLayout({ children }: { children: ReactNode }) {
   return (
-          <div className="flex h-screen w-full overflow-hidden text-white relative" style={{ backgroundColor: "var(--bg-primary)" }}>
-        {/* Layered Aurora & Noise Background */}
-        <AuroraBackground className="absolute inset-0 z-0 pointer-events-none terminal-grid" intensity="subtle" />
-        
-        <Sidebar />
-        <GlobalNotification />
-        <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative z-10">
-          <GlobalHeader />
-          <div className="flex-1 flex flex-col min-h-0 w-full relative">
-            {children}
-          </div>
-        </main>
-      </div>
+    <div className="flex h-screen w-full overflow-hidden text-white relative" style={{ backgroundColor: "var(--bg-primary)" }}>
+      {/* Layered Aurora & Noise Background */}
+      <AuroraBackground className="absolute inset-0 z-0 pointer-events-none terminal-grid" intensity="subtle" />
+      
+      <Sidebar />
+      <GlobalNotification />
+      <main className="flex-1 flex flex-col h-full min-w-0 overflow-hidden relative z-10">
+        <GlobalHeader />
+        <div className="flex-1 flex flex-col min-h-0 w-full relative">
+          {children}
+        </div>
+      </main>
+      <SuperSolzinhoWidget />
+    </div>
   );
 }

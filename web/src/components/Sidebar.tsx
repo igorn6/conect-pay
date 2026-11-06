@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Nubank", href: "/nubank", icon: Wallet, requiredRoles: ["MASTER", "FINANCEIRO"] },
   { name: "Caju", href: "/caju", icon: CreditCard, requiredRoles: ["MASTER", "FINANCEIRO"] },
+  { name: "Assistente IA", href: "/relatorios", icon: Sparkles, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Configurações", href: "/configuracoes", icon: Settings, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
 ];
 
