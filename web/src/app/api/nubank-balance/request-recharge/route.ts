@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const defaultNotes = isCaju ? "Recarga Caju" : "Recarga saldo Nubank";
 
     const rawAmount = reqBody?.amount;
-    const paymentType = ((reqBody?.payment_type || reqBody?.paymentType || (isCaju ? "BOLETO" : "PIX")) as string).toUpperCase();
+    const paymentType = ((reqBody?.payment_type || reqBody?.paymentType || "PIX") as string).toUpperCase();
     const barcode = ((reqBody?.boleto_barcode || reqBody?.barcode || "") as string).trim();
     const pixKey = ((reqBody?.pix_key || reqBody?.pixKey || reqBody?.key || reqBody?.pix || "") as string).trim();
     const pixOwner = ((reqBody?.pix_owner || reqBody?.pixOwner || defaultOwner) as string).trim();

@@ -716,11 +716,13 @@ export default function CajuPage() {
       {/* ========================================================
           MODAL: RECARGA CAJU (R$ 3.000)
           ======================================================== */}
-      <CajuRechargeModal
-        isOpen={isRechargeModalOpen}
-        onClose={() => setIsRechargeModalOpen(false)}
-        onSuccess={() => fetchHub(true)}
-      />
+      {isRechargeModalOpen && (
+        <CajuRechargeModal
+          isOpen={isRechargeModalOpen}
+          onClose={() => setIsRechargeModalOpen(false)}
+          onSuccess={() => fetchHub(true)}
+        />
+      )}
 
       {/* ========================================================
           MODAL: IMPORTAR EXTRATO CSV CAJU

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles, FileText, QrCode, Mail, Copy, Check, AlertCircle, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Sparkles, Mail, Copy, Check, AlertCircle, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -20,8 +20,7 @@ export default function CajuRechargeModal({
 
   const [form, setForm] = useState({
     amount: "3.000,00",
-    paymentType: "BOLETO" as "BOLETO" | "PIX",
-    barcode: "",
+    paymentType: "PIX" as const,
     pixKey: "",
     pixOwner: "Caju",
     cnpj: "CNPJ 2",
@@ -36,6 +35,33 @@ export default function CajuRechargeModal({
     email: { to: string; subject: string; body: string; encodedSubject: string; encodedBody: string };
   } | null>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
+
+  // Sempre limpa a chave Pix e reseta o formulário ao abrir o modal
+  useEffect(() => {
+    if (isOpen) {
+      setForm((prev) => ({
+        ...prev,
+        amount: "3.000,00",
+        paymentType: "PIX",
+        pixKey: "",
+        pixOwner: "Caju",
+        cnpj: "CNPJ 2",
+        notes: "Recarga Caju",
+        requesterName: userName || prev.requesterName || "Igor Nascimento",
+      }));
+      setErrorMsg(null);
+      setSuccessData(null);
+      setCopiedEmail(false);
+    }
+  }, [isOpen, userName]);
+
+  const handleClose = () => {
+    setForm((prev) => ({ ...prev, pixKey: "" }));
+    setErrorMsg(null);
+    setSuccessData(null);
+    setCopiedEmail(false);
+    onClose();
+  };
 
   if (!isOpen) return null;
 
@@ -75,6 +101,11 @@ export default function CajuRechargeModal({
       return;
     }
 
+    if (!form.pixKey.trim()) {
+      setErrorMsg("Informe a Chave Pix da recarga Caju.");
+      return;
+    }
+
     try {
       setSubmitting(true);
       const { data: sessionData } = await supabase.auth.getSession();
@@ -89,9 +120,8 @@ export default function CajuRechargeModal({
         body: JSON.stringify({
           request_kind: "RECARGA_CAJU",
           amount: amountNum,
-          payment_type: form.paymentType,
-          boleto_barcode: form.paymentType === "BOLETO" ? form.barcode.trim() : null,
-          pix_key: form.paymentType === "PIX" ? form.pixKey.trim() : "",
+          payment_type: "PIX",
+          pix_key: form.pixKey.trim(),
           pix_owner: form.pixOwner.trim() || "Caju",
           cnpj: form.cnpj.trim() || "CNPJ 2",
           notes: form.notes.trim() || "Recarga Caju",
@@ -107,6 +137,8 @@ export default function CajuRechargeModal({
 
       const data = await res.json();
       setSuccessData(data);
+      // Limpa a chave Pix imediatamente após a solicitação para nunca ficar resíduo
+      setForm((prev) => ({ ...prev, pixKey: "" }));
       if (onSuccess) onSuccess();
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("caju-balance-updated"));
@@ -121,14 +153,11 @@ export default function CajuRechargeModal({
 
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Bom dia" : "Boa tarde";
-  const displayIdentifier =
-    form.paymentType === "BOLETO"
-      ? form.barcode.trim()
-      : form.pixKey.trim();
+  const displayIdentifier = form.pixKey.trim();
 
   const previewBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${
     form.notes.trim() || "Recarga Caju"
-  }\nValor: R$ ${form.amount || "3.000,00"}\nChave pix / Linha digitável: ${displayIdentifier}\nTitular: ${
+  }\nValor: R$ ${form.amount || "3.000,00"}\nChave pix: ${displayIdentifier}\nTitular: ${
     form.pixOwner.trim() || "Caju"
   }\nSolicitante: ${form.requesterName.trim() || userName || "Igor Nascimento"}`;
 
@@ -189,10 +218,7 @@ export default function CajuRechargeModal({
 
               <button
                 type="button"
-                onClick={() => {
-                  setSuccessData(null);
-                  onClose();
-                }}
+                onClick={handleClose}
                 className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
                 Fechar
@@ -217,12 +243,13 @@ export default function CajuRechargeModal({
                   Solicitar Recarga de Saldo Caju
                 </h3>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Padrão: CNPJ 2 e R$ 3.000,00. Insira a linha digitável abaixo antes de lançar o card no Kanban.
+                  Padrão: CNPJ 2 e R$ 3.000,00. Insira a chave Pix abaixo antes de lançar o card no Kanban.
                 </p>
               </div>
             </div>
             <button
-              onClick={onClose}
+              type="button"
+              onClick={handleClose}
               className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X size={16} />
@@ -320,78 +347,24 @@ export default function CajuRechargeModal({
                 />
               </div>
 
-              {/* Forma de Pagamento */}
+              {/* Chave Pix de Recarga Caju (Exclusivo Pix) */}
               <div className="md:col-span-2">
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                  Forma de Pagamento da Recarga
+                <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
+                  Chave Pix de Recarga Caju *
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, paymentType: "BOLETO" }))}
-                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      form.paymentType === "BOLETO"
-                        ? "bg-rose-500/20 border-rose-500/50 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
-                        : "border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    <FileText size={15} />
-                    <span>Boleto Bancário (Linha Digitável)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, paymentType: "PIX" }))}
-                    className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                      form.paymentType === "PIX"
-                        ? "bg-rose-500/20 border-rose-500/50 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.15)]"
-                        : "border-white/10 text-slate-400 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    <QrCode size={15} />
-                    <span>Chave Pix</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Campo Dinâmico: Linha digitável ou Chave Pix */}
-              <div className="md:col-span-2">
-                {form.paymentType === "BOLETO" ? (
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
-                        Linha Digitável / Código de Barras do Boleto Caju
-                      </label>
-                      <span className="text-[10px] text-amber-400 font-mono">
-                        Cole aqui a linha digitável emitida no app da Caju
-                      </span>
-                    </div>
-                    <textarea
-                      rows={2}
-                      autoFocus
-                      value={form.barcode}
-                      onChange={(e) => setForm((prev) => ({ ...prev, barcode: e.target.value }))}
-                      placeholder="Cole aqui a linha digitável do boleto de recarga Caju..."
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-rose-500"
-                      style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-secondary)" }}>
-                      Chave Pix de Recarga Caju
-                    </label>
-                    <input
-                      type="text"
-                      autoFocus
-                      value={form.pixKey}
-                      onChange={(e) => setForm((prev) => ({ ...prev, pixKey: e.target.value }))}
-                      placeholder="Informe a chave Pix ou código copia e cola..."
-                      className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-rose-500"
-                      style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
-                    />
-                  </div>
-                )}
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  value={form.pixKey}
+                  onChange={(e) => setForm((prev) => ({ ...prev, pixKey: e.target.value }))}
+                  placeholder="Cole a chave Pix de recarga Caju aqui..."
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none border focus:border-rose-500 font-medium"
+                  style={{ backgroundColor: "var(--bg-card)", borderColor: "var(--surface-border)", color: "var(--text-primary)" }}
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Pagamento exclusivo via Pix (sem boleto bancário). A chave será limpa automaticamente após cada envio.
+                </span>
               </div>
             </div>
 
@@ -415,7 +388,7 @@ export default function CajuRechargeModal({
             <div className="flex items-center justify-end gap-3 pt-3 border-t" style={{ borderColor: "var(--surface-border)" }}>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 disabled={submitting}
                 className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
               >

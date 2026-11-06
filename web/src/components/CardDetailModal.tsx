@@ -1044,7 +1044,7 @@ export default function CardDetailModal({
       : (pixOwner !== "Não informado" ? pixOwner : (boletoSplit?.pix_owner || pixSplit?.pix_owner || "Não informado"));
     const paymentKeyDisplay = paymentKey ? ` ${paymentKey}` : "";
     const displayMotivo = isRecargaCaju ? (card.notes || "Recarga Caju") : motivo;
-    const keyLabel = (isRecargaNubank || (!barcodeVal && pixVal)) ? "Chave pix" : "Chave pix / Linha digitável";
+    const keyLabel = (isRecargaNubank || isRecargaCaju || (!barcodeVal && pixVal)) ? "Chave pix" : "Chave pix / Linha digitável";
 
     let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${displayMotivo}\nValor: R$ ${formattedAmount}\n${keyLabel}:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
 
