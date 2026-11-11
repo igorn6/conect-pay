@@ -36,6 +36,7 @@ import {
   matchesDatePreset,
   DATE_PRESET_OPTIONS,
   type DatePresetFilter,
+  copyOutflowsToSheets,
 } from "@/utils/exportToGoogleSheets";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -869,6 +870,18 @@ export default function NubankPage() {
                     </button>
                   ))}
                 </div>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await copyOutflowsToSheets(filteredMovements, "Nubank 02");
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-purple-300 hover:text-white bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-500/60 shadow-sm transition-all cursor-pointer shrink-0"
+                  title="Copiar saídas visíveis/filtradas (Nubank 02) para colar na coluna A da planilha Google Sheets"
+                >
+                  <Copy size={13} className="text-purple-400" />
+                  <span>📋 Copiar p/ Planilha (Nubank 02)</span>
+                </button>
               </div>
             </div>
 

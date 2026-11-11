@@ -257,12 +257,18 @@ export default function NubankDailyReconciliationHistory({
 
                                 <button
                                   type="button"
-                                  onClick={() => copyOutflowsToSheets(day.nubank_statement_items || [], "Nubank")}
+                                  onClick={() => {
+                                    const itemsToExport = (day.nubank_statement_items || []).map((it) => ({
+                                      ...it,
+                                      item_date: it.item_date || day.reconciliation_date,
+                                    }));
+                                    copyOutflowsToSheets(itemsToExport, "Nubank 02");
+                                  }}
                                   className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-purple-300 hover:text-white bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 hover:border-purple-500/60 transition-all cursor-pointer shadow-sm"
-                                  title="Copiar saídas auditadas deste dia para colar na coluna A da planilha Google Sheets"
+                                  title="Copiar saídas auditadas deste dia (Nubank 02) para colar na coluna A da planilha Google Sheets"
                                 >
                                   <ClipboardCopy size={13} className="text-purple-400" />
-                                  <span>📋 Copiar Lançamentos do Dia ({day.nubank_statement_items.length})</span>
+                                  <span>📋 Copiar Transações do Dia ({day.nubank_statement_items.length})</span>
                                 </button>
                               </div>
                               <div className="rounded-xl border border-white/[0.06] overflow-hidden divide-y divide-white/[0.04]">

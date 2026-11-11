@@ -215,16 +215,34 @@ export const FERIADOS_NACIONAIS_FIXOS: Record<string, string> = {
   "12-25": "Natal",
 };
 
-export const FERIADOS_MOVEIS_2026: Record<string, string> = {
+export const FERIADOS_MOVEIS_BRASIL: Record<string, string> = {
+  // 2024
+  "2024-02-12": "Carnaval (Segunda)",
+  "2024-02-13": "Carnaval (Terça)",
+  "2024-03-29": "Sexta-feira Santa",
+  "2024-05-30": "Corpus Christi",
+  // 2025
+  "2025-03-03": "Carnaval (Segunda)",
+  "2025-03-04": "Carnaval (Terça)",
+  "2025-04-18": "Sexta-feira Santa",
+  "2025-06-19": "Corpus Christi",
+  // 2026
   "2026-02-16": "Carnaval (Segunda)",
   "2026-02-17": "Carnaval (Terça)",
   "2026-04-03": "Sexta-feira Santa",
   "2026-06-04": "Corpus Christi",
+  // 2027
+  "2027-02-08": "Carnaval (Segunda)",
+  "2027-02-09": "Carnaval (Terça)",
+  "2027-03-26": "Sexta-feira Santa",
+  "2027-05-27": "Corpus Christi",
 };
+
+export const FERIADOS_MOVEIS_2026: Record<string, string> = FERIADOS_MOVEIS_BRASIL;
 
 /** Verifica se a data YYYY-MM-DD é feriado nacional brasileiro. */
 export function getHolidayName(dateStr: string): string | null {
-  if (FERIADOS_MOVEIS_2026[dateStr]) return FERIADOS_MOVEIS_2026[dateStr];
+  if (FERIADOS_MOVEIS_BRASIL[dateStr]) return FERIADOS_MOVEIS_BRASIL[dateStr];
   const mmdd = dateStr.slice(5);
   return FERIADOS_NACIONAIS_FIXOS[mmdd] || null;
 }

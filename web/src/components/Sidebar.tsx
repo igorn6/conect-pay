@@ -18,7 +18,8 @@ import {
   UserCircle,
   Sparkles,
   Wallet,
-  CreditCard
+  CreditCard,
+  Car
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -31,7 +32,18 @@ const NAV_ITEMS = [
   { name: "Consultar Solicitações", href: "/consultas", icon: Search, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Nubank", href: "/nubank", icon: Wallet, requiredRoles: ["MASTER", "FINANCEIRO"] },
-  { name: "Caju", href: "/caju", icon: CreditCard, requiredRoles: ["MASTER", "FINANCEIRO"] },
+  {
+    name: "Caju",
+    href: "/caju",
+    icon: CreditCard,
+    requiredRoles: ["MASTER", "FINANCEIRO"],
+  },
+  {
+    name: "Ajuda de Custos",
+    href: "/ajuda-custos",
+    icon: Car,
+    requiredRoles: ["MASTER", "FINANCEIRO"],
+  },
   { name: "Assistente IA", href: "/relatorios", icon: Sparkles, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
   { name: "Configurações", href: "/configuracoes", icon: Settings, requiredRoles: ["MASTER", "FINANCEIRO", "GESTOR"] },
 ];

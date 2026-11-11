@@ -1,3 +1,5 @@
+import { getNextBusinessDay } from "@/constants/caju";
+
 /**
  * Utilitário de Exportação de Dados para o Google Sheets (Formato TSV).
  *
@@ -6,15 +8,15 @@
  * para não sobrescrever fórmulas ou dropdowns existentes na planilha de conciliação.
  *
  * Estrutura das Colunas Geradas (Delimitador: Tabulação \t):
- * - Coluna A: Data (DD/MM/YYYY)
+ * - Coluna A: Data (DD/MM/YYYY) - regra contábil: sábado, domingo e feriado joga para o próximo dia útil
  * - Coluna B: Vazia
  * - Coluna C: Vazia
  * - Coluna D: Motivo/Destino ([Estabelecimento] - [Nome do Colaborador/Titular])
- * - Coluna E: Banco ("Caju" | "Nubank")
+ * - Coluna E: Banco ("Caju" | "Nubank 02")
  * - Coluna F: Valor (Numérico formatado padrão pt-BR, ex: "15,40", sem prefixo "R$")
  */
 
-export type SupportedBankName = "Caju" | "Nubank";
+export type SupportedBankName = "Caju" | "Nubank" | "Nubank 02";
 
 export type DatePresetFilter = "ALL" | "TODAY" | "YESTERDAY" | "7_DAYS" | "15_DAYS" | "30_DAYS";
 
@@ -109,13 +111,25 @@ export function formatDateToDDMMYYYY(rawDate: unknown): string {
 
 /**
  * Converte data para string YYYY-MM-DD no fuso horário de Brasília.
+ * Suporta formatos:
+ * - DD/MM/YYYY (brasileiro)
+ * - YYYY-MM-DD (ISO date)
+ * - ISO string com timestamp (converte para o fuso de Brasília)
+ * - Date object ou timestamp numérico
  */
 export function getLocalDateString(raw: unknown): string {
   if (!raw) return "";
   if (typeof raw === "string") {
-    const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (match && !raw.includes("T") && !raw.includes("Z")) {
-      return match[1];
+    const trimmed = raw.trim();
+    // Padrão brasileiro DD/MM/YYYY
+    const brMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (brMatch) {
+      return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+    }
+    // Padrão ISO YYYY-MM-DD puro (sem T nem Z)
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch && !trimmed.includes("T") && !trimmed.includes("Z")) {
+      return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
     }
   }
   try {
@@ -454,11 +468,30 @@ export async function copyOutflowsToSheets(
   const lines: string[] = [];
 
   for (const tx of outflows) {
-    const rawDate = tx.occurred_at || tx.created_at || tx.date || tx.item_date;
-    const colA = formatDateToDDMMYYYY(rawDate);
+    // 1. Prioridade absoluta para a data real da transação (evita pegar created_at de inserção no banco)
+    const rawDate =
+      tx.item_date ||
+      tx.occurred_at ||
+      tx.transaction_date ||
+      tx.date ||
+      tx.tx_date ||
+      tx.created_at;
+
+    // 2. Converte para string YYYY-MM-DD no fuso de Brasília
+    const localDateStr = getLocalDateString(rawDate);
+
+    // 3. Regra contábil: se for sábado, domingo ou feriado, joga para o próximo dia útil
+    const effectiveBusinessDate = localDateStr ? getNextBusinessDay(localDateStr) : "";
+
+    // 4. Formata como DD/MM/YYYY para a Coluna A do Google Sheets
+    const colA = effectiveBusinessDate
+      ? formatDateToDDMMYYYY(effectiveBusinessDate)
+      : formatDateToDDMMYYYY(rawDate);
     const colB = "";
     const colC = "";
-    const colE = bankName;
+
+    // 5. O Nubank sempre deve vir escrito "Nubank 02" conforme regra contábil da planilha
+    const colE = bankName === "Nubank" || bankName === "Nubank 02" ? "Nubank 02" : bankName;
 
     const descUpper = String(tx.description || "").toUpperCase();
     const amountVal = Math.abs(

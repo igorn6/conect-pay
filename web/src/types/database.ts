@@ -188,3 +188,104 @@ export interface EditHistoryItem {
   previous_data?: PendingEditData;
   applied_data?: PendingEditData;
 }
+
+// ============================================================
+// Módulo: Ajuda de Custos (Expense Trips)
+// ============================================================
+
+export type ExpenseTripStatus = "EM_ANDAMENTO" | "PENDENTE" | "APROVADO" | "PAGO";
+
+export interface Prospector {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  default_origin_address?: string | null;
+  default_origin_lat?: number | null;
+  default_origin_lng?: number | null;
+  profile_id?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ExpenseTrip {
+  id: string;
+  prospector_id: string;
+  trip_date: string;
+  origin_address: string;
+  destination_address: string;
+
+  // Odômetro
+  odometer_start: number;
+  odometer_start_photo?: string | null;
+  odometer_end?: number | null;
+  odometer_end_photo?: string | null;
+
+  // Distâncias
+  km_driven?: number | null;
+  km_suggested?: number | null;
+
+  // Valores
+  fuel_rate_per_km: number;
+  fuel_amount: number;
+  meal_amount: number;
+  meal_receipt_url?: string | null;
+  toll_amount: number;
+  toll_receipt_url?: string | null;
+  total_amount: number;
+
+  // Status e Observações
+  status: ExpenseTripStatus;
+  observations?: string | null;
+
+  // Auditoria
+  created_by?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  paid_by?: string | null;
+  paid_at?: string | null;
+
+  created_at: string;
+  updated_at: string;
+
+  // Join com vendedor
+  prospector?: Prospector;
+}
+
+export interface CreateExpenseTripPayload {
+  prospector_id: string;
+  trip_date: string;
+  origin_address: string;
+  destination_address: string;
+  odometer_start: number;
+  odometer_start_photo?: string | null;
+  odometer_end?: number | null;
+  odometer_end_photo?: string | null;
+  km_suggested?: number | null;
+  fuel_rate_per_km?: number;
+  meal_amount?: number;
+  meal_receipt_url?: string | null;
+  toll_amount?: number;
+  toll_receipt_url?: string | null;
+  status?: ExpenseTripStatus;
+  observations?: string | null;
+}
+
+export interface UpdateExpenseTripPayload {
+  trip_date?: string;
+  origin_address?: string;
+  destination_address?: string;
+  odometer_start?: number;
+  odometer_start_photo?: string | null;
+  odometer_end?: number | null;
+  odometer_end_photo?: string | null;
+  km_suggested?: number | null;
+  fuel_rate_per_km?: number;
+  meal_amount?: number;
+  meal_receipt_url?: string | null;
+  toll_amount?: number;
+  toll_receipt_url?: string | null;
+  status?: ExpenseTripStatus;
+  observations?: string | null;
+}
