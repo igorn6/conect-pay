@@ -18,9 +18,11 @@ import {
   Check,
   Clock,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 import type { ExpenseTrip, ExpenseTripStatus } from "@/types/database";
 import TripPhotoLightbox from "./TripPhotoLightbox";
+import { buildGoogleMapsDirectionsUrl, isAutoEstimableRoute } from "@/lib/tripRouteHelpers";
 
 interface TripSandwichCardProps {
   trip: ExpenseTrip;
@@ -484,9 +486,25 @@ export default function TripSandwichCard({
 
                 <div className="text-left">
                   <p className="text-[10px] text-slate-400 uppercase font-semibold">KM Estimado (Ida+Volta)</p>
-                  <p className="text-base font-extrabold font-mono text-blue-300">
-                    {kmSuggested ? `${kmSuggested} km` : "Não estimado"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-base font-extrabold font-mono text-blue-300">
+                      {kmSuggested ? `${kmSuggested} km` : "Não estimado"}
+                    </p>
+                    {trip.origin_address &&
+                      trip.destination_address &&
+                      isAutoEstimableRoute(trip.origin_address, trip.destination_address) && (
+                        <a
+                          href={buildGoogleMapsDirectionsUrl(trip.origin_address, trip.destination_address)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-semibold text-blue-400/80 hover:text-blue-300 underline decoration-blue-400/40 inline-flex items-center gap-0.5"
+                          title="Abrir trajeto real no Google Maps"
+                        >
+                          <span>Ver rota</span>
+                          <ExternalLink size={10} />
+                        </a>
+                      )}
+                  </div>
                 </div>
 
                 {isTripInProgress ? (

@@ -176,83 +176,18 @@ export interface TripDistanceEstimate {
 }
 
 /**
- * Estima a distância rodoviária (ida + volta) entre origem e destino usando Google Gemini.
+ * Estima a distância rodoviária (ida + volta) entre origem e destino usando geolocalização real (Photon/Nominatim + OSRM).
  */
 export async function estimateTripDistanceWithAI(input: {
   origin: string;
   destination: string;
 }): Promise<TripDistanceEstimate> {
-  const { origin, destination } = input;
-  if (!origin?.trim() || !destination?.trim()) {
-    return {
-      one_way_km: 0,
-      round_trip_km: 0,
-      confidence: "baixa",
-      note: "Origem ou destino não informados.",
-    };
-  }
-
-  const prompt = `Você é um especialista em logística, trânsito e rotas de veículos na Bahia e no Brasil.
-Calcule a distância de carro mais comum (pelas principais rodovias e vias urbanas) entre:
-- Ponto de Origem: "${origin.trim()}"
-- Ponto de Destino: "${destination.trim()}"
-
-DIRETRIZES:
-1. Calcule a distância de ida (one_way_km) em quilômetros reais de percurso de carro/veículo.
-2. Calcule a distância total de ida e volta (round_trip_km = one_way_km * 2).
-3. Seja preciso com a malha viária brasileira (ex: BA-099, Estrada do Coco, BR-324, Paralela, etc.).
-4. Responda ESTRITAMENTE em formato JSON puro.
-
-FORMATO OBRIGATÓRIO:
-{
-  "one_way_km": number,
-  "round_trip_km": number,
-  "confidence": "alta" | "media" | "baixa",
-  "note": string
-}`;
-
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
-
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            responseMimeType: "application/json",
-            temperature: 0.1,
-          },
-        }),
-      });
-
-      if (!res.ok) continue;
-
-      const json = await res.json();
-      const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!rawText) continue;
-
-      const parsed = JSON.parse(rawText);
-      const oneWay = Number(parsed.one_way_km) || 0;
-      const roundTrip = Number(parsed.round_trip_km) || (oneWay * 2);
-
-      return {
-        one_way_km: Math.round(oneWay * 10) / 10,
-        round_trip_km: Math.round(roundTrip * 10) / 10,
-        confidence: parsed.confidence || "alta",
-        note: parsed.note || "Estimativa calculada pela inteligência geográfica do sistema.",
-      };
-    } catch {
-      // Tenta o próximo modelo
-    }
-  }
-
+  const { estimateRealRouteDistance } = await import("./routing");
+  const estimate = await estimateRealRouteDistance(input);
   return {
-    one_way_km: 30,
-    round_trip_km: 60,
-    confidence: "baixa",
-    note: "Estimativa padrão gerada.",
+    one_way_km: estimate.one_way_km,
+    round_trip_km: estimate.round_trip_km,
+    confidence: estimate.confidence,
+    note: estimate.note,
   };
 }

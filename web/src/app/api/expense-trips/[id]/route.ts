@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/nubankBalance";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveSuggestedRoundTripKm } from "@/lib/tripRouteServer";
 import type { UpdateExpenseTripPayload, ExpenseTripStatus } from "@/types/database";
 
 interface RouteParams {
@@ -54,6 +55,23 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         updatePayload.approved_at = null;
         updatePayload.paid_by = null;
         updatePayload.paid_at = null;
+      }
+    }
+
+    // Se origem/destino mudaram (ou km_suggested não foi enviado/está zerado), recalcula rota real se necessário
+    const addressChanged = body.origin_address !== undefined || body.destination_address !== undefined;
+    const explicitKmSuggested = body.km_suggested !== undefined ? Number(body.km_suggested) : undefined;
+    if (addressChanged && (!explicitKmSuggested || explicitKmSuggested <= 0)) {
+      const { data: currentTrip } = await supabaseAdmin
+        .from("expense_trips")
+        .select("origin_address, destination_address")
+        .eq("id", id)
+        .single();
+      const targetOrigin = String(body.origin_address ?? currentTrip?.origin_address ?? "").trim();
+      const targetDest = String(body.destination_address ?? currentTrip?.destination_address ?? "").trim();
+      const estimatedKm = await resolveSuggestedRoundTripKm(targetOrigin, targetDest);
+      if (estimatedKm) {
+        updatePayload.km_suggested = estimatedKm;
       }
     }
 

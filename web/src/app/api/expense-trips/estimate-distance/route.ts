@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/nubankBalance";
-import { estimateTripDistanceWithAI } from "@/lib/gemini";
+import { estimateRealRouteDistance } from "@/lib/routing";
 
 // POST /api/expense-trips/estimate-distance
 export async function POST(req: Request) {
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const estimate = await estimateTripDistanceWithAI({
+    const estimate = await estimateRealRouteDistance({
       origin: String(origin),
       destination: String(destination),
     });

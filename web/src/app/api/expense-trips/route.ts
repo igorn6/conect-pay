@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/nubankBalance";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveSuggestedRoundTripKm } from "@/lib/tripRouteServer";
 import type { CreateExpenseTripPayload } from "@/types/database";
 
 // GET /api/expense-trips
@@ -105,16 +106,25 @@ export async function POST(req: Request) {
     // Status inicial: se não tem odômetro final, fica "EM_ANDAMENTO". Se já tem, "PENDENTE"
     const initialStatus = body.status || (odoEnd !== null ? "PENDENTE" : "EM_ANDAMENTO");
 
+    const cleanOrigin = body.origin_address.trim();
+    const cleanDest = body.destination_address.trim();
+
+    // Garantia no servidor: se o cliente não enviou km_suggested, estima automaticamente pela rota real
+    const resolvedKmSuggested: number | null =
+      body.km_suggested && Number(body.km_suggested) > 0
+        ? Number(body.km_suggested)
+        : await resolveSuggestedRoundTripKm(cleanOrigin, cleanDest);
+
     const insertData: Record<string, any> = {
       prospector_id: body.prospector_id,
       trip_date: body.trip_date,
-      origin_address: body.origin_address.trim(),
-      destination_address: body.destination_address.trim(),
+      origin_address: cleanOrigin,
+      destination_address: cleanDest,
       odometer_start: odoStart,
       odometer_start_photo: body.odometer_start_photo || null,
       odometer_end: odoEnd,
       odometer_end_photo: body.odometer_end_photo || null,
-      km_suggested: body.km_suggested ? Number(body.km_suggested) : null,
+      km_suggested: resolvedKmSuggested,
       fuel_rate_per_km: body.fuel_rate_per_km ? Number(body.fuel_rate_per_km) : 1.0,
       meal_amount: meal,
       meal_receipt_url: body.meal_receipt_url || null,

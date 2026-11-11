@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   X,
   Sparkles,
@@ -17,11 +17,27 @@ import {
   Trash2,
   AlertTriangle,
   Crop,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ExpenseTrip, Prospector } from "@/types/database";
 import PhotoCropModal from "./PhotoCropModal";
+import {
+  buildGoogleMapsDirectionsUrl,
+  buildRoutePairKey,
+  isAutoEstimableRoute,
+} from "@/lib/tripRouteHelpers";
+
+interface RouteEstimateMeta {
+  oneWayKm: number;
+  roundTripKm: number;
+  durationMinutes: number | null;
+  resolvedDestination: string | null;
+  note: string;
+  found: boolean;
+}
 
 interface NewTripModalProps {
   isOpen: boolean;
@@ -71,6 +87,7 @@ export default function NewTripModal({
   // Estados de controle
   const [submitting, setSubmitting] = useState(false);
   const [estimatingDistance, setEstimatingDistance] = useState(false);
+  const [routeMeta, setRouteMeta] = useState<RouteEstimateMeta | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [activeSlotPaste, setActiveSlotPaste] = useState<"start" | "end" | "meal" | "toll" | null>(null);
   const [cropTarget, setCropTarget] = useState<{
@@ -79,9 +96,16 @@ export default function NewTripModal({
     title: string;
   } | null>(null);
 
+  const lastEstimatedKeyRef = useRef<string>("");
+  const estimateRequestIdRef = useRef<number>(0);
+  const inFlightEstimateRef = useRef<{ key: string; promise: Promise<number | null> } | null>(null);
+
   // Inicialização ao abrir modal
   useEffect(() => {
     if (!isOpen) return;
+
+    setEstimatingDistance(false);
+    setRouteMeta(null);
 
     if (initialTrip) {
       setProspectorId(initialTrip.prospector_id);
@@ -94,7 +118,16 @@ export default function NewTripModal({
           ? String(initialTrip.odometer_end)
           : ""
       );
-      setKmSuggested(initialTrip.km_suggested ?? null);
+      const existingSuggested =
+        initialTrip.km_suggested !== null &&
+        initialTrip.km_suggested !== undefined &&
+        Number(initialTrip.km_suggested) > 0
+          ? Number(initialTrip.km_suggested)
+          : null;
+      setKmSuggested(existingSuggested);
+      lastEstimatedKeyRef.current = existingSuggested
+        ? buildRoutePairKey(initialTrip.origin_address, initialTrip.destination_address)
+        : "";
       setMealAmount(
         initialTrip.meal_amount > 0
           ? initialTrip.meal_amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
@@ -120,6 +153,7 @@ export default function NewTripModal({
       setOdometerStart("");
       setOdometerEnd("");
       setKmSuggested(null);
+      lastEstimatedKeyRef.current = "";
       setMealAmount("");
       setTollAmount("");
       setObservations("");
@@ -217,6 +251,130 @@ export default function NewTripModal({
     return () => window.removeEventListener("paste", handlePaste);
   }, [isOpen, activeSlotPaste, startPhotoFile, startPhotoUrl, endPhotoFile, endPhotoUrl, mealReceiptFile, mealReceiptUrl, tollReceiptFile, tollReceiptUrl]);
 
+  // Estimativa automática de distância rodoviária real (ida + volta) via OpenStreetMap / OSRM
+  const runRouteEstimation = useCallback(
+    async (
+      originRaw: string,
+      destRaw: string,
+      options?: { force?: boolean; silentError?: boolean }
+    ): Promise<number | null> => {
+      const origin = originRaw.trim();
+      const dest = destRaw.trim();
+
+      if (!origin || !dest) {
+        if (!options?.silentError) {
+          setErrorMsg("Informe a origem e o destino para estimar a distância.");
+        }
+        return null;
+      }
+
+      if (!isAutoEstimableRoute(origin, dest)) {
+        if (!options?.silentError) {
+          setErrorMsg("Informe um destino específico (ex: Cidade - BA ou bairro/local).");
+        }
+        return null;
+      }
+
+      const key = buildRoutePairKey(origin, dest);
+      if (!options?.force && lastEstimatedKeyRef.current === key) {
+        return null;
+      }
+
+      if (!options?.force && inFlightEstimateRef.current?.key === key) {
+        return inFlightEstimateRef.current.promise;
+      }
+
+      const reqId = ++estimateRequestIdRef.current;
+      setEstimatingDistance(true);
+      if (!options?.silentError) {
+        setErrorMsg(null);
+      }
+
+      const promise = (async (): Promise<number | null> => {
+        try {
+          const res = await fetch("/api/expense-trips/estimate-distance", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ origin, destination: dest }),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || "Falha ao estimar distância.");
+          }
+
+          const json = await res.json();
+          const data = json.data;
+
+          if (reqId !== estimateRequestIdRef.current) {
+            return null;
+          }
+
+          lastEstimatedKeyRef.current = key;
+          const found = Boolean(data?.found && Number(data?.round_trip_km) > 0);
+          const roundTripKm = found ? Number(data.round_trip_km) : 0;
+
+          setRouteMeta({
+            oneWayKm: Number(data?.one_way_km) || 0,
+            roundTripKm,
+            durationMinutes: data?.duration_minutes ?? null,
+            resolvedDestination: data?.resolved_destination ?? null,
+            note: data?.note || "",
+            found,
+          });
+
+          if (found) {
+            setKmSuggested(roundTripKm);
+            return roundTripKm;
+          }
+
+          setKmSuggested(null);
+          return null;
+        } catch (err: unknown) {
+          if (reqId === estimateRequestIdRef.current && !options?.silentError) {
+            const msg = err instanceof Error ? err.message : "Erro ao estimar rota.";
+            setErrorMsg(msg);
+          }
+          return null;
+        } finally {
+          if (inFlightEstimateRef.current?.key === key) {
+            inFlightEstimateRef.current = null;
+          }
+          if (reqId === estimateRequestIdRef.current) {
+            setEstimatingDistance(false);
+          }
+        }
+      })();
+
+      inFlightEstimateRef.current = { key, promise };
+      return promise;
+    },
+    []
+  );
+
+  // Calcula automaticamente quando origem ou destino mudam (com debounce de 700ms)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const origin = originAddress.trim();
+    const dest = destinationAddress.trim();
+
+    if (!isAutoEstimableRoute(origin, dest)) {
+      return;
+    }
+
+    const key = buildRoutePairKey(origin, dest);
+    if (lastEstimatedKeyRef.current === key) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void runRouteEstimation(origin, dest, { silentError: true });
+    }, 700);
+
+    return () => window.clearTimeout(timer);
+  }, [isOpen, originAddress, destinationAddress, runRouteEstimation]);
+
   if (!isOpen) return null;
 
   const parseCurrency = (val: string): number => {
@@ -232,7 +390,7 @@ export default function NewTripModal({
   };
 
   const handleCurrencyInput = (val: string, setter: (v: string) => void) => {
-    let clean = val.replace(/\D/g, "");
+    const clean = val.replace(/\D/g, "");
     if (!clean) {
       setter("");
       return;
@@ -241,40 +399,11 @@ export default function NewTripModal({
     setter(num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   };
 
-  // Estimativa de distância via Gemini AI
   const handleEstimateDistance = async () => {
-    if (!originAddress.trim() || !destinationAddress.trim()) {
-      setErrorMsg("Informe a origem e o destino para estimar a distância.");
-      return;
-    }
-
-    try {
-      setEstimatingDistance(true);
-      setErrorMsg(null);
-
-      const res = await fetch("/api/expense-trips/estimate-distance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          origin: originAddress.trim(),
-          destination: destinationAddress.trim(),
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Falha ao estimar distância.");
-      }
-
-      const json = await res.json();
-      if (json.data?.round_trip_km) {
-        setKmSuggested(json.data.round_trip_km);
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Erro ao estimar rota.");
-    } finally {
-      setEstimatingDistance(false);
-    }
+    await runRouteEstimation(originAddress, destinationAddress, {
+      force: true,
+      silentError: false,
+    });
   };
 
   // Upload de arquivo para Supabase Storage
@@ -365,6 +494,16 @@ export default function NewTripModal({
         finalTollUrl = await uploadFileToStorage(tollReceiptFile, "toll");
       }
 
+      let finalKmSuggested = kmSuggested;
+      const currentRouteKey = buildRoutePairKey(originAddress, destinationAddress);
+      if (!isAutoEstimableRoute(originAddress, destinationAddress)) {
+        finalKmSuggested = null;
+      } else if (lastEstimatedKeyRef.current !== currentRouteKey) {
+        finalKmSuggested = await runRouteEstimation(originAddress, destinationAddress, {
+          silentError: true,
+        });
+      }
+
       const payload = {
         prospector_id: prospectorId,
         trip_date: tripDate,
@@ -374,7 +513,7 @@ export default function NewTripModal({
         odometer_start_photo: finalStartUrl,
         odometer_end: hasEnd ? odoEndNum : null,
         odometer_end_photo: finalEndUrl,
-        km_suggested: kmSuggested,
+        km_suggested: finalKmSuggested,
         fuel_rate_per_km: 1.0,
         meal_amount: mealValueLive,
         meal_receipt_url: finalMealUrl,
@@ -512,6 +651,9 @@ export default function NewTripModal({
                   required
                   value={originAddress}
                   onChange={(e) => setOriginAddress(e.target.value)}
+                  onBlur={() =>
+                    void runRouteEstimation(originAddress, destinationAddress, { silentError: true })
+                  }
                   placeholder="Endereço de saída..."
                   className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-amber-500 font-medium"
                   style={{
@@ -527,21 +669,24 @@ export default function NewTripModal({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-semibold text-slate-300">
-                  Destino da Viagem (Cidade / Bairro / Local) *
+                  Destino da Viagem (Cidade / Bairro / Local) *{" "}
+                  <span className="text-[10px] font-normal text-slate-400">(calcula automático)</span>
                 </label>
                 <button
                   type="button"
                   onClick={handleEstimateDistance}
-                  disabled={estimatingDistance || !destinationAddress.trim()}
+                  disabled={
+                    estimatingDistance || !isAutoEstimableRoute(originAddress, destinationAddress)
+                  }
                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 transition-all cursor-pointer disabled:opacity-40"
-                  title="Estimar distância de ida e volta pelo trajeto mais comum"
+                  title="Recalcular distância real de ida e volta"
                 >
                   {estimatingDistance ? (
                     <Loader2 size={12} className="animate-spin" />
                   ) : (
-                    <Sparkles size={12} className="text-amber-400" />
+                    <RefreshCw size={12} className="text-amber-400" />
                   )}
-                  <span>{estimatingDistance ? "Calculando..." : "Estimar KM (Ida e Volta)"}</span>
+                  <span>{estimatingDistance ? "Calculando..." : "Recalcular KM"}</span>
                 </button>
               </div>
 
@@ -550,8 +695,19 @@ export default function NewTripModal({
                   type="text"
                   required
                   value={destinationAddress}
-                  onChange={(e) => setDestinationAddress(e.target.value)}
-                  placeholder="Ex: Polo Industrial de Camaçari, Centro de Feira de Santana..."
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setDestinationAddress(next);
+                    if (!isAutoEstimableRoute(originAddress, next)) {
+                      lastEstimatedKeyRef.current = "";
+                      setKmSuggested(null);
+                      setRouteMeta(null);
+                    }
+                  }}
+                  onBlur={() =>
+                    void runRouteEstimation(originAddress, destinationAddress, { silentError: true })
+                  }
+                  placeholder="Ex: Conceição do Jacuípe - BA, Camaçari, Feira de Santana..."
                   className="w-full pl-9 pr-3.5 py-2.5 rounded-xl text-xs outline-none border focus:border-amber-500 font-medium"
                   style={{
                     backgroundColor: "var(--bg-card)",
@@ -562,12 +718,61 @@ export default function NewTripModal({
                 <MapPin size={14} className="absolute left-3 top-3 text-amber-400" />
               </div>
 
-              {kmSuggested ? (
-                <div className="mt-1.5 flex items-center gap-2 text-[11px] text-blue-300">
-                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                  <span>
-                    Distância estimada pela IA: <strong>{kmSuggested} km</strong> (ida + volta inclusas).
-                  </span>
+              {estimatingDistance ? (
+                <div className="mt-2 flex items-center gap-2 text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
+                  <Loader2 size={12} className="animate-spin shrink-0 text-amber-400" />
+                  <span>Calculando distância rodoviária real (ida + volta)...</span>
+                </div>
+              ) : kmSuggested && kmSuggested > 0 ? (
+                <div className="mt-2 flex flex-col gap-1 text-[11px] text-blue-200 bg-blue-500/10 border border-blue-500/20 rounded-lg px-2.5 py-1.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles size={12} className="text-blue-400 shrink-0" />
+                      <span>
+                        Rota prevista: <strong className="text-white">{kmSuggested} km</strong>{" "}
+                        {routeMeta?.oneWayKm ? (
+                          <span className="text-blue-300/90">
+                            ({routeMeta.oneWayKm} km ida + volta
+                            {routeMeta.durationMinutes
+                              ? ` • ~${routeMeta.durationMinutes} min/trecho`
+                              : ""}
+                            )
+                          </span>
+                        ) : (
+                          <span className="text-blue-300/90">(ida + volta inclusas)</span>
+                        )}
+                      </span>
+                    </span>
+                    <a
+                      href={buildGoogleMapsDirectionsUrl(originAddress, destinationAddress)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-300 hover:text-white underline decoration-blue-400/50"
+                    >
+                      <span>Ver no Maps</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  </div>
+                  {routeMeta?.resolvedDestination && (
+                    <span className="text-[10px] text-slate-400 truncate">
+                      Ponto localizado: {routeMeta.resolvedDestination}
+                    </span>
+                  )}
+                </div>
+              ) : routeMeta && !routeMeta.found ? (
+                <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
+                  <span>{routeMeta.note}</span>
+                  {originAddress.trim() && destinationAddress.trim() && (
+                    <a
+                      href={buildGoogleMapsDirectionsUrl(originAddress, destinationAddress)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-semibold underline shrink-0"
+                    >
+                      <span>Maps</span>
+                      <ExternalLink size={11} />
+                    </a>
+                  )}
                 </div>
               ) : null}
             </div>
