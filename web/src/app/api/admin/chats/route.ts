@@ -1,18 +1,18 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function GET(req: Request) {
   try {
-    const url = new URL(req.url);
-    const userId = url.searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const userId = auth.userId;
 
-    // 1. Buscar chats onde o usuário é participante (Admin bypasses RLS)
-    const { data: myParticipants, error: partError } = await supabaseAdmin
+    // 1. Buscar chats onde o usuário é participante
+    const { data: myParticipants, error: partError } = await auth.db
       .from("chat_participants")
       .select("chat_id")
       .eq("profile_id", userId);
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     }
 
     // 2. Buscar todos os participantes desses chats
-    const { data: allParticipants, error: allPartError } = await supabaseAdmin
+    const { data: allParticipants, error: allPartError } = await auth.db
       .from("chat_participants")
       .select("chat_id, profile_id")
       .in("chat_id", chatIds);
@@ -34,7 +34,7 @@ export async function GET(req: Request) {
 
     // 3. Buscar perfis de todos os participantes
     const participantIds = [...new Set((allParticipants || []).map((p: any) => p.profile_id))];
-    const { data: profiles, error: profError } = await supabaseAdmin
+    const { data: profiles, error: profError } = await auth.db
       .from("profiles")
       .select("id, name, avatar_url")
       .in("id", participantIds);
@@ -67,7 +67,7 @@ export async function GET(req: Request) {
       }
 
       // Última mensagem
-      const { data: lastMsg } = await supabaseAdmin
+      const { data: lastMsg } = await auth.db
         .from("chat_messages")
         .select("*")
         .eq("chat_id", chatId)
@@ -81,7 +81,7 @@ export async function GET(req: Request) {
       }
 
       // Contagem de não lidas
-      const { count: unreadCount } = await supabaseAdmin
+      const { count: unreadCount } = await auth.db
         .from("chat_messages")
         .select("*", { count: "exact", head: true })
         .eq("chat_id", chatId)
@@ -121,21 +121,27 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { userId, targetUserId } = await req.json();
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
 
-    if (!userId || !targetUserId) {
+    const { targetUserId } = await req.json();
+    const userId = auth.userId;
+
+    if (!targetUserId) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
     // 1. Checar se já existe chat comum entre os dois
-    const { data: myChats } = await supabaseAdmin
+    const { data: myChats } = await auth.db
       .from("chat_participants")
       .select("chat_id")
       .eq("profile_id", userId);
 
     const chatIds = (myChats || []).map((c: any) => c.chat_id);
     if (chatIds.length > 0) {
-      const { data: otherParts } = await supabaseAdmin
+      const { data: otherParts } = await auth.db
         .from("chat_participants")
         .select("chat_id")
         .eq("profile_id", targetUserId)
@@ -147,7 +153,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Se não existe, criar novo chat
-    const { data: newChat, error: chatError } = await supabaseAdmin
+    const { data: newChat, error: chatError } = await auth.db
       .from("chats")
       .insert({})
       .select("id")
@@ -157,7 +163,7 @@ export async function POST(req: Request) {
       throw chatError || new Error("Failed to create chat");
     }
 
-    const { error: partError } = await supabaseAdmin.from("chat_participants").insert([
+    const { error: partError } = await auth.db.from("chat_participants").insert([
       { chat_id: newChat.id, profile_id: userId },
       { chat_id: newChat.id, profile_id: targetUserId },
     ]);

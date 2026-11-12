@@ -18,8 +18,10 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import AnimatedCurrency from "@/components/ui/AnimatedCurrency";
+import BudgetCeilingMonitor from "@/components/expenses/BudgetCeilingMonitor";
 import TripSandwichCard from "@/components/expenses/TripSandwichCard";
 import NewTripModal from "@/components/expenses/NewTripModal";
+import { computeMonthlyExpenseBudget } from "@/lib/expenseBudget";
 import type { ExpenseTrip, ExpenseTripStatus, Prospector } from "@/types/database";
 
 export default function AjudaCustosPage() {
@@ -60,7 +62,7 @@ export default function AjudaCustosPage() {
     }
   }, []);
 
-  // Carregar viagens
+  // Carregar todas as viagens do mês selecionado (filtragem por status feita localmente para preservar o monitor mensal)
   const fetchTrips = useCallback(
     async (silent = false) => {
       try {
@@ -70,7 +72,6 @@ export default function AjudaCustosPage() {
 
         const params = new URLSearchParams();
         if (selectedMonth) params.set("month", selectedMonth);
-        if (selectedStatus && selectedStatus !== "ALL") params.set("status", selectedStatus);
 
         const res = await fetch(`/api/expense-trips?${params.toString()}`, { cache: "no-store" });
         if (!res.ok) {
@@ -87,7 +88,7 @@ export default function AjudaCustosPage() {
         setRefreshing(false);
       }
     },
-    [selectedMonth, selectedStatus]
+    [selectedMonth]
   );
 
   useEffect(() => {
@@ -142,7 +143,42 @@ export default function AjudaCustosPage() {
     setIsModalOpen(true);
   };
 
-  // Cálculos de Resumo
+  const andreiaProspectorId = useMemo(() => {
+    const match = prospectors.find((p) =>
+      (p.name || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .includes("andreia")
+    );
+    return match?.id || null;
+  }, [prospectors]);
+
+  const monthlyBudget = useMemo(
+    () => computeMonthlyExpenseBudget(trips, { andreiaProspectorId }),
+    [trips, andreiaProspectorId]
+  );
+
+  const filteredTrips = useMemo(() => {
+    if (selectedStatus === "ALL") return trips;
+    return trips.filter((t) => t.status === selectedStatus);
+  }, [trips, selectedStatus]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {
+      ALL: trips.length,
+      EM_ANDAMENTO: 0,
+      PENDENTE: 0,
+      APROVADO: 0,
+      PAGO: 0,
+    };
+    for (const t of trips) {
+      if (counts[t.status] !== undefined) counts[t.status] += 1;
+    }
+    return counts;
+  }, [trips]);
+
+  // Cálculos de Resumo do Mês
   const stats = useMemo(() => {
     const paid = trips
       .filter((t) => t.status === "PAGO")
@@ -224,6 +260,11 @@ export default function AjudaCustosPage() {
             </button>
           </div>
         </div>
+
+        {/* ========================================================
+            MONITOR DE TETO MENSAL (R$ 2.000 ALERTA / R$ 3.000 MÁX.)
+            ======================================================== */}
+        <BudgetCeilingMonitor budget={monthlyBudget} selectedMonth={selectedMonth} />
 
         {/* ========================================================
             CARDS DE RESUMO (KPIs)
@@ -359,13 +400,16 @@ export default function AjudaCustosPage() {
                 key={pill.id}
                 type="button"
                 onClick={() => setSelectedStatus(pill.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
                   selectedStatus === pill.id
                     ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs"
                     : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent"
                 }`}
               >
-                {pill.label}
+                <span>{pill.label}</span>
+                <span className="font-mono text-[10px] opacity-75">
+                  ({statusCounts[pill.id] ?? 0})
+                </span>
               </button>
             ))}
           </div>
@@ -410,7 +454,7 @@ export default function AjudaCustosPage() {
               />
             ))}
           </div>
-        ) : trips.length === 0 ? (
+        ) : filteredTrips.length === 0 ? (
           <div
             className="p-12 rounded-2xl border border-dashed text-center space-y-3"
             style={{
@@ -424,24 +468,36 @@ export default function AjudaCustosPage() {
             <div>
               <h3 className="text-base font-bold text-white">Nenhuma viagem encontrada</h3>
               <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-                Não há registros de ajuda de custos para os filtros selecionados. Clique no botão abaixo para lançar a primeira viagem da Andreia.
+                {trips.length > 0 && selectedStatus !== "ALL"
+                  ? "Nenhuma viagem com este status no mês selecionado. Selecione 'Todas' para visualizar os demais lançamentos."
+                  : "Não há registros de ajuda de custos para o mês selecionado. Clique no botão abaixo para lançar a primeira viagem da Andreia."}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingTrip(null);
-                setIsModalOpen(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors shadow-md cursor-pointer"
-            >
-              <Plus size={14} className="stroke-[3]" />
-              <span>Lançar Primeira Viagem</span>
-            </button>
+            {trips.length > 0 && selectedStatus !== "ALL" ? (
+              <button
+                type="button"
+                onClick={() => setSelectedStatus("ALL")}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors shadow-md cursor-pointer"
+              >
+                <span>Ver Todas do Mês</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingTrip(null);
+                  setIsModalOpen(true);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors shadow-md cursor-pointer"
+              >
+                <Plus size={14} className="stroke-[3]" />
+                <span>Lançar Primeira Viagem</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3.5">
-            {trips.map((trip) => (
+            {filteredTrips.map((trip) => (
               <TripSandwichCard
                 key={trip.id}
                 trip={trip}

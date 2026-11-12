@@ -3,12 +3,11 @@ import { supabase } from "@/lib/supabase";
 /** Gatilho do Cofre Nubank: chamar após qualquer transição de status feita por Financeiro/Master/Gestor. */
 export const NUBANK_BALANCE_EVENT = "nubank-balance-updated";
 
-export async function syncNubankBalance(paymentId: string, explicitUserId?: string | null): Promise<void> {
+export async function syncNubankBalance(paymentId: string, _explicitUserId?: string | null): Promise<void> {
   try {
     const { data } = await supabase.auth.getSession();
     const session = data?.session;
     const token = session?.access_token;
-    const userId = explicitUserId || session?.user?.id;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -16,14 +15,11 @@ export async function syncNubankBalance(paymentId: string, explicitUserId?: stri
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
-    if (userId) {
-      headers["x-user-id"] = userId;
-    }
 
     const res = await fetch("/api/nubank-balance/process-card", {
       method: "POST",
       headers,
-      body: JSON.stringify({ paymentId, userId }),
+      body: JSON.stringify({ paymentId }),
     });
     if (!res.ok) {
       console.warn("[Nubank] Falha ao sincronizar saldo:", await res.text());

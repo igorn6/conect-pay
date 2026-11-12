@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 import * as fs from "fs";
 
 const XLSX = require("xlsx");
@@ -148,6 +149,15 @@ function parseXlsx() {
 }
 
 export async function POST(req: Request) {
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json({ error: "Endpoint desativado em produção." }, { status: 403 });
+  }
+
+  const auth = await authorize(["MASTER"], req);
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   const logs: string[] = [];
 
   try {

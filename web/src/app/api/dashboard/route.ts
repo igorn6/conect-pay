@@ -1,24 +1,27 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 import { parseISO, format, isValid } from "date-fns";
 import { calculateDashboardSlaAverages } from "@/utils/sla";
 
 export async function GET(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const userId = auth.userId;
+    const userRole = auth.role;
+    const userSector = auth.sector;
+
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    const userRole = searchParams.get("userRole");
-    const userSector = searchParams.get("userSector"); // O setor obrigatório para GESTOR
     const selectedSectorId = searchParams.get("selectedSectorId"); // Filtro opcional do MASTER
     const startDateParam = searchParams.get("startDate");
     const endDateParam = searchParams.get("endDate");
 
-    if (!userId || !userRole) {
-      return NextResponse.json({ error: "Faltam parâmetros de autenticação." }, { status: 400 });
-    }
-
-    let query = supabaseAdmin
+    let query = auth.db
       .from("payment_requests")
       .select("*")
       .in("status", [
@@ -45,8 +48,8 @@ export async function GET(req: Request) {
     
     // Fetch profiles and sectors to map human-readable names
     const [{ data: profiles }, { data: sectors }] = await Promise.all([
-      supabaseAdmin.from('profiles').select('*'),
-      supabaseAdmin.from('sectors').select('id, name')
+      auth.db.from('profiles').select('*'),
+      auth.db.from('sectors').select('id, name')
     ]);
 
     const sectorsMap: Record<string, string> = (sectors || []).reduce((acc: any, s: any) => {

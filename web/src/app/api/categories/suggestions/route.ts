@@ -2,13 +2,19 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function GET(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || "PENDENTE";
 
-    let query = supabaseAdmin
+    let query = auth.db
       .from("category_suggestions")
       .select("*")
       .order("created_at", { ascending: false });
@@ -29,6 +35,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
     const { suggestionId, action, targetCategoryName } = body;
 
@@ -40,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     // 1. Buscar a sugestão
-    const { data: suggestion, error: findError } = await supabaseAdmin
+    const { data: suggestion, error: findError } = await auth.db
       .from("category_suggestions")
       .select("*")
       .eq("id", suggestionId)
@@ -54,7 +65,7 @@ export async function POST(req: Request) {
       const categoryName = suggestion.name.trim();
 
       // Verificar se a categoria já existe
-      const { data: existingCat } = await supabaseAdmin
+      const { data: existingCat } = await auth.db
         .from("categories")
         .select("id, name")
         .ilike("name", categoryName)
@@ -64,7 +75,7 @@ export async function POST(req: Request) {
       let catId = existingCat?.[0]?.id;
 
       if (!catId) {
-        const { data: newCat, error: insertError } = await supabaseAdmin
+        const { data: newCat, error: insertError } = await auth.db
           .from("categories")
           .insert({
             name: categoryName,
@@ -78,14 +89,14 @@ export async function POST(req: Request) {
       }
 
       // Atualizar status da sugestão
-      await supabaseAdmin
+      await auth.db
         .from("category_suggestions")
         .update({ status: "APROVADO", updated_at: new Date().toISOString() })
         .eq("id", suggestionId);
 
       // Se havia um card associado como amostra, atualiza a categoria dele!
       if (suggestion.sample_request_id) {
-        await supabaseAdmin
+        await auth.db
           .from("payment_requests")
           .update({ category: categoryName, category_id: catId })
           .eq("id", suggestion.sample_request_id);
@@ -99,7 +110,7 @@ export async function POST(req: Request) {
     }
 
     if (action === "REJECT") {
-      await supabaseAdmin
+      await auth.db
         .from("category_suggestions")
         .update({ status: "REJEITADO", updated_at: new Date().toISOString() })
         .eq("id", suggestionId);
@@ -119,7 +130,7 @@ export async function POST(req: Request) {
       }
 
       // Buscar id da categoria alvo
-      const { data: targetCat } = await supabaseAdmin
+      const { data: targetCat } = await auth.db
         .from("categories")
         .select("id, name")
         .eq("name", targetCategoryName)
@@ -127,13 +138,13 @@ export async function POST(req: Request) {
 
       const targetId = targetCat?.[0]?.id || null;
 
-      await supabaseAdmin
+      await auth.db
         .from("category_suggestions")
         .update({ status: "APROVADO", updated_at: new Date().toISOString() })
         .eq("id", suggestionId);
 
       if (suggestion.sample_request_id) {
-        await supabaseAdmin
+        await auth.db
           .from("payment_requests")
           .update({ category: targetCategoryName, category_id: targetId })
           .eq("id", suggestion.sample_request_id);

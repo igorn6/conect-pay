@@ -1,13 +1,27 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { userId, newPassword, mustChangePassword } = await req.json();
 
     if (!userId || !newPassword) {
       return NextResponse.json({ error: "ID do usuário e nova senha são obrigatórios." }, { status: 400 });
+    }
+
+    const isMaster = auth.role === "MASTER";
+    if (!isMaster && auth.userId !== userId) {
+      return NextResponse.json(
+        { error: "Acesso negado. Apenas MASTER pode alterar a senha de outros usuários." },
+        { status: 403 }
+      );
     }
 
     if (newPassword.length < 6) {
@@ -25,9 +39,10 @@ export async function POST(req: Request) {
 
     // 2. Se especificado, atualiza flag must_change_password no perfil
     if (typeof mustChangePassword === "boolean") {
+      const targetFlag = isMaster ? mustChangePassword : false;
       await supabaseAdmin
         .from("profiles")
-        .update({ must_change_password: mustChangePassword })
+        .update({ must_change_password: targetFlag })
         .eq("id", userId);
     }
 

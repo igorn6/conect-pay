@@ -1,4 +1,9 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  supabaseAdmin,
+  hasServiceRoleKey,
+  createAuthenticatedClientFromToken,
+} from "@/lib/supabaseAdmin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
 import { syncCajuRechargeCard } from "@/lib/caju/cajuService";
 import {
@@ -12,62 +17,109 @@ import {
 type AllowedRole = "MASTER" | "FINANCEIRO" | "GESTOR";
 
 export type AuthResult =
-  | { ok: true; userId: string; name: string; role: AllowedRole }
+  | {
+      ok: true;
+      userId: string;
+      name: string;
+      role: AllowedRole;
+      sector?: string | null;
+      db: SupabaseClient;
+    }
   | { ok: false; status: number; error: string };
 
-/**
- * Autentica o usuário suportando:
- *  1. Bearer Token no header Authorization
- *  2. Sessão via Cookies SSR (@supabase/ssr)
- *  3. Header x-user-id ou providedUserId
- */
-export async function authorize(
-  allowed: AllowedRole[],
-  req?: Request,
-  providedUserId?: string | null
-): Promise<AuthResult> {
-  const headerUserId = req?.headers.get("x-user-id") || null;
-  let targetUserId: string | null = headerUserId || providedUserId || null;
+function isUserBanned(user: { banned_until?: string | null } | null | undefined): boolean {
+  if (!user?.banned_until) return false;
+  const bannedUntilMs = Date.parse(user.banned_until);
+  return Number.isFinite(bannedUntilMs) && bannedUntilMs > Date.now();
+}
 
-  // 1. Se não veio userId explícito, tenta por Bearer token no header Authorization
-  if (!targetUserId && req) {
+export interface VerifiedSessionContext {
+  user: any;
+  userSupabase: SupabaseClient;
+  db: SupabaseClient;
+}
+
+/**
+ * Resolve o usuário autenticado estritamente a partir de credenciais verificáveis:
+ *  1. Bearer JWT validado via Supabase Auth (`Authorization: Bearer ...`)
+ *  2. Sessão validada via Cookies SSR (`@supabase/ssr`)
+ * Retorna também um cliente autenticado do usuário e o cliente efetivo de banco (`db`).
+ */
+export async function getVerifiedSessionContext(
+  req?: Request
+): Promise<VerifiedSessionContext | null> {
+  let user: any = null;
+  let userSupabase: SupabaseClient | null = null;
+
+  if (req) {
     const authHeader = req.headers.get("authorization");
     if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "").trim();
-      try {
-        const { data: tokenUser } = await supabaseAdmin.auth.getUser(token);
-        if (tokenUser?.user?.id) {
-          targetUserId = tokenUser.user.id;
+      const token = authHeader.slice("Bearer ".length).trim();
+      if (token) {
+        try {
+          const bearerClient = createAuthenticatedClientFromToken(token);
+          const { data: tokenData } = await supabaseAdmin.auth.getUser(token);
+          if (tokenData?.user?.id) {
+            user = tokenData.user;
+            userSupabase = bearerClient;
+          }
+        } catch (e) {
+          console.warn("[Authorize] Erro ao validar Bearer token:", e);
         }
-      } catch (e) {
-        console.warn("[Authorize] Erro ao validar Bearer token:", e);
       }
     }
   }
 
-  // 2. Se ainda não encontrou, tenta por cookies SSR
-  if (!targetUserId) {
+  if (!user) {
     try {
       const supabase = await createClient();
       const {
         data: { user: cookieUser },
       } = await supabase.auth.getUser();
       if (cookieUser?.id) {
-        targetUserId = cookieUser.id;
+        user = cookieUser;
+        userSupabase = supabase;
       }
     } catch {
-      // Cookies SSR podem não estar presentes no client fetch
+      // Cookies SSR podem não estar disponíveis fora de contexto HTTP com cookies
     }
   }
 
-  if (!targetUserId) {
+  if (!user || !userSupabase || isUserBanned(user)) {
+    return null;
+  }
+
+  return {
+    user,
+    userSupabase,
+    db: hasServiceRoleKey ? supabaseAdmin : userSupabase,
+  };
+}
+
+export async function getVerifiedAuthUser(req?: Request) {
+  const ctx = await getVerifiedSessionContext(req);
+  return ctx?.user || null;
+}
+
+/**
+ * Autentica e valida papel (RBAC) a partir da sessão Supabase verificada.
+ * O terceiro parâmetro é mantido apenas por compatibilidade de assinatura e é ignorado.
+ */
+export async function authorize(
+  allowed: AllowedRole[],
+  req?: Request,
+  _ignoredProvidedUserId?: string | null
+): Promise<AuthResult> {
+  const sessionCtx = await getVerifiedSessionContext(req);
+
+  if (!sessionCtx?.user?.id) {
     return { ok: false, status: 401, error: "Não autorizado. Faça login novamente." };
   }
 
-  const { data: profile, error: profileError } = await supabaseAdmin
+  const { data: profile, error: profileError } = await sessionCtx.db
     .from("profiles")
-    .select("id, name, role")
-    .eq("id", targetUserId)
+    .select("id, name, role, sector")
+    .eq("id", sessionCtx.user.id)
     .single();
 
   if (profileError || !profile) {
@@ -83,7 +135,14 @@ export async function authorize(
     };
   }
 
-  return { ok: true, userId: profile.id, name: profile.name || "Usuário", role };
+  return {
+    ok: true,
+    userId: profile.id,
+    name: profile.name || "Usuário",
+    role,
+    sector: profile.sector || null,
+    db: sessionCtx.db,
+  };
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -96,10 +155,13 @@ export async function ensureNubankBalance(): Promise<void> {
   if (error) throw error;
 }
 
-export async function getNubankSnapshot(limit = 5): Promise<NubankSnapshot> {
+export async function getNubankSnapshot(
+  limit = 5,
+  dbClient: SupabaseClient = supabaseAdmin
+): Promise<NubankSnapshot> {
   const [{ data: bal, error: balError }, { data: movs, error: movError }] = await Promise.all([
-    supabaseAdmin.from("nubank_balance").select("balance, updated_at").eq("id", "nubank").maybeSingle(),
-    supabaseAdmin
+    dbClient.from("nubank_balance").select("balance, updated_at").eq("id", "nubank").maybeSingle(),
+    dbClient
       .from("nubank_movements")
       .select("id, type, amount, balance_after, description, payment_request_id, created_by, created_at")
       .order("created_at", { ascending: false })

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import KanbanBoard from "@/components/KanbanBoard";
 import NewRequestModal from "@/components/NewRequestModal";
 import CardDetailModal from "@/components/CardDetailModal";
@@ -8,125 +8,222 @@ import QuickEditCardModal from "@/components/QuickEditCardModal";
 import TrashModal from "@/components/TrashModal";
 import Toast from "@/components/Toast";
 import MassActionBar from "@/components/MassActionBar";
+import { KanbanFilterBar } from "@/components/kanban/KanbanFilterBar";
+import { KANBAN_COLUMNS } from "@/constants/kanban";
 import { supabase } from "@/lib/supabase";
-import type { PaymentRequest, Category } from "@/types/database";
+import type { PaymentRequest, UserRole, UserSector } from "@/types/database";
 import { useAuth } from "@/contexts/AuthContext";
-import { useTheme } from "@/contexts/ThemeContext";
-import { Plus, Filter, Calendar, Tag, User, X, Layers, TrendingUp } from "lucide-react";
+import { useCategories } from "@/hooks/useCategories";
+import { useProfilesMap } from "@/hooks/useProfilesMap";
+import { useKanbanFilters } from "@/hooks/useKanbanFilters";
 import { computeNextStageHistory } from "@/utils/sla";
 import { syncNubankBalance } from "@/lib/nubankClient";
-import MagnetButton from "@/components/ui/MagnetButton";
 
 export default function KanbanPage() {
   const { userRole, userId, userName: simulatedUserName, sectorId } = useAuth();
-  const { theme } = useTheme();
-  const [cards, setCards] = useState<PaymentRequest[]>([]);
-  const cardsRef = useRef<PaymentRequest[]>([]);
+  const { categories } = useCategories();
+  const { profilesMap, profilesList } = useProfilesMap();
+
+  const [allCards, setAllCards] = useState<PaymentRequest[]>([]);
+  const allCardsRef = useRef<PaymentRequest[]>([]);
+  const [sectors, setSectors] = useState<UserSector[]>([]);
+  const [hideEmptyColumns, setHideEmptyColumns] = useState(false);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCard, setSelectedCard] = useState<PaymentRequest | null>(null);
   const [quickEditCard, setQuickEditCard] = useState<PaymentRequest | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
-  const [categories, setCategories] = useState<Category[]>([]);
   const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
-  // Filters State - padrão vazio para carregar todo o período
-  const [filterMonth, setFilterMonth] = useState<string>("");
-  const [filterCategoryId, setFilterCategoryId] = useState<string>("");
-  const [filterRequesterId, setFilterRequesterId] = useState<string>("");
+  const requesterSectorById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of profilesList) {
+      if (p.sector) map[p.id] = p.sector;
+    }
+    return map;
+  }, [profilesList]);
+
+  const sectorUserIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!sectorId) {
+      sectorUserIdsRef.current = new Set();
+      return;
+    }
+    sectorUserIdsRef.current = new Set(
+      profilesList.filter((p) => p.sector === sectorId).map((p) => p.id)
+    );
+  }, [profilesList, sectorId]);
 
   useEffect(() => {
-    cardsRef.current = cards;
-  }, [cards]);
+    allCardsRef.current = allCards;
+  }, [allCards]);
 
   useEffect(() => {
-    supabase.from("profiles").select("id, name").then(({ data }) => {
-      if (data) {
-        const map: Record<string, string> = {};
-        data.forEach(p => map[p.id] = p.name);
-        setProfilesMap(map);
-      }
-    });
-
-    supabase.from("categories").select("*").then(({ data }) => {
-      if (data) {
-        setCategories(data as Category[]);
-      }
-    });
+    supabase
+      .from("sectors")
+      .select("id, name, is_deleted")
+      .eq("is_deleted", false)
+      .order("name")
+      .then(({ data }) => {
+        if (data) setSectors(data as UserSector[]);
+      });
   }, []);
+
+  const {
+    filters,
+    filteredCards,
+    facetCounts,
+    activeChips,
+    activeFiltersCount,
+    advancedFiltersCount,
+    hasNonDefaultFilter,
+    setScope,
+    setSearch,
+    setPeriod,
+    setCategory,
+    setRequesterId,
+    setSectorId,
+    togglePaymentType,
+    setCnpj,
+    toggleCondition,
+    clearAllFilters,
+  } = useKanbanFilters({
+    allCards,
+    userId,
+    userRole: (userRole as UserRole) || null,
+    categories,
+    profilesMap,
+    requesterSectorById,
+    sectors,
+  });
+
+  const isVisibleToUser = useCallback(
+    (req: PaymentRequest): boolean => {
+      if (!userRole || !userId) return false;
+      if (userRole === "MASTER" || userRole === "FINANCEIRO") return true;
+      const isMine = req.real_requester_id === userId || req.created_by === userId;
+      if (isMine) return true;
+      if (!sectorId) return false;
+      if ((req.visibility || "COMPARTILHADA") === "INDIVIDUAL") return false;
+      return (
+        sectorUserIdsRef.current.has(req.real_requester_id) ||
+        sectorUserIdsRef.current.has(req.created_by)
+      );
+    },
+    [userRole, userId, sectorId]
+  );
+
+  const requestedMonthRef = useRef<string>("");
+  useEffect(() => {
+    requestedMonthRef.current = filters.periodMode === "MONTH" ? filters.month : "";
+  }, [filters.periodMode, filters.month]);
 
   const fetchCards = useCallback(async () => {
     if (!userRole || !userId) return;
 
-    let query = supabase
+    const isMasterOrFinanceiro = userRole === "MASTER" || userRole === "FINANCEIRO";
+    let sameSectorIds = sectorUserIdsRef.current;
+
+    if (!isMasterOrFinanceiro && sectorId && sameSectorIds.size === 0) {
+      const { data: sectorUsers } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("sector", sectorId);
+      sameSectorIds = new Set(sectorUsers?.map((u) => u.id) || []);
+      sectorUserIdsRef.current = sameSectorIds;
+    }
+
+    // Busca todos os cards ativos (sem limite de data) + histórico recente (120 dias)
+    // ou o mês histórico selecionado, evitando truncamento silencioso de 1000 linhas.
+    const activePromise = supabase
       .from("payment_requests")
       .select("*")
       .or("is_deleted.eq.false,is_deleted.is.null")
+      .not("status", "in", "(FINALIZADO,RECUSADO)")
       .order("created_at", { ascending: false });
 
-    if (filterMonth) {
-      const [year, month] = filterMonth.split("-");
-      const start = new Date(parseInt(year), parseInt(month) - 1, 1).toISOString();
-      const end = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999).toISOString();
-      query = query.gte("created_at", start).lte("created_at", end);
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 120);
+    let closedStartIso = cutoffDate.toISOString();
+    let closedEndIso: string | null = null;
+
+    const selMonth = requestedMonthRef.current;
+    if (selMonth && /^\d{4}-\d{2}$/.test(selMonth)) {
+      const [y, m] = selMonth.split("-").map(Number);
+      const monthStart = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
+      const monthEnd = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+      if (monthStart < cutoffDate) {
+        closedStartIso = monthStart.toISOString();
+        closedEndIso = monthEnd.toISOString();
+      }
     }
 
-    if (filterCategoryId) {
-      query = query.eq("category_id", filterCategoryId);
+    let closedQuery = supabase
+      .from("payment_requests")
+      .select("*")
+      .or("is_deleted.eq.false,is_deleted.is.null")
+      .in("status", ["FINALIZADO", "RECUSADO"])
+      .gte("created_at", closedStartIso)
+      .order("created_at", { ascending: false });
+
+    if (closedEndIso) {
+      closedQuery = closedQuery.lte("created_at", closedEndIso);
     }
 
-    if (filterRequesterId) {
-      query = query.eq("real_requester_id", filterRequesterId);
-    }
+    const [activeRes, closedRes] = await Promise.all([activePromise, closedQuery]);
 
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("Erro ao buscar solicitações:", error);
+    if (activeRes.error || closedRes.error) {
+      console.error("Erro ao buscar solicitações:", activeRes.error || closedRes.error);
       setToast({ message: "Erro ao carregar solicitações.", type: "error" });
       return;
     }
 
-    let filteredData = (data as any[]) ?? [];
-
-    const isMasterOrFinanceiro = userRole === "MASTER" || userRole === "FINANCEIRO";
-
-    if (!isMasterOrFinanceiro) {
-      if (sectorId) {
-        // Busca usuários do mesmo setor para permitir visualização de cards compartilhados
-        const { data: sectorUsers } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("sector", sectorId);
-          
-        const sectorUserIds = new Set(sectorUsers?.map(u => u.id) || []);
-        
-        filteredData = filteredData.filter((req) => {
-          const isMine = req.real_requester_id === userId || req.created_by === userId;
-          if (isMine) return true;
-          // Se a solicitação for Individual, somente o criador/solicitante pode ver
-          if (req.visibility === "INDIVIDUAL") return false;
-          // Se for Compartilhada, membros do mesmo setor podem ver
-          const isSameSector = sectorUserIds.has(req.real_requester_id) || sectorUserIds.has(req.created_by);
-          return isSameSector;
-        });
-      } else {
-        filteredData = filteredData.filter((req) => 
-          req.real_requester_id === userId || req.created_by === userId
-        );
-      }
+    const mergedMap = new Map<string, PaymentRequest>();
+    for (const row of [...(activeRes.data || []), ...(closedRes.data || [])]) {
+      mergedMap.set(row.id, row as PaymentRequest);
     }
 
-    setCards(filteredData);
-  }, [userRole, userId, sectorId, filterMonth, filterCategoryId, filterRequesterId]);
+    let merged = Array.from(mergedMap.values()).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    if (!isMasterOrFinanceiro) {
+      merged = merged.filter((req) => {
+        const isMine = req.real_requester_id === userId || req.created_by === userId;
+        if (isMine) return true;
+        if (!sectorId) return false;
+        if ((req.visibility || "COMPARTILHADA") === "INDIVIDUAL") return false;
+        return sameSectorIds.has(req.real_requester_id) || sameSectorIds.has(req.created_by);
+      });
+    }
+
+    setAllCards(merged);
+  }, [userRole, userId, sectorId]);
 
   useEffect(() => {
     fetchCards();
   }, [fetchCards]);
+
+  // Refaz busca quando o usuário seleciona um mês histórico anterior aos últimos 120 dias
+  useEffect(() => {
+    if (filters.periodMode === "MONTH" && filters.month) {
+      fetchCards();
+    }
+  }, [filters.periodMode, filters.month, fetchCards]);
+
+  const effectiveSelectedIds = useMemo(() => {
+    if (selectedIds.size === 0) return selectedIds;
+    const visibleIds = new Set(filteredCards.map((c) => c.id));
+    const next = new Set<string>();
+    for (const id of selectedIds) {
+      if (visibleIds.has(id)) next.add(id);
+    }
+    return next;
+  }, [selectedIds, filteredCards]);
 
   useEffect(() => {
     if (!userRole || !userId) return;
@@ -135,26 +232,39 @@ export default function KanbanPage() {
       Notification.requestPermission();
     }
 
+    let refetchTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleRefetch = () => {
+      if (refetchTimer) clearTimeout(refetchTimer);
+      refetchTimer = setTimeout(() => {
+        fetchCards();
+      }, 180);
+    };
+
     const channel = supabase
       .channel("kanban:payment_requests")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "payment_requests" },
         (payload) => {
-          // Sempre refaz o fetch para re-aplicar filtros de setor, data e ordenação
-          fetchCards();
+          scheduleRefetch();
 
           if (payload.eventType === "INSERT") {
-            const newRequest = payload.new as PaymentRequest;
-            setCards((prev) => {
-              if (prev.some((c) => c.id === newRequest.id)) return prev;
-              return [newRequest, ...prev];
-            });
+            const newRequest = payload.new as PaymentRequest & { is_deleted?: boolean };
+            if (!newRequest.is_deleted && isVisibleToUser(newRequest)) {
+              setAllCards((prev) => {
+                if (prev.some((c) => c.id === newRequest.id)) return prev;
+                return [newRequest, ...prev];
+              });
+            }
           }
 
           if (payload.eventType === "UPDATE") {
-            const updatedRequest = payload.new as PaymentRequest;
-            setCards((prev) => {
+            const updatedRequest = payload.new as PaymentRequest & { is_deleted?: boolean };
+            setAllCards((prev) => {
+              if (updatedRequest.is_deleted || !isVisibleToUser(updatedRequest)) {
+                return prev.filter((c) => c.id !== updatedRequest.id);
+              }
+
               const prevCard = prev.find((c) => c.id === updatedRequest.id);
               const prevInvoices = (prevCard?.invoice_url || "").split(",").map((u) => u.trim()).filter(Boolean).length;
               const newInvoices = (updatedRequest.invoice_url || "").split(",").map((u) => u.trim()).filter(Boolean).length;
@@ -170,13 +280,16 @@ export default function KanbanPage() {
                       body: `Foi anexada uma notinha fiscal na solicitação "${updatedRequest.title}".`,
                       icon: "/icon.png",
                     });
-                  } catch (e) {
+                  } catch {
                     // ignorar
                   }
                 }
               }
 
-              return prev.map((c) => (c.id === updatedRequest.id ? updatedRequest : c));
+              const exists = prev.some((c) => c.id === updatedRequest.id);
+              return exists
+                ? prev.map((c) => (c.id === updatedRequest.id ? updatedRequest : c))
+                : [updatedRequest, ...prev];
             });
             setSelectedCard((prev) =>
               prev && prev.id === updatedRequest.id ? updatedRequest : prev
@@ -185,7 +298,7 @@ export default function KanbanPage() {
 
           if (payload.eventType === "DELETE") {
             const deletedId = payload.old.id;
-            setCards((prev) => prev.filter((c) => c.id !== deletedId));
+            setAllCards((prev) => prev.filter((c) => c.id !== deletedId));
             setSelectedCard((prev) => (prev?.id === deletedId ? null : prev));
           }
         }
@@ -208,12 +321,13 @@ export default function KanbanPage() {
     window.addEventListener("focus", handleVisibilityOrFocus);
 
     return () => {
+      if (refetchTimer) clearTimeout(refetchTimer);
       supabase.removeChannel(channel);
       clearInterval(pollInterval);
       window.removeEventListener("visibilitychange", handleVisibilityOrFocus);
       window.removeEventListener("focus", handleVisibilityOrFocus);
     };
-  }, [userRole, userId, fetchCards]);
+  }, [userRole, userId, fetchCards, isVisibleToUser]);
 
   const handleToggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -237,12 +351,12 @@ export default function KanbanPage() {
   };
 
   const handleMassAction = async (action: "APROVAR" | "RECUSAR" | "LIXEIRA" | "MOVER") => {
-    if (selectedIds.size === 0) return;
+    if (effectiveSelectedIds.size === 0) return;
     
     if (action === "LIXEIRA") {
-      if (!window.confirm("Deseja mover " + selectedIds.size + " solicitações para a lixeira?")) return;
+      if (!window.confirm("Deseja mover " + effectiveSelectedIds.size + " solicitações para a lixeira?")) return;
       
-      const idsArray = Array.from(selectedIds);
+      const idsArray = Array.from(effectiveSelectedIds);
       const { error } = await supabase
         .from("payment_requests")
         .update({ is_deleted: true })
@@ -255,23 +369,25 @@ export default function KanbanPage() {
       // Sincroniza saldo Nubank para estornar qualquer card debitado que foi para a lixeira
       await Promise.all(idsArray.map((id) => syncNubankBalance(id, userId)));
 
-      setToast({ message: selectedIds.size + " solicitações removidas", type: "success" });
+      setToast({ message: effectiveSelectedIds.size + " solicitações removidas", type: "success" });
       setSelectedIds(new Set());
       fetchCards();
     } 
     else if (action === "RECUSAR") {
-      const reason = window.prompt("Motivo da recusa para as " + selectedIds.size + " solicitações:");
+      const reason = window.prompt("Motivo da recusa para as " + effectiveSelectedIds.size + " solicitações:");
       if (!reason || !reason.trim()) return;
       
-      const toUpdate = Array.from(selectedIds).map(id => cardsRef.current.find(c => c.id === id)).filter(Boolean);
+      const toUpdate = Array.from(effectiveSelectedIds).map(id => allCardsRef.current.find(c => c.id === id)).filter(Boolean);
       let hasError = false;
       
       for (const card of toUpdate) {
         if (!card) continue;
         const nextHistory = computeNextStageHistory(
           card.stage_history,
+          card.status,
           "RECUSADO",
-          simulatedUserName || "Usuário (Lote)"
+          userId,
+          card.created_at
         );
         const { error } = await supabase
           .from("payment_requests")
@@ -291,35 +407,35 @@ export default function KanbanPage() {
       if (hasError) {
         setToast({ message: "Alguns erros ao recusar", type: "error" });
       } else {
-        setToast({ message: selectedIds.size + " solicitações recusadas", type: "success" });
+        setToast({ message: effectiveSelectedIds.size + " solicitações recusadas", type: "success" });
       }
       setSelectedIds(new Set());
       fetchCards();
     }
     else if (action === "APROVAR") {
-      if (!window.confirm("Deseja avançar " + selectedIds.size + " solicitações para a próxima etapa?")) return;
+      if (!window.confirm("Deseja avançar " + effectiveSelectedIds.size + " solicitações para a próxima etapa?")) return;
       
       const NEXT_STATUS = {
         NOVA_SOLICITACAO: "EM_APROVACAO",
         EM_APROVACAO: "VALIDACAO_GESTOR",
       };
       
-      const toUpdate = Array.from(selectedIds).map(id => cardsRef.current.find(c => c.id === id)).filter(Boolean);
+      const toUpdate = Array.from(effectiveSelectedIds).map(id => allCardsRef.current.find(c => c.id === id)).filter(Boolean);
 
       // Validação: Só é permitido avançar para Pendente (EM_APROVACAO) se selecionar o CNPJ ou se é Nubank.
       // (Se for Caju, não é necessário preencher o CNPJ).
       const blockedForCnpj = toUpdate.filter((card) => {
         if (!card || card.status !== "NOVA_SOLICITACAO") return false;
-        const splits = Array.isArray(card.splits) && card.splits.length > 0
+        const splits: { payment_type?: string | null }[] = Array.isArray(card.splits) && card.splits.length > 0
           ? card.splits
           : [{ payment_type: card.payment_type || card.payment_method }];
-        const hasPix = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "PIX") ||
+        const hasPix = splits.some((s) => (s.payment_type || "").toUpperCase() === "PIX") ||
           (card.payment_type || "").toUpperCase() === "PIX" ||
           (card.payment_method || "").toUpperCase() === "PIX";
-        const hasBoleto = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "BOLETO") ||
+        const hasBoleto = splits.some((s) => (s.payment_type || "").toUpperCase() === "BOLETO") ||
           (card.payment_type || "").toUpperCase() === "BOLETO" ||
           (card.payment_method || "").toUpperCase() === "BOLETO";
-        const hasCaju = splits.some((s: any) => (s.payment_type || "").toUpperCase() === "CAJU") ||
+        const hasCaju = splits.some((s) => (s.payment_type || "").toUpperCase() === "CAJU") ||
           (card.payment_type || "").toUpperCase() === "CAJU" ||
           (card.payment_method || "").toUpperCase() === "CAJU";
         const isCajuOnly = hasCaju && !hasPix && !hasBoleto;
@@ -351,8 +467,10 @@ export default function KanbanPage() {
         
         const nextHistory = computeNextStageHistory(
           card.stage_history,
+          card.status,
           next,
-          simulatedUserName || "Usuário (Lote)"
+          userId,
+          card.created_at
         );
 
         const { error } = await supabase
@@ -389,12 +507,16 @@ export default function KanbanPage() {
   };
 
   const handleUpdateCategory = async (cardId: string, newCategory: string) => {
-    // Atualização otimista
-    setCards((prev) =>
-      prev.map((c) => (c.id === cardId ? { ...c, category: newCategory } : c))
-    );
     const matched = categories.find(
       (c) => c.name.toLowerCase() === newCategory.trim().toLowerCase()
+    );
+    // Atualização otimista
+    setAllCards((prev) =>
+      prev.map((c) =>
+        c.id === cardId
+          ? { ...c, category: newCategory, category_id: matched?.id || c.category_id }
+          : c
+      )
     );
     const { error } = await supabase
       .from("payment_requests")
@@ -412,114 +534,80 @@ export default function KanbanPage() {
     }
   };
 
-  const totalPipelineVolume = cards.reduce((acc, c) => acc + (Number(c.amount) || 0), 0);
+  const totalPipelineVolume = useMemo(
+    () => filteredCards.reduce((acc, c) => acc + (Number(c.amount) || 0), 0),
+    [filteredCards]
+  );
+
+  const emptyColumnsCount = useMemo(() => {
+    const countsByStatus: Record<string, number> = {};
+    for (const c of filteredCards) {
+      countsByStatus[c.status] = (countsByStatus[c.status] || 0) + 1;
+    }
+    return KANBAN_COLUMNS.filter((col) => !(countsByStatus[col.key] > 0)).length;
+  }, [filteredCards]);
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-transparent">
-      {/* ─── Control Bar / Telemetry HUD ────────────────── */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 border-b border-white/[0.08] bg-slate-950/40 backdrop-blur-xl shrink-0 z-10 shadow-sm">
-        
-        {/* Left: Filters */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Calendar Month Filter */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
-            <Calendar size={14} className="text-slate-400" />
-            <input 
-              type="month" 
-              value={filterMonth}
-              onChange={(e) => setFilterMonth(e.target.value)}
-              className="bg-transparent text-xs text-white outline-none border-none focus:ring-0 w-36 cursor-pointer"
-              title={filterMonth ? "Filtrando por mês específico" : "Todo o período (sem filtro de mês)"}
-            />
-            {filterMonth && (
-              <button
-                type="button"
-                onClick={() => setFilterMonth("")}
-                title="Limpar e ver todo o período"
-                className="flex items-center gap-1 px-1.5 py-0.5 text-[10px] text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded transition-colors cursor-pointer"
-              >
-                <X size={10} />
-                <span>Todos</span>
-              </button>
-            )}
-          </div>
+      <KanbanFilterBar
+        userRole={(userRole as UserRole) || null}
+        userId={userId}
+        sectorId={sectorId}
+        filters={filters}
+        facetCounts={facetCounts}
+        activeChips={activeChips}
+        activeFiltersCount={activeFiltersCount}
+        advancedFiltersCount={advancedFiltersCount}
+        hasNonDefaultFilter={hasNonDefaultFilter}
+        totalCardsCount={allCards.length}
+        visibleCardsCount={filteredCards.length}
+        totalPipelineVolume={totalPipelineVolume}
+        categories={categories}
+        profilesMap={profilesMap}
+        sectors={sectors}
+        emptyColumnsCount={emptyColumnsCount}
+        hideEmptyColumns={hideEmptyColumns}
+        onToggleHideEmptyColumns={() => setHideEmptyColumns((v) => !v)}
+        onOpenTrash={() => setIsTrashModalOpen(true)}
+        onOpenNewRequest={() => setIsModalOpen(true)}
+        onSetScope={setScope}
+        onSetSearch={setSearch}
+        onSetPeriod={setPeriod}
+        onSetCategory={setCategory}
+        onSetRequesterId={setRequesterId}
+        onSetSectorId={setSectorId}
+        onTogglePaymentType={togglePaymentType}
+        onSetCnpj={setCnpj}
+        onToggleCondition={toggleCondition}
+        onClearAllFilters={clearAllFilters}
+      />
 
-          {/* Category Select */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
-            <Tag size={14} className="text-slate-400" />
-            <select
-              value={filterCategoryId}
-              onChange={(e) => setFilterCategoryId(e.target.value)}
-              className="bg-transparent text-xs text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[130px] cursor-pointer appearance-none"
-            >
-              <option value="" className="bg-slate-900 text-slate-300">Todas Categorias</option>
-              {categories.map(c => (
-                <option key={c.id} value={c.id} className="bg-slate-900 text-white">{c.name}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Requester Select - Somente Master e Financeiro */}
-          {(userRole === "MASTER" || userRole === "FINANCEIRO") && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 hover:bg-slate-900 rounded-xl border border-white/10 hover:border-white/20 transition-all text-xs">
-              <User size={14} className="text-slate-400" />
-              <select
-                value={filterRequesterId}
-                onChange={(e) => setFilterRequesterId(e.target.value)}
-                className="bg-transparent text-xs text-white outline-none border-transparent focus:border-transparent focus:ring-0 shadow-none min-w-[130px] cursor-pointer appearance-none"
-              >
-                <option value="" className="bg-slate-900 text-slate-300">Todos Solicitantes</option>
-                {Object.entries(profilesMap).map(([id, name]) => (
-                  <option key={id} value={id} className="bg-slate-900 text-white">{name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Financial Pipeline Metrics & Nova Solicitação */}
-        <div className="flex items-center justify-between lg:justify-end gap-3 flex-wrap">
-          {/* Telemetry Capsule */}
-          <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/10 backdrop-blur-md">
-            <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-              <Layers size={13} className="text-slate-400" />
-              <span>Pipeline: <strong className="font-mono text-white font-semibold">{cards.length}</strong></span>
-            </div>
-            <div className="w-px h-3.5 bg-white/10" />
-            <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-              <TrendingUp size={13} className="text-slate-400" />
-              <span>Volume: <strong className="font-mono text-white font-bold">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(totalPipelineVolume)}</strong></span>
-            </div>
-          </div>
-
-          <MagnetButton
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-950/40 transition-all cursor-pointer active:scale-95"
-          >
-            <Plus size={15} strokeWidth={3} />
-            <span>Nova Solicitação</span>
-          </MagnetButton>
-        </div>
-
-      </div>
-      
-      <KanbanBoard 
-          cards={cards} 
-          onCardClick={setSelectedCard} 
-          onOpenTrash={() => setIsTrashModalOpen(true)}
-          selectable={userRole === "MASTER"}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          profilesMap={profilesMap}
-          onSelectAllInColumn={handleSelectAllInColumn}
-          categories={categories}
-          onUpdateCategory={handleUpdateCategory}
-          userRole={userRole || undefined}
-          onEditCard={(card) => setQuickEditCard(card)}
-        />
+      <KanbanBoard
+        cards={filteredCards}
+        onCardClick={setSelectedCard}
+        onOpenTrash={() => setIsTrashModalOpen(true)}
+        selectable={userRole === "MASTER"}
+        selectedIds={effectiveSelectedIds}
+        onToggleSelect={handleToggleSelect}
+        profilesMap={profilesMap}
+        onSelectAllInColumn={handleSelectAllInColumn}
+        categories={categories}
+        onUpdateCategory={handleUpdateCategory}
+        userRole={userRole || undefined}
+        onEditCard={(card) => setQuickEditCard(card)}
+        hideEmpty={hideEmptyColumns}
+        hasActiveFilters={activeFiltersCount > 0}
+        totalCardsCount={allCards.length}
+        isMineScope={filters.scope === "MINE"}
+        allScopeLabel={
+          userRole === "MASTER" || userRole === "FINANCEIRO" ? "Todas" : "Do Setor"
+        }
+        onClearFilters={clearAllFilters}
+        onShowAllScope={() => setScope("ALL")}
+      />
         {userRole === "MASTER" && (
           <MassActionBar
-            selectedCount={selectedIds.size}
+            selectedCount={effectiveSelectedIds.size}
             onClear={() => setSelectedIds(new Set())}
             onAction={handleMassAction}
           />

@@ -11,16 +11,18 @@ import { authorize, processCardMovement } from "@/lib/nubankBalance";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { paymentId, userId } = body || {};
+    const { paymentId } = body || {};
 
     if (!paymentId || typeof paymentId !== "string") {
       return NextResponse.json({ error: "paymentId é obrigatório." }, { status: 400 });
     }
 
-    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req, userId);
-    const effectiveUserId = auth.ok ? auth.userId : (userId || "system");
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
 
-    const result = await processCardMovement(paymentId, effectiveUserId);
+    const result = await processCardMovement(paymentId, auth.userId);
     if ((result as any).notFound) {
       return NextResponse.json({ error: result.reason }, { status: 404 });
     }

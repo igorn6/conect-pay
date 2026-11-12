@@ -256,12 +256,16 @@ export default function NewRequestModal({ onClose, onSave }: NewRequestModalProp
       }
 
       const isFopag = mainSplit.payment_type === "FOPAG" || splits.some((s) => s.payment_type === "FOPAG");
+      const matchedCategory = categories.find(
+        (c) => c.name.trim().toLowerCase() === category.trim().toLowerCase()
+      );
 
       const { error } = await supabase.from("payment_requests").insert([{
         title,
         notes,
         amount: totalAmount,
         category: category,
+        category_id: matchedCategory?.id || null,
         cnpj: isFopag ? "CNPJ 2" : null,
         payment_method: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : mainSplit.payment_type === "Boleto" ? "BOLETO" : mainSplit.payment_type === "FOPAG" ? "FOPAG" : "RETIRADA_DE_SALDO",
         payment_type: mainSplit.payment_type === "Pix" ? "PIX" : mainSplit.payment_type === "Caju" ? "CAJU" : mainSplit.payment_type === "Boleto" ? "BOLETO" : mainSplit.payment_type === "FOPAG" ? "FOPAG" : "RETIRADA_DE_SALDO",

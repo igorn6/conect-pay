@@ -11,7 +11,8 @@
  *  - Fim de semana → próxima segunda-feira (getNextBusinessDay)
  *  - Sem divisão posse/colaborador — saldo único
  */
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { supabaseAdmin, hasServiceRoleKey } from "@/lib/supabaseAdmin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CAJU_CUTOFF_ISO,
   isCajuRechargeCard,
@@ -253,9 +254,14 @@ export interface CajuHubData {
   dailyClosings: CajuDailyClosing[];
 }
 
-export async function getCajuHubData(txLimit = 5000): Promise<CajuHubData> {
-  await ensureCajuInitialized();
-  await syncUnprocessedCajuRecharges();
+export async function getCajuHubData(
+  txLimit = 5000,
+  dbClient: SupabaseClient = supabaseAdmin
+): Promise<CajuHubData> {
+  if (hasServiceRoleKey) {
+    await ensureCajuInitialized();
+    await syncUnprocessedCajuRecharges();
+  }
 
   const [
     { data: wallet, error: wErr },
@@ -264,11 +270,11 @@ export async function getCajuHubData(txLimit = 5000): Promise<CajuHubData> {
     { data: movs, error: mErr },
     { data: lastBatch },
   ] = await Promise.all([
-    supabaseAdmin.from("caju_wallet").select("*").eq("id", "caju").single(),
-    supabaseAdmin.from("caju_collaborators").select("*").order("balance", { ascending: false }).order("name", { ascending: true }),
-    supabaseAdmin.from("caju_transactions").select("*").order("occurred_at", { ascending: false }).limit(txLimit),
-    supabaseAdmin.from("caju_movements").select("*").order("created_at", { ascending: false }).limit(500),
-    supabaseAdmin.from("caju_import_batches").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    dbClient.from("caju_wallet").select("*").eq("id", "caju").single(),
+    dbClient.from("caju_collaborators").select("*").order("balance", { ascending: false }).order("name", { ascending: true }),
+    dbClient.from("caju_transactions").select("*").order("occurred_at", { ascending: false }).limit(txLimit),
+    dbClient.from("caju_movements").select("*").order("created_at", { ascending: false }).limit(500),
+    dbClient.from("caju_import_batches").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   if (wErr) throw wErr;

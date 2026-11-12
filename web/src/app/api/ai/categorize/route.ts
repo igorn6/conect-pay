@@ -3,9 +3,15 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { categorizeExpenseWithAI } from "@/lib/gemini";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
     const { title, notes, amount, saveSuggestion, requestId } = body;
 
@@ -17,7 +23,7 @@ export async function POST(req: Request) {
     }
 
     // 1. Buscar categorias ativas no sistema
-    const { data: dbCategories } = await supabaseAdmin
+    const { data: dbCategories } = await auth.db
       .from("categories")
       .select("name")
       .eq("is_deleted", false);
@@ -37,7 +43,7 @@ export async function POST(req: Request) {
       const suggestedName = result.suggested_category_name.trim();
 
       // Verificar se já não existe uma sugestão pendente com esse nome
-      const { data: existingSuggestions } = await supabaseAdmin
+      const { data: existingSuggestions } = await auth.db
         .from("category_suggestions")
         .select("id, status")
         .ilike("name", suggestedName)
@@ -45,7 +51,7 @@ export async function POST(req: Request) {
         .limit(1);
 
       if (!existingSuggestions || existingSuggestions.length === 0) {
-        await supabaseAdmin.from("category_suggestions").insert({
+        await auth.db.from("category_suggestions").insert({
           name: suggestedName,
           reason: result.reason,
           confidence: result.confidence,
@@ -57,7 +63,7 @@ export async function POST(req: Request) {
 
       // Se temos o ID do request, gravar também a sugestão no card
       if (requestId) {
-        await supabaseAdmin
+        await auth.db
           .from("payment_requests")
           .update({ ai_category_suggestion: result })
           .eq("id", requestId);

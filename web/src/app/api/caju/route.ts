@@ -26,7 +26,7 @@ export async function GET(req: Request) {
       await runCajuDepositReconciliation();
     }
 
-    const data = await getCajuHubData(limit);
+    const data = await getCajuHubData(limit, auth.db);
     return NextResponse.json({ success: true, ...data });
   } catch (err: any) {
     console.error("[GET /api/caju]", err);

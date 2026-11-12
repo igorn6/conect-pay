@@ -3,14 +3,20 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { categorizeExpenseWithAI } from "@/lib/gemini";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json().catch(() => ({}));
     const apply = Boolean(body.apply);
 
     // 1. Buscar todas as categorias ativas
-    const { data: dbCategories } = await supabaseAdmin
+    const { data: dbCategories } = await auth.db
       .from("categories")
       .select("id, name")
       .eq("is_deleted", false);
@@ -19,7 +25,7 @@ export async function POST(req: Request) {
     const categoryMap = new Map((dbCategories || []).map((c: { id: string; name: string }) => [c.name.toLowerCase(), c.id]));
 
     // 2. Buscar cards em "Outros" ou sem categoria
-    const { data: cardsToSweep, error: fetchError } = await supabaseAdmin
+    const { data: cardsToSweep, error: fetchError } = await auth.db
       .from("payment_requests")
       .select("id, title, notes, amount, category, ai_category_suggestion")
       .or("category.eq.Outros,category.is.null,category.eq.''")
@@ -68,7 +74,7 @@ export async function POST(req: Request) {
         const catId = categoryMap.get(chosenCategory.toLowerCase()) || null;
 
         // Atualiza a categoria do card
-        await supabaseAdmin
+        await auth.db
           .from("payment_requests")
           .update({
             category: chosenCategory,
@@ -81,7 +87,7 @@ export async function POST(req: Request) {
         if (aiResult.is_new_category_suggested && aiResult.suggested_category_name) {
           const suggestedName = aiResult.suggested_category_name.trim();
 
-          const { data: existingSuggestions } = await supabaseAdmin
+          const { data: existingSuggestions } = await auth.db
             .from("category_suggestions")
             .select("id")
             .ilike("name", suggestedName)
@@ -89,7 +95,7 @@ export async function POST(req: Request) {
             .limit(1);
 
           if (!existingSuggestions || existingSuggestions.length === 0) {
-            await supabaseAdmin.from("category_suggestions").insert({
+            await auth.db.from("category_suggestions").insert({
               name: suggestedName,
               reason: aiResult.reason,
               confidence: aiResult.confidence,

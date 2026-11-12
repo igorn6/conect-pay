@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
-    const { subscription, userId } = body;
+    const { subscription } = body;
 
     if (!subscription || !subscription.endpoint || !subscription.keys) {
       return NextResponse.json(
@@ -15,22 +21,15 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId é obrigatório para registrar push." },
-        { status: 400 }
-      );
-    }
-
     const { endpoint, keys } = subscription;
     const userAgent = req.headers.get("user-agent") || "";
 
-    // Upsert na tabela push_subscriptions
-    const { data, error } = await supabaseAdmin
+    // Upsert na tabela push_subscriptions usando estritamente o usuário autenticado
+    const { data, error } = await auth.db
       .from("push_subscriptions")
       .upsert(
         {
-          user_id: userId,
+          user_id: auth.userId,
           endpoint,
           p256dh: keys.p256dh,
           auth: keys.auth,
@@ -55,6 +54,11 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(req.url);
     const endpoint = searchParams.get("endpoint");
 
@@ -62,10 +66,11 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Endpoint obrigatório" }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await auth.db
       .from("push_subscriptions")
       .delete()
-      .eq("endpoint", endpoint);
+      .eq("endpoint", endpoint)
+      .eq("user_id", auth.userId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

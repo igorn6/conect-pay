@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     const auth = await authorize(["MASTER", "FINANCEIRO"], req, queryUserId);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-    const { data: reconciliations, error } = await supabaseAdmin
+    const { data: reconciliations, error } = await auth.db
       .from("nubank_daily_reconciliation")
       .select("*, nubank_statement_items(*)")
       .order("reconciliation_date", { ascending: false })

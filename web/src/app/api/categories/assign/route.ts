@@ -2,9 +2,15 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
     const { requestId, categoryName } = body;
 
@@ -18,7 +24,7 @@ export async function POST(req: Request) {
     const cleanName = categoryName.trim();
 
     // 1. Verificar se a categoria já existe na tabela categories
-    const { data: existingCat, error: fetchError } = await supabaseAdmin
+    const { data: existingCat, error: fetchError } = await auth.db
       .from("categories")
       .select("id, name")
       .ilike("name", cleanName)
@@ -34,7 +40,7 @@ export async function POST(req: Request) {
       catId = existingCat[0].id;
     } else {
       // Cria a nova categoria se não existir
-      const { data: newCat, error: insertError } = await supabaseAdmin
+      const { data: newCat, error: insertError } = await auth.db
         .from("categories")
         .insert({
           name: cleanName,
@@ -49,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Atualizar o payment_request com a nova categoria e category_id
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await auth.db
       .from("payment_requests")
       .update({
         category: cleanName,
@@ -60,7 +66,7 @@ export async function POST(req: Request) {
     if (updateError) throw updateError;
 
     // 3. Atualizar qualquer sugestão pendente associada a essa despesa ou nome
-    await supabaseAdmin
+    await auth.db
       .from("category_suggestions")
       .update({ status: "APROVADO", updated_at: new Date().toISOString() })
       .or(`sample_request_id.eq.${requestId},name.ilike.${cleanName}`);

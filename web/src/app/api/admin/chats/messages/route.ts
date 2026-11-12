@@ -1,9 +1,29 @@
-﻿export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
+
+async function isChatMember(
+  db: any,
+  chatId: string,
+  userId: string
+): Promise<boolean> {
+  const { data } = await db
+    .from("chat_participants")
+    .select("chat_id")
+    .eq("chat_id", chatId)
+    .eq("profile_id", userId)
+    .maybeSingle();
+  return Boolean(data?.chat_id);
+}
 
 export async function GET(req: Request) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const url = new URL(req.url);
     const chatId = url.searchParams.get("chatId");
 
@@ -11,8 +31,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
     }
 
-    // 1. Buscar mensagens do chat (bypassa RLS com supabaseAdmin)
-    const { data: msgs, error } = await supabaseAdmin
+    const member = await isChatMember(auth.db, chatId, auth.userId);
+    if (!member) {
+      return NextResponse.json({ error: "Acesso negado a esta conversa." }, { status: 403 });
+    }
+
+    // 1. Buscar mensagens do chat
+    const { data: msgs, error } = await auth.db
       .from("chat_messages")
       .select("*")
       .eq("chat_id", chatId)
@@ -26,7 +51,7 @@ export async function GET(req: Request) {
 
     // 2. Buscar dados dos remetentes
     const senderIds = [...new Set(msgs.map((m: any) => m.sender_id))];
-    const { data: senderProfiles } = await supabaseAdmin
+    const { data: senderProfiles } = await auth.db
       .from("profiles")
       .select("id, name, avatar_url")
       .in("id", senderIds);
@@ -36,7 +61,7 @@ export async function GET(req: Request) {
     const cardIds = [...new Set(msgs.filter((m: any) => m.card_request_id).map((m: any) => m.card_request_id))];
     let cardMap = new Map();
     if (cardIds.length > 0) {
-      const { data: cards } = await supabaseAdmin
+      const { data: cards } = await auth.db
         .from("payment_requests")
         .select("id, title, amount, status")
         .in("id", cardIds);
@@ -65,14 +90,25 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { chatId, senderId, text, fileUrl, fileName, fileType, cardRequestId } = await req.json();
-
-    if (!chatId || !senderId) {
-      return NextResponse.json({ error: "Missing chatId or senderId" }, { status: 400 });
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    // Inserir mensagem usando supabaseAdmin (ignora RLS, prevenindo recursão infinita)
-    const { data: newMsg, error } = await supabaseAdmin
+    const { chatId, text, fileUrl, fileName, fileType, cardRequestId } = await req.json();
+    const senderId = auth.userId;
+
+    if (!chatId) {
+      return NextResponse.json({ error: "Missing chatId" }, { status: 400 });
+    }
+
+    const member = await isChatMember(auth.db, chatId, senderId);
+    if (!member) {
+      return NextResponse.json({ error: "Acesso negado a esta conversa." }, { status: 403 });
+    }
+
+    // Inserir mensagem usando auth.db (service_role em produção, authenticated JWT em dev)
+    const { data: newMsg, error } = await auth.db
       .from("chat_messages")
       .insert({
         chat_id: chatId,

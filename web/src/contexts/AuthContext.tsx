@@ -63,13 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let error: any = null;
 
       try {
-        const headers: Record<string, string> = {
-          "x-user-id": id,
-        };
+        const headers: Record<string, string> = {};
         if (session?.access_token) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
         }
-        const meRes = await fetch(`/api/auth/me?userId=${id}`, { cache: "no-store", headers });
+        const meRes = await fetch("/api/auth/me", { cache: "no-store", headers });
         if (meRes.ok) {
           data = await meRes.json();
         }
@@ -192,10 +190,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Sessão não identificada. Por favor, recarregue a página.");
       }
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const passwordHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (sessionData?.session?.access_token) {
+        passwordHeaders["Authorization"] = `Bearer ${sessionData.session.access_token}`;
+      }
+
       // 1. Tenta atualizar via rota de administração de senha
       let res = await fetch("/api/admin/users/password", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: passwordHeaders,
         body: JSON.stringify({
           userId,
           newPassword,
@@ -207,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         res = await fetch(`/api/users/${userId}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: passwordHeaders,
           body: JSON.stringify({ newPassword, mustChangePassword: false }),
         });
       }

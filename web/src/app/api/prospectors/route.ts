@@ -12,7 +12,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await auth.db
       .from("prospectors")
       .select("*")
       .eq("is_active", true)

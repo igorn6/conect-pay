@@ -1,16 +1,30 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function PATCH(
   req: Request,
   props: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const params = await props.params;
     const url = new URL(req.url);
     const pathParts = url.pathname.split("/").filter(Boolean);
     const id = params?.id || pathParts[pathParts.length - 1];
+
+    const isMaster = auth.role === "MASTER";
+    if (!isMaster && auth.userId !== id) {
+      return NextResponse.json(
+        { error: "Acesso negado. Você só pode atualizar sua própria senha." },
+        { status: 403 }
+      );
+    }
 
     const body = await req.json();
     const { newPassword, password, mustChangePassword } = body;
@@ -43,7 +57,7 @@ export async function PATCH(
     }
 
     // 2. Atualiza flag must_change_password no perfil
-    const mustChange = typeof mustChangePassword === "boolean" ? mustChangePassword : false;
+    const mustChange = isMaster && typeof mustChangePassword === "boolean" ? mustChangePassword : false;
     await supabaseAdmin
       .from("profiles")
       .update({ must_change_password: mustChange })

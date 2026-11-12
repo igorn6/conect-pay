@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/nubankBalance";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { v4 as uuidv4 } from "uuid";
-import { sendPushNotification } from "@/lib/pushNotifications";
+import { dispatchPushNotifications } from "@/lib/pushServer";
 
 const DEFAULT_RECHARGE_PIX_OWNER = "Lima e Trindade";
 const DEFAULT_RECHARGE_CNPJ = "CNPJ 2";
@@ -44,10 +44,9 @@ export async function POST(req: Request) {
     const cnpj = ((reqBody?.cnpj || DEFAULT_RECHARGE_CNPJ) as string).trim();
     const notes = ((reqBody?.notes || defaultNotes) as string).trim();
     const invoiceUrl = ((reqBody?.invoice_url || reqBody?.invoiceUrl || "") as string).trim();
-    const providedUserId = reqBody?.userId || req.headers.get("x-user-id");
     const providedName = ((reqBody?.requesterName || "") as string).trim();
 
-    const auth = await authorize(["MASTER", "FINANCEIRO"], req, providedUserId);
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
     if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
     // Identificar o nome do solicitante
@@ -139,9 +138,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Falha ao criar solicitação no Kanban: " + insertError.message }, { status: 500 });
     }
 
-    // Disparar Push Notification
+    // Disparar Push Notification server-side
     const pushTitle = isCaju ? "Nova Solicitação de Recarga Caju!" : "Nova Solicitação de Recarga Nubank!";
-    sendPushNotification({
+    dispatchPushNotifications({
       title: pushTitle,
       body: `${isCaju ? "Recarga Caju" : "Recarga Nubank"} - ${formattedAmount} por ${requesterName}`,
       url: "/kanban",

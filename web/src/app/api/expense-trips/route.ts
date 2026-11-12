@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     const status = searchParams.get("status");
     const month = searchParams.get("month"); // formato: "YYYY-MM"
 
-    let query = supabaseAdmin
+    let query = auth.db
       .from("expense_trips")
       .select("*, prospector:prospectors(id, name, default_origin_address)", { count: "exact" })
       .order("trip_date", { ascending: false })
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
       created_by: auth.userId,
     };
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await auth.db
       .from("expense_trips")
       .insert([insertData])
       .select("*, prospector:prospectors(id, name, default_origin_address)")

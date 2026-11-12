@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const limitParam = Number(new URL(req.url).searchParams.get("limit"));
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 50;
 
-    const snapshot = await getNubankSnapshot(limit);
+    const snapshot = await getNubankSnapshot(limit, auth.db);
     return NextResponse.json(snapshot, { headers: { "Cache-Control": "no-store" } });
   } catch (err: any) {
     console.error("[API /nubank-balance GET]", err);

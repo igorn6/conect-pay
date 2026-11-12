@@ -1,23 +1,44 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { createClient } from "@/utils/supabase/server";
+import { authorize } from "@/lib/nubankBalance";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const [{ data: authData }, { data: profiles, error: profilesError }] = await Promise.all([
-      supabaseAdmin.auth.admin.listUsers().catch(() => ({ data: { users: [] } as any })),
-      supabaseAdmin.from("profiles").select("*").order("name"),
+    const auth = await authorize(["MASTER", "FINANCEIRO", "GESTOR"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const isMaster = auth.role === "MASTER";
+
+    const [authRes, { data: profiles, error: profilesError }] = await Promise.all([
+      isMaster
+        ? supabaseAdmin.auth.admin.listUsers().catch(() => ({ data: { users: [] } as any }))
+        : Promise.resolve({ data: { users: [] } as any }),
+      auth.db
+        .from("profiles")
+        .select("id, name, role, sector, avatar_url, must_change_password, created_at, updated_at")
+        .order("name"),
     ]);
     if (profilesError) throw profilesError;
 
-    const usersList = authData?.users || [];
+    const usersList = authRes?.data?.users || [];
     const merged = (profiles || []).map((p: any) => {
+      if (!isMaster) {
+        return {
+          id: p.id,
+          name: p.name,
+          role: p.role,
+          sector: p.sector,
+          avatar_url: p.avatar_url,
+        };
+      }
       const authUser = usersList.find((u: any) => u.id === p.id);
       return {
         ...p,
         email: authUser?.email || p.email || "Sem email",
-        is_active: !authUser?.banned_until
+        is_active: !authUser?.banned_until,
       };
     });
 
@@ -29,6 +50,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const auth = await authorize(["MASTER"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { name, email, role, sector, password } = await req.json();
 
     if (!name || !email || !role) {
@@ -99,6 +125,11 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    const auth = await authorize(["MASTER"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await req.json();
     if (!id) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
 
@@ -117,6 +148,11 @@ export async function PATCH(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const auth = await authorize(["MASTER"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await req.json();
     const { id, name, role, sector, password, email } = body;
     
@@ -124,23 +160,9 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Faltam campos obrigatórios." }, { status: 400 });
     }
 
-    // Alteração de e-mail: somente usuários MASTER (validado no servidor)
+    // Alteração de e-mail: validada pela sessão MASTER acima
     const newEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
     if (newEmail) {
-      const supabase = await createClient();
-      const { data: { user: caller } } = await supabase.auth.getUser();
-      if (!caller) {
-        return NextResponse.json({ error: "Não autorizado. Faça login novamente." }, { status: 401 });
-      }
-      const { data: callerProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("role")
-        .eq("id", caller.id)
-        .single();
-      if (callerProfile?.role !== "MASTER") {
-        return NextResponse.json({ error: "Apenas o perfil MASTER pode alterar e-mails." }, { status: 403 });
-      }
-
       const { data: current } = await supabaseAdmin.auth.admin.getUserById(id);
       if (current?.user && current.user.email?.toLowerCase() !== newEmail) {
         const { error: emailError } = await supabaseAdmin.auth.admin.updateUserById(id, {

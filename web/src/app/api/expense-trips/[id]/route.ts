@@ -35,7 +35,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     // Se o odômetro final foi preenchido e estava EM_ANDAMENTO, avança para PENDENTE
     if (!body.status && body.odometer_end) {
-      const { data: current } = await supabaseAdmin.from("expense_trips").select("status").eq("id", id).single();
+      const { data: current } = await auth.db.from("expense_trips").select("status").eq("id", id).single();
       if (current?.status === "EM_ANDAMENTO") {
         updatePayload.status = "PENDENTE";
       }
@@ -62,7 +62,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const addressChanged = body.origin_address !== undefined || body.destination_address !== undefined;
     const explicitKmSuggested = body.km_suggested !== undefined ? Number(body.km_suggested) : undefined;
     if (addressChanged && (!explicitKmSuggested || explicitKmSuggested <= 0)) {
-      const { data: currentTrip } = await supabaseAdmin
+      const { data: currentTrip } = await auth.db
         .from("expense_trips")
         .select("origin_address, destination_address")
         .eq("id", id)
@@ -77,7 +77,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     updatePayload.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await auth.db
       .from("expense_trips")
       .update(updatePayload)
       .eq("id", id)
@@ -107,7 +107,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "ID inválido." }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await auth.db
       .from("expense_trips")
       .delete()
       .eq("id", id);

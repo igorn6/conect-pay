@@ -1,77 +1,20 @@
 import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { hasServiceRoleKey, supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getVerifiedSessionContext } from "@/lib/nubankBalance";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   try {
-    let user: any = null;
+    const session = await getVerifiedSessionContext(req);
 
-    // 1. Tentar pegar bearer token do header Authorization se enviado pelo cliente
-    const authHeader = req.headers.get("authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "").trim();
-      const { data: tokenUser } = await supabaseAdmin.auth.getUser(token);
-      if (tokenUser?.user) {
-        user = tokenUser.user;
-      }
-    }
-
-    // 2. Se não pegou por Bearer token, tentar pelos cookies de sessão SSR
-    if (!user) {
-      try {
-        const cookieStore = await cookies();
-        const supabaseUser = createServerClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            cookies: {
-              getAll() {
-                return cookieStore.getAll();
-              },
-              setAll(cookiesToSet) {
-                try {
-                  cookiesToSet.forEach(({ name, value, options }) =>
-                    cookieStore.set(name, value, options)
-                  );
-                } catch {}
-              },
-            },
-          }
-        );
-
-        const { data } = await supabaseUser.auth.getUser();
-        if (data?.user) {
-          user = data.user;
-        }
-      } catch (cookieErr) {
-        console.warn("Cookie auth error:", cookieErr);
-      }
-    }
-
-    // 3. Fallback: Se não encontrou por token ou cookie, checar header x-user-id ou query param userId
-    if (!user) {
-      const url = new URL(req.url);
-      const headerUserId = req.headers.get("x-user-id");
-      const paramUserId = url.searchParams.get("userId");
-      const targetId = headerUserId || paramUserId;
-
-      if (targetId) {
-        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(targetId);
-        if (authUser?.user) {
-          user = authUser.user;
-        }
-      }
-    }
-
-    if (!user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Usar supabaseAdmin para carregar o perfil sem bloqueio de RLS
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const { user, db } = session;
+
+    const { data: profile } = await db
       .from("profiles")
       .select("id, name, role, sector, must_change_password, avatar_url")
       .eq("id", user.id)
@@ -84,7 +27,7 @@ export async function GET(req: Request) {
 
     let resolvedSectorName: string | null = null;
     if (profile?.sector) {
-      const { data: sec } = await supabaseAdmin
+      const { data: sec } = await db
         .from("sectors")
         .select("name")
         .eq("id", profile.sector)
@@ -110,64 +53,13 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    let user: any = null;
+    const session = await getVerifiedSessionContext(req);
 
-    const authHeader = req.headers.get("authorization");
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.replace("Bearer ", "").trim();
-      const { data: tokenUser } = await supabaseAdmin.auth.getUser(token);
-      if (tokenUser?.user) {
-        user = tokenUser.user;
-      }
-    }
-
-    if (!user) {
-      try {
-        const cookieStore = await cookies();
-        const supabaseUser = createServerClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            cookies: {
-              getAll() {
-                return cookieStore.getAll();
-              },
-              setAll(cookiesToSet) {
-                try {
-                  cookiesToSet.forEach(({ name, value, options }) =>
-                    cookieStore.set(name, value, options)
-                  );
-                } catch {}
-              },
-            },
-          }
-        );
-
-        const { data } = await supabaseUser.auth.getUser();
-        if (data?.user) {
-          user = data.user;
-        }
-      } catch {}
-    }
-
-    if (!user) {
-      const url = new URL(req.url);
-      const headerUserId = req.headers.get("x-user-id");
-      const paramUserId = url.searchParams.get("userId");
-      const targetId = headerUserId || paramUserId;
-
-      if (targetId) {
-        const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(targetId);
-        if (authUser?.user) {
-          user = authUser.user;
-        }
-      }
-    }
-
-    if (!user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { user, db, userSupabase } = session;
     const { name, avatar_url } = await req.json();
 
     const updatePayload: Record<string, any> = {};
@@ -182,7 +74,7 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Nenhum campo para atualizar" }, { status: 400 });
     }
 
-    const { data: updated, error: updateError } = await supabaseAdmin
+    const { data: updated, error: updateError } = await db
       .from("profiles")
       .update(updatePayload)
       .eq("id", user.id)
@@ -196,13 +88,23 @@ export async function PATCH(req: Request) {
 
     try {
       if (updatePayload.name) {
-        await supabaseAdmin.auth.admin.updateUserById(user.id, {
-          user_metadata: {
-            ...user.user_metadata,
-            name: updatePayload.name,
-            full_name: updatePayload.name
-          }
-        });
+        if (hasServiceRoleKey) {
+          await supabaseAdmin.auth.admin.updateUserById(user.id, {
+            user_metadata: {
+              ...user.user_metadata,
+              name: updatePayload.name,
+              full_name: updatePayload.name
+            }
+          });
+        } else {
+          await userSupabase.auth.updateUser({
+            data: {
+              ...user.user_metadata,
+              name: updatePayload.name,
+              full_name: updatePayload.name,
+            },
+          });
+        }
       }
     } catch (authErr) {
       console.warn("Aviso ao atualizar auth metadata:", authErr);

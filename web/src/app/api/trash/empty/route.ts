@@ -1,13 +1,13 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { authorize } from "@/lib/nubankBalance";
 
 export async function POST(req: Request) {
   try {
-    const { userId, userRole } = await req.json();
-
-    if (!userId || (userRole !== "MASTER" && userRole !== "FINANCEIRO")) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 403 });
+    const auth = await authorize(["MASTER", "FINANCEIRO"], req);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     const { data: deletedCards, error: findError } = await supabaseAdmin

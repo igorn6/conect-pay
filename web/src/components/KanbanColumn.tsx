@@ -20,6 +20,7 @@ interface KanbanColumnProps {
   userRole?: string;
   onEditCard?: (card: PaymentRequest) => void;
   compact?: boolean;
+  hasActiveFilters?: boolean;
 }
 
 /**
@@ -38,6 +39,7 @@ export default function KanbanColumn({
   profilesMap = {},
   compact = false,
   userRole,
+  hasActiveFilters = false,
   onEditCard,
 }: KanbanColumnProps) {
   const canEdit = userRole === "MASTER" || userRole === "FINANCEIRO";
@@ -146,7 +148,7 @@ export default function KanbanColumn({
           <div className="flex flex-col items-center justify-center h-full gap-2.5 py-12 opacity-30 select-none">
             <Inbox size={28} className="text-slate-400" />
             <p className="text-[11px] text-center font-medium tracking-wide uppercase text-slate-500">
-              Sem solicitações
+              {hasActiveFilters ? "Nenhuma neste filtro" : "Sem solicitações"}
             </p>
           </div>
         ) : (
