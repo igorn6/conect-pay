@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import BrandLogo from "@/components/BrandLogo";
+import Particles from "@/components/Particles";
 import { APP_VERSION } from "@/constants/version";
 import { getClockFallbackWeather, type WeatherVisualCondition } from "@/lib/weather";
 
@@ -200,6 +201,9 @@ export default function LoginPage() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#080b12]/80 via-transparent to-[#080b12]/30 pointer-events-none" />
         </div>
+
+        {/* Dynamic weather particles (raindrops when raining/storm, soft motes otherwise) */}
+        <Particles condition={weather?.condition} />
 
         {/* Gradient edge blending to form panel */}
         <div className="absolute inset-y-0 right-0 w-36 bg-gradient-to-r from-transparent to-[#080b12] z-10 pointer-events-none" />
