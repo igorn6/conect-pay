@@ -1378,7 +1378,20 @@ export default function SearchPage() {
           simulatedUserName={simulatedUserName || "Usuário"}
           profilesMap={profilesMap}
           onClose={() => setSelectedCard(null)}
-          onUpdate={(msg) => handleSuccess(msg || "Solicitação atualizada!")}
+          onUpdate={async (msg) => {
+            handleSuccess(msg || "Solicitação atualizada!");
+            // O card continua aberto nesta tela: recarrega os dados dele para não
+            // ficar mostrando (nem gravando a partir de) valores antigos.
+            const cardId = selectedCard.id;
+            const { data } = await supabase
+              .from("payment_requests")
+              .select("*")
+              .eq("id", cardId)
+              .maybeSingle();
+            if (data) {
+              setSelectedCard((prev) => (prev && prev.id === cardId ? (data as PaymentRequest) : prev));
+            }
+          }}
         />
       )}
 

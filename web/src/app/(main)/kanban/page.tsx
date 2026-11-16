@@ -122,9 +122,40 @@ export default function KanbanPage() {
     requestedMonthRef.current = filters.periodMode === "MONTH" ? filters.month : "";
   }, [filters.periodMode, filters.month]);
 
-  const fetchCards = useCallback(async () => {
+  // Controle de concorrência das buscas do Kanban.
+  // Sem isso, uma busca iniciada ANTES de uma alteração (polling/foco) podia terminar
+  // DEPOIS dela e sobrescrever a tela com dados antigos — o card "voltava sozinho".
+  //  - epoch: incrementado a cada alteração conhecida; resposta de busca iniciada em
+  //    epoch anterior é descartada e a busca é refeita.
+  //  - inFlight: garante uma única busca por vez (evita respostas fora de ordem).
+  const fetchCtlRef = useRef({ epoch: 0, inFlight: false, rerun: false });
+  const fetchCardsRef = useRef<(opts?: { soft?: boolean }) => Promise<void>>(async () => {});
+  const realtimeOkRef = useRef(false);
+  const lastFetchAtRef = useRef(0);
+
+  // Marca os dados em tela como possivelmente desatualizados: qualquer busca em
+  // andamento terá o resultado descartado (e será refeita) em vez de aplicado.
+  const invalidateCards = useCallback(() => {
+    fetchCtlRef.current.epoch += 1;
+  }, []);
+
+  // soft = atualização de rotina (polling/foco): se já existe busca em andamento, não faz nada.
+  // Sem soft = chamada após uma alteração: invalida a busca em andamento e refaz.
+  const fetchCards = useCallback(async (opts?: { soft?: boolean }) => {
     if (!userRole || !userId) return;
 
+    const ctl = fetchCtlRef.current;
+    if (ctl.inFlight) {
+      if (!opts?.soft) {
+        ctl.epoch += 1;
+        ctl.rerun = true;
+      }
+      return;
+    }
+    ctl.inFlight = true;
+    const epochAtStart = ctl.epoch;
+
+    try {
     const isMasterOrFinanceiro = userRole === "MASTER" || userRole === "FINANCEIRO";
     let sameSectorIds = sectorUserIdsRef.current;
 
@@ -201,8 +232,27 @@ export default function KanbanPage() {
       });
     }
 
+    // Houve alteração enquanto esta busca estava em andamento: o resultado pode
+    // ser anterior a ela. Descarta e refaz, em vez de sobrescrever a tela.
+    if (ctl.epoch !== epochAtStart) {
+      ctl.rerun = true;
+      return;
+    }
+
+    lastFetchAtRef.current = Date.now();
     setAllCards(merged);
+    } finally {
+      ctl.inFlight = false;
+      if (ctl.rerun) {
+        ctl.rerun = false;
+        void fetchCardsRef.current();
+      }
+    }
   }, [userRole, userId, sectorId]);
+
+  useEffect(() => {
+    fetchCardsRef.current = fetchCards;
+  }, [fetchCards]);
 
   useEffect(() => {
     fetchCards();
@@ -246,6 +296,9 @@ export default function KanbanPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "payment_requests" },
         (payload) => {
+          // Invalida já (não só após o debounce): uma busca antiga que termine
+          // nesse intervalo não pode sobrescrever o dado novo recebido aqui.
+          invalidateCards();
           scheduleRefetch();
 
           if (payload.eventType === "INSERT") {
@@ -303,17 +356,25 @@ export default function KanbanPage() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        realtimeOkRef.current = status === "SUBSCRIBED";
+      });
 
-    // Fallback polling a cada 10s caso WebSocket oscile ou durma
+    // Fallback polling caso WebSocket oscile ou durma: a cada 10s se o tempo real
+    // estiver fora, a cada 30s se estiver conectado (ele já entrega as mudanças).
+    // Aba oculta não faz polling — ao voltar a ficar visível ela atualiza na hora.
     const pollInterval = setInterval(() => {
-      fetchCards();
+      if (document.visibilityState !== "visible") return;
+      const minGap = realtimeOkRef.current ? 30000 : 10000;
+      if (Date.now() - lastFetchAtRef.current < minGap - 500) return;
+      fetchCards({ soft: true });
     }, 10000);
 
-    // Atualiza imediatamente quando a aba volta a ficar visível ou ganha foco
+    // Atualiza quando a aba volta a ficar visível ou ganha foco (os dois eventos
+    // costumam disparar juntos; o modo soft evita buscas duplicadas).
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === "visible") {
-        fetchCards();
+        fetchCards({ soft: true });
       }
     };
 
@@ -327,7 +388,7 @@ export default function KanbanPage() {
       window.removeEventListener("visibilitychange", handleVisibilityOrFocus);
       window.removeEventListener("focus", handleVisibilityOrFocus);
     };
-  }, [userRole, userId, fetchCards, isVisibleToUser]);
+  }, [userRole, userId, fetchCards, invalidateCards, isVisibleToUser]);
 
   const handleToggleSelect = (id: string) => {
     setSelectedIds(prev => {
@@ -503,7 +564,29 @@ export default function KanbanPage() {
     setIsModalOpen(false);
     setSelectedCard(null);
     setToast({ message, type: "success" });
-    fetchCards(); 
+    fetchCards();
+  };
+
+  // Alterações feitas dentro do card aberto. Edição de campo (CNPJ, categoria, dados)
+  // chega com keepOpen: o card continua aberto e só recebe os dados novos — quem
+  // fecha é o usuário, pelo X. Mudança de etapa/recusa/lixeira fecha como antes.
+  const handleCardUpdated = async (message: string, opts?: { keepOpen?: boolean }) => {
+    if (!opts?.keepOpen) {
+      handleSuccess(message);
+      return;
+    }
+    const cardId = selectedCard?.id;
+    setToast({ message, type: "success" });
+    fetchCards();
+    if (!cardId) return;
+    const { data } = await supabase
+      .from("payment_requests")
+      .select("*")
+      .eq("id", cardId)
+      .maybeSingle();
+    if (data) {
+      setSelectedCard((prev) => (prev && prev.id === cardId ? (data as PaymentRequest) : prev));
+    }
   };
 
   const handleUpdateCategory = async (cardId: string, newCategory: string) => {
@@ -511,6 +594,7 @@ export default function KanbanPage() {
       (c) => c.name.toLowerCase() === newCategory.trim().toLowerCase()
     );
     // Atualização otimista
+    invalidateCards();
     setAllCards((prev) =>
       prev.map((c) =>
         c.id === cardId
@@ -525,6 +609,9 @@ export default function KanbanPage() {
         category_id: matched?.id || null,
       })
       .eq("id", cardId);
+
+    // Busca iniciada durante a gravação pode ter lido o valor antigo.
+    invalidateCards();
 
     if (error) {
       fetchCards();
@@ -631,7 +718,6 @@ export default function KanbanPage() {
           onClose={() => setQuickEditCard(null)}
           onSuccess={(updatedCard, msg) => {
             setQuickEditCard(null);
-            fetchCards();
             if (selectedCard && selectedCard.id === updatedCard.id) {
               setSelectedCard(updatedCard);
             }
@@ -647,7 +733,7 @@ export default function KanbanPage() {
           simulatedUserName={simulatedUserName}
           profilesMap={profilesMap}
           onClose={() => setSelectedCard(null)}
-          onUpdate={(msg) => handleSuccess(msg || "Solicitação atualizada!")}
+          onUpdate={(msg, opts) => handleCardUpdated(msg || "Solicitação atualizada!", opts)}
         />
       )}
 

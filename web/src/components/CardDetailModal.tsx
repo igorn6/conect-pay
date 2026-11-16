@@ -32,7 +32,9 @@ interface CardDetailModalProps {
   simulatedUserName: string;
   onClose: () => void;
   profilesMap?: Record<string, string>;
-  onUpdate: (msg?: string) => void;
+  // keepOpen: edição de campo (CNPJ, categoria, dados do card) — a tela que abriu o
+  // modal deve atualizar os dados SEM fechá-lo; o usuário fecha pelo X.
+  onUpdate: (msg?: string, opts?: { keepOpen?: boolean }) => void;
 }
 
 export default function CardDetailModal({
@@ -243,7 +245,7 @@ export default function CardDetailModal({
 
       if (error) throw error;
       setLocalCategory(newCategoryName);
-      onUpdate(`Categoria alterada para "${newCategoryName}"!`);
+      onUpdate(`Categoria alterada para "${newCategoryName}"!`, { keepOpen: true });
     } catch (e: any) {
       alert("Erro ao alterar categoria: " + e.message);
     } finally {
@@ -297,7 +299,7 @@ export default function CardDetailModal({
 
       if (error) throw error;
       setLocalCategory(chosen);
-      onUpdate(`Categoria atualizada pela IA para "${chosen}"!`);
+      onUpdate(`Categoria atualizada pela IA para "${chosen}"!`, { keepOpen: true });
     } catch (e: any) {
       alert("Erro ao reclassificar com IA: " + e.message);
     } finally {
@@ -1324,7 +1326,7 @@ export default function CardDetailModal({
     setLocalCnpj(newCnpj);
     await supabase.from("payment_requests").update({ cnpj: newCnpj }).eq("id", card.id);
     await syncNubankBalance(card.id, userId);
-    onUpdate();
+    onUpdate(newCnpj ? `Conta pagadora alterada para "${newCnpj}".` : undefined, { keepOpen: true });
   };
 
   const handleValidateAction = async (action: "APPROVE" | "REJECT" | "FORCE_APPROVE") => {
@@ -3726,7 +3728,7 @@ export default function CardDetailModal({
           onSuccess={(updatedCard, msg) => {
             setIsEditModalOpen(false);
             Object.assign(card, updatedCard);
-            onUpdate(msg || "Solicitação atualizada com sucesso!");
+            onUpdate(msg || "Solicitação atualizada com sucesso!", { keepOpen: true });
           }}
         />
       )}
