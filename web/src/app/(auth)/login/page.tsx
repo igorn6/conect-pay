@@ -1,10 +1,59 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Mail, Eye, EyeOff, Lock, AlertCircle, ArrowRight } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Mail,
+  Eye,
+  EyeOff,
+  Lock,
+  AlertCircle,
+  ArrowRight,
+  Sun,
+  Moon,
+  Sunset,
+  Cloud,
+  CloudRain,
+  CloudLightning,
+  MapPin,
+  LocateFixed,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import BrandLogo from "@/components/BrandLogo";
 import { APP_VERSION } from "@/constants/version";
+import { getClockFallbackWeather, type WeatherVisualCondition } from "@/lib/weather";
+
+interface WeatherInfo {
+  city: string | null;
+  region: string | null;
+  temperature: number | null;
+  condition: WeatherVisualCondition;
+  label: string;
+  bgImage: string;
+  locationSource?: "gps" | "vercel" | "ip" | "clock";
+}
+
+function WeatherConditionIcon({
+  condition,
+  size = 16,
+}: {
+  condition: WeatherVisualCondition;
+  size?: number;
+}) {
+  switch (condition) {
+    case "STORM":
+      return <CloudLightning size={size} className="text-amber-300 shrink-0" />;
+    case "RAIN":
+      return <CloudRain size={size} className="text-sky-300 shrink-0" />;
+    case "CLOUDY":
+      return <Cloud size={size} className="text-slate-200 shrink-0" />;
+    case "NIGHT":
+      return <Moon size={size} className="text-indigo-200 shrink-0" />;
+    case "SUNSET":
+      return <Sunset size={size} className="text-orange-300 shrink-0" />;
+    default:
+      return <Sun size={size} className="text-amber-300 shrink-0" />;
+  }
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,19 +65,96 @@ export default function LoginPage() {
   
   const [bgImage, setBgImage] = useState("/weather/sunny.jpg");
   const [bgReady, setBgReady] = useState(false);
+  const [weather, setWeather] = useState<WeatherInfo | null>(null);
+  const [locatingGps, setLocatingGps] = useState(false);
 
-  // Fundo estático escolhido pelo horário local
-  useEffect(() => {
-    const h = new Date().getHours();
-    const image = h >= 19 || h < 6 ? "/weather/night.jpg" : h >= 17 ? "/weather/sunset.jpg" : "/weather/sunny.jpg";
+  const preloadAndSetBg = useCallback((imageUrl: string) => {
     const img = new Image();
-    img.src = image;
+    img.src = imageUrl;
     img.onload = () => {
-      setBgImage(image);
+      setBgImage(imageUrl);
       setBgReady(true);
     };
     img.onerror = () => setBgReady(true);
   }, []);
+
+  const loadWeather = useCallback(
+    async (coords?: { lat: number; lon: number }) => {
+      const hour = new Date().getHours();
+      try {
+        const params = new URLSearchParams({ hour: String(hour) });
+        if (coords) {
+          params.set("lat", String(coords.lat));
+          params.set("lon", String(coords.lon));
+        }
+        const res = await fetch(`/api/weather?${params.toString()}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data: WeatherInfo = await res.json();
+        setWeather(data);
+        if (data?.bgImage) {
+          preloadAndSetBg(data.bgImage);
+        }
+      } catch {
+        // Mantém fallback de horário
+      }
+    },
+    [preloadAndSetBg]
+  );
+
+  // Inicializa com fallback imediato pelo horário e busca clima real da cidade do usuário
+  useEffect(() => {
+    let active = true;
+    const fb = getClockFallbackWeather(new Date().getHours());
+    preloadAndSetBg(fb.bgImage);
+
+    // Se permissão de GPS já foi concedida antes, usa coordenadas precisas sem exibir popup
+    const init = async () => {
+      if (typeof navigator !== "undefined" && navigator.permissions && navigator.geolocation) {
+        try {
+          const status = await navigator.permissions.query({ name: "geolocation" });
+          if (status.state === "granted") {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                if (active) {
+                  loadWeather({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+                }
+              },
+              () => {
+                if (active) loadWeather();
+              },
+              { timeout: 3000, maximumAge: 300000 }
+            );
+            return;
+          }
+        } catch {
+          // Segue para geolocalização automática via servidor/IP
+        }
+      }
+      if (active) loadWeather();
+    };
+
+    init();
+    return () => {
+      active = false;
+    };
+  }, [loadWeather, preloadAndSetBg]);
+
+  const handleUsePreciseLocation = () => {
+    if (typeof navigator === "undefined" || !navigator.geolocation || locatingGps) return;
+    setLocatingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        await loadWeather({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        setLocatingGps(false);
+      },
+      () => {
+        setLocatingGps(false);
+      },
+      { timeout: 6000, maximumAge: 60000 }
+    );
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +203,49 @@ export default function LoginPage() {
 
         {/* Gradient edge blending to form panel */}
         <div className="absolute inset-y-0 right-0 w-36 bg-gradient-to-r from-transparent to-[#080b12] z-10 pointer-events-none" />
-        
+
+        {/* Live Local Weather Pill */}
+        {weather && (
+          <div className="absolute top-7 left-8 z-20 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl bg-[#080b12]/65 border border-white/15 backdrop-blur-md shadow-xl">
+            <WeatherConditionIcon condition={weather.condition} size={18} />
+            <div className="flex items-center gap-2 text-xs">
+              {weather.temperature !== null && (
+                <span className="font-mono font-bold tabular-nums text-white text-sm">
+                  {weather.temperature}°C
+                </span>
+              )}
+              <span className="text-slate-200 font-medium">{weather.label}</span>
+              {weather.city && (
+                <>
+                  <span className="text-white/30">•</span>
+                  <span className="inline-flex items-center gap-1 text-slate-300 font-medium">
+                    <MapPin size={11} className="text-emerald-400 shrink-0" />
+                    <span>
+                      {weather.city}
+                      {weather.region ? `, ${weather.region}` : ""}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
+            {weather.locationSource !== "gps" && (
+              <button
+                type="button"
+                onClick={handleUsePreciseLocation}
+                disabled={locatingGps}
+                title="Atualizar com localização exata (GPS do navegador)"
+                aria-label="Usar localização exata"
+                className="ml-0.5 p-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <LocateFixed
+                  size={13}
+                  className={locatingGps ? "animate-spin text-emerald-400" : ""}
+                />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Subtle branding watermark on bottom left */}
         <div className="absolute bottom-8 left-8 z-20 pointer-events-none">
           <div className="text-xs uppercase tracking-widest font-mono text-white/50">
@@ -110,6 +278,28 @@ export default function LoginPage() {
             <p className="text-sm font-medium text-[#94a3b8]">
               Entre com suas credenciais corporativas
             </p>
+
+            {/* Compact mobile weather pill */}
+            {weather && (
+              <div className="mt-3 lg:hidden inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0f1422] border border-[#253046] text-xs text-slate-300">
+                <WeatherConditionIcon condition={weather.condition} size={14} />
+                {weather.temperature !== null && (
+                  <span className="font-mono font-bold tabular-nums text-white">
+                    {weather.temperature}°C
+                  </span>
+                )}
+                <span>{weather.label}</span>
+                {weather.city && (
+                  <>
+                    <span className="text-white/25">•</span>
+                    <span className="text-slate-400">
+                      {weather.city}
+                      {weather.region ? `, ${weather.region}` : ""}
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Form Card */}
