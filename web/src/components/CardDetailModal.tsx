@@ -14,6 +14,7 @@ import { getStatusLabel } from "@/constants/kanban";
 import { computeNextStageHistory, getCardSlaMetrics, formatSlaDuration } from "@/utils/sla";
 import { syncNubankBalance } from "@/lib/nubankClient";
 import { sendPushNotification } from "@/lib/pushNotifications";
+import { buildSplitEmailBlocks, type EmailSplit } from "@/utils/paymentEmail";
 import ManualEditModal from "./ManualEditModal";
 import QuickEditCardModal from "./QuickEditCardModal";
 
@@ -999,10 +1000,18 @@ export default function CardDetailModal({
       ? activeInvoices.map((u: string, i: number) => `Nota ${i + 1}: ${u}`).join("\n")
       : "";
 
+    // Solicitação com mais de um pagamento: o e-mail lista TODOS, um bloco por
+    // pagamento, em vez de trazer só o primeiro Pix/boleto.
+    const emailSplits: EmailSplit[] = Array.isArray(card.splits) ? card.splits : [];
+    const hasMultiplePayments = emailSplits.length > 1;
+    const fallbackOwner = card.pix_owner || card.pix_name || "Não informado";
+
     if (type === "PAID_NUBANK") {
       const rawSubject = `Pagamento Realizado | ${card.title} | ${localCnpj || "Nubank 02"}`;
 
-      let rawBody = `--\n${greeting} Tássio!\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nTitular: ${pixOwner}\nSolicitante: ${solicitante}`;
+      let rawBody = hasMultiplePayments
+        ? `--\n${greeting} Tássio!\n\nMotivo: ${motivo}\n\n${buildSplitEmailBlocks(emailSplits, fallbackOwner, { includeKeys: false })}\n\nValor total: R$ ${formattedAmount}\nSolicitante: ${solicitante}`
+        : `--\n${greeting} Tássio!\n\nMotivo: ${motivo}\nValor: R$ ${formattedAmount}\nTitular: ${pixOwner}\nSolicitante: ${solicitante}`;
 
       const proofs = paymentProofUrl
         ? paymentProofUrl
@@ -1048,7 +1057,9 @@ export default function CardDetailModal({
     const displayMotivo = isRecargaCaju ? (card.notes || "Recarga Caju") : motivo;
     const keyLabel = (isRecargaNubank || isRecargaCaju || (!barcodeVal && pixVal)) ? "Chave pix" : "Chave pix / Linha digitável";
 
-    let rawBody = `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${displayMotivo}\nValor: R$ ${formattedAmount}\n${keyLabel}:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
+    let rawBody = hasMultiplePayments && !isRecargaCaju
+      ? `--\n${greeting}, Tassio!\n\nSolicito por meio deste os pagamentos abaixo:\n\nMotivo: ${displayMotivo}\n\n${buildSplitEmailBlocks(emailSplits, fallbackOwner, { includeKeys: true })}\n\nValor total: R$ ${formattedAmount}\nSolicitante: ${gestorName}`
+      : `--\n${greeting}, Tassio!\n\nSolicito por meio deste o pagamento:\n\nMotivo: ${displayMotivo}\nValor: R$ ${formattedAmount}\n${keyLabel}:${paymentKeyDisplay}\nTitular: ${paymentOwner}\nSolicitante: ${gestorName}`;
 
     if (invoicesText) {
       rawBody += `\n\n${invoicesText}`;
